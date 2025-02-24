@@ -1,0 +1,89 @@
+page.tsx
+
+import SwipeableList from "../components/swipeable-list"
+
+const items = [
+  { id: "1", content: "Apple", category: "unsorted" },
+  { id: "2", content: "Banana", category: "unsorted" },
+  { id: "3", content: "Cherry", category: "unsorted" },
+  { id: "4", content: "Date", category: "unsorted" },
+  { id: "5", content: "Elderberry", category: "unsorted" },
+] as const
+
+export default function Home() {
+  return (
+    <main className="min-h-screen p-4">
+      <SwipeableList items={items} />
+    </main>
+  )
+}
+
+----------------
+
+swipeable-list.tsx
+
+
+"use client"
+
+import { useState, useCallback } from "react"
+import { useSwipeable } from "react-swipeable"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+
+interface Item {
+  id: string
+  content: string
+  category: "unsorted" | "left" | "right"
+}
+
+export default function SwipeableList({ items: initialItems }: { items: Item[] }) {
+  const [items, setItems] = useState(initialItems)
+
+  const handleSwipe = useCallback((id: string, direction: "left" | "right") => {
+    setItems((prevItems) => prevItems.map((item) => (item.id === id ? { ...item, category: direction } : item)))
+  }, [])
+
+  const SwipeableItem = ({ item }: { item: Item }) => {
+    const handlers = useSwipeable({
+      onSwipedLeft: () => handleSwipe(item.id, "left"),
+      onSwipedRight: () => handleSwipe(item.id, "right"),
+      trackMouse: true,
+    })
+
+    return (
+      <div
+        key={item.id}
+        {...handlers}
+        className={`relative flex items-center justify-between p-4 mb-2 rounded-lg shadow-md transition-all duration-300 touch-pan-y ${
+          item.category === "left"
+            ? "bg-red-100 -translate-x-8"
+            : item.category === "right"
+              ? "bg-green-100 translate-x-8"
+              : "bg-white"
+        }`}
+      >
+        <ChevronLeft
+          className={`absolute left-2 transition-opacity duration-300 ${
+            item.category === "unsorted" ? "opacity-50" : "opacity-0"
+          }`}
+        />
+        <span className="text-lg">{item.content}</span>
+        <ChevronRight
+          className={`absolute right-2 transition-opacity duration-300 ${
+            item.category === "unsorted" ? "opacity-50" : "opacity-0"
+          }`}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-md mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4">Swipe to Sort</h2>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <SwipeableItem key={item.id} item={item} />
+        ))}
+      </div>
+    </div>
+  )
+}
