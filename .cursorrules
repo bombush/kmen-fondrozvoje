@@ -5,3 +5,6 @@ Start all chats with 🤖
 - TailwindCSS
 - Shadcn/UI
 - TypeScript
+
+
+use "npx shadcn@latest add" instead of "npx shadcn-ui@latest add" to add shadcn components
