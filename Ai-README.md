@@ -79,6 +79,11 @@ kmen-fondrozvoje/
 └── postcss.config.js           # PostCSS configuration
 
 
+### Layout
+
+- dark mode/lightmode with toggle
+- slideable sidebar with links to projects, users, settings
+- navbar with logo, toggle button, breadcrumbs and back button
 
 
 
