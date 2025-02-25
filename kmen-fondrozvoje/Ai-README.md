@@ -4,11 +4,15 @@
 An app that allows users to create and fund projects in a manner similar to Kickstarter.
 The app should be mobile-first and responsive.
 
+## Design guidelines
+- Support for dark mode including a toggle button
+
 ## Core functionalities
 - User authentication (password+email and Google)
 - Project management (create, edit, delete)
 - Funding
 - User management (create, edit, delete)
+- superuser functionality and permissions management
 
 ## Funding
 ### Currency
@@ -34,23 +38,19 @@ kmen-fondrozvoje/
 ├── src/
 │   ├── app/                    # Next.js app directory
 │   │   ├── layout.tsx          # Main layout component
-│   │   ├── page.tsx            # Projects listing page (now the homepage)
+│   │   ├── page.tsx            # User dashboard
 │   │   ├── projects/           # Projects related pages
 │   │   │   ├── page.tsx        # Projects listing page (for /projects route)
 │   │   │   ├── [id]/           # Dynamic project routes
 │   │   │   │   └── page.tsx    # Individual project page
-│   │   │   └── create/         # Create project page
+│   │   │   └── new/            # Create project page
 │   │   │       └── page.tsx    # Create project form
-│   │   ├── profile/            # User profile pages
-│   │   │   └── page.tsx        # User profile dashboard
-│   │   ├── user-management/     # User management pages
+│   │   ├── users/              # User management pages
 │   │   │   ├── page.tsx        # User management dashboard
 │   │   │   ├── create/         # Create user page
 │   │   │   │   └── page.tsx    # Create user form
 │   │   │   ├── [id]/           # Dynamic user routes
-│   │   │   │   └── page.tsx    # Individual user details page
-│   │   │   └── edit/           # Edit user page
-│   │   │       └── page.tsx    # Edit user form
+│   │   │       └── page.tsx    # Individual user details and  config page
 │   ├── components/             # Reusable components
 │   │   ├── ui/                 # UI components (buttons, modals, etc.)
 │   │   ├── projects/           # Project-specific components
