@@ -25,6 +25,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { NavItems } from "@/components/nav-items"
 
 // This is sample data.
 const data = {
@@ -114,13 +115,16 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar 
+      collapsible="icon"
+      data-collapsed={false}
+      {...props}
+    >
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={data.navMain}></NavMain>
-        <NavProjects projects={data.projects} />
+      <SidebarContent className="flex flex-col gap-4">
+        <NavItems />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

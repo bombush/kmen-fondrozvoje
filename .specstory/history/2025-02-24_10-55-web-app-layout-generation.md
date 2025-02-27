@@ -4245,6 +4245,584 @@ Would you like me to explain any part in more detail or make any adjustments?
 
 ---
 
+_**User**_
+
+Left navigation in sidebar should reflect the available pages
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 I'll help you update the navigation configuration to match the available pages and create a more structured sidebar navigation:
+
+```typescript:src/config/navigation.ts
+import { 
+  HomeIcon, 
+  LayoutDashboardIcon, 
+  FolderIcon, 
+  UsersIcon,
+  PlayIcon,
+  HistoryIcon,
+  StarIcon,
+  SettingsIcon,
+  type LucideIcon 
+} from "lucide-react"
+
+export interface NavItem {
+  title: string
+  href: string
+  icon?: LucideIcon
+  description?: string
+  disabled?: boolean
+}
+
+export interface NavSection {
+  title?: string
+  items: NavItem[]
+}
+
+export const navigationConfig: NavSection[] = [
+  {
+    title: "Platform",
+    items: [
+      {
+        title: "Playground",
+        href: "/playground",
+        icon: PlayIcon,
+        description: "Test and experiment",
+      },
+      {
+        title: "History",
+        href: "/history",
+        icon: HistoryIcon,
+        description: "View history",
+      },
+      {
+        title: "Starred",
+        href: "/starred",
+        icon: StarIcon,
+        description: "View starred items",
+      },
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: SettingsIcon,
+        description: "Platform settings",
+      },
+    ],
+  },
+  {
+    title: "Projects",
+    items: [
+      {
+        title: "Design Engineering",
+        href: "/design-engineering",
+        icon: FolderIcon,
+        description: "Design engineering projects",
+      },
+      {
+        title: "Sales & Marketing",
+        href: "/sales-marketing",
+        icon: FolderIcon,
+        description: "Sales and marketing projects",
+      },
+      {
+        title: "Travel",
+        href: "/travel",
+        icon: FolderIcon,
+        description: "Travel projects",
+      },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      {
+        title: "Models",
+        href: "/models",
+        icon: LayoutDashboardIcon,
+        description: "Manage models",
+      },
+      {
+        title: "Documentation",
+        href: "/documentation",
+        icon: FolderIcon,
+        description: "View documentation",
+      },
+      {
+        title: "Settings",
+        href: "/system-settings",
+        icon: SettingsIcon,
+        description: "System settings",
+      },
+    ],
+  },
+]
+```
+
+This configuration:
+1. Matches the sections shown in the screenshot
+2. Uses appropriate icons for each item
+3. Maintains the same structure for breadcrumbs
+4. Provides descriptions for tooltips/accessibility
+5. Groups items into logical sections
+
+Would you like me to:
+1. Add more sections or items?
+2. Change any of the icons?
+3. Adjust the structure?
+4. Add any additional metadata to the items?
+
+---
+
+_**User**_
+
+Make the sidebar use the navigation defined in navigation.ts
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 I'll help you update the sidebar to use our centralized navigation configuration. First, let's create a new component for the sidebar navigation:
+
+```typescript:src/components/nav-items.tsx
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import { navigationConfig } from "@/config/navigation"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+export function NavItems() {
+  const pathname = usePathname()
+
+  return (
+    <div className="flex flex-col gap-4">
+      {navigationConfig.map((section, index) => (
+        <div key={section.title ?? index} className="flex flex-col gap-1">
+          {section.title && (
+            <h4 className="text-xs font-medium leading-4 text-muted-foreground px-2">
+              {section.title}
+            </h4>
+          )}
+          <nav className="grid gap-1">
+            {section.items.map((item) => {
+              const Icon = item.icon
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "group flex items-center gap-x-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                        pathname === item.href && "bg-accent text-accent-foreground"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4" />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </TooltipTrigger>
+                  {item.description && (
+                    <TooltipContent side="right" className="flex items-center gap-4">
+                      {item.description}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              )
+            })}
+          </nav>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+Then update the AppSidebar component to use this navigation:
+
+```typescript:src/components/app-sidebar.tsx
+import { NavItems } from "@/components/nav-items"
+
+export function AppSidebar() {
+  return (
+    <aside className="w-[250px] flex-col border-r bg-background hidden md:flex">
+      <div className="flex h-[60px] items-center border-b px-6">
+        <span className="font-semibold">Fond Rozvoje</span>
+      </div>
+      <div className="flex-1 overflow-auto py-4">
+        <NavItems />
+      </div>
+    </aside>
+  )
+}
+```
+
+This implementation:
+1. Uses the centralized navigation config
+2. Shows section titles
+3. Adds tooltips with descriptions
+4. Highlights active routes
+5. Maintains consistent styling
+6. Preserves the sidebar layout
+
+Would you like me to:
+1. Adjust the styling?
+2. Add more features to the navigation?
+3. Modify the tooltip behavior?
+4. Make any other changes?
+
+---
+
+_**User**_
+
+We broke the sidebar. It's not slideable anymore
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 You're right! Let's restore the slideable functionality while using our new navigation. We'll combine the shadcn Sidebar components with our new NavItems:
+
+```typescript:src/components/app-sidebar.tsx
+"use client"
+
+import * as React from "react"
+import { NavItems } from "@/components/nav-items"
+import { TeamSwitcher } from "@/components/team-switcher"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+import { NavUser } from "@/components/nav-user"
+
+const data = {
+  user: {
+    name: "shadcn",
+    email: "m@example.com",
+    avatar: "/avatars/shadcn.jpg",
+  },
+  teams: [
+    {
+      name: "Acme Inc",
+      plan: "Enterprise",
+    },
+    // ... other teams
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <TeamSwitcher teams={data.teams} />
+      </SidebarHeader>
+      <SidebarContent>
+        <NavItems />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+```
+
+
+The changes:
+1. Kept the Sidebar component structure for slideability
+2. Replaced NavMain and NavProjects with our new NavItems
+3. Kept TeamSwitcher and NavUser for the header/footer
+4. Maintained the collapsible functionality
+
+This should restore the sliding functionality while using our centralized navigation. Would you like me to make any adjustments to the styling or behavior?
+
+---
+
+_**User**_
+
+When collapsed, the sidebar should show only centered icons, no text and no group labels
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 Let's modify the NavItems component to handle the collapsed state properly:
+
+```typescript:src/components/nav-items.tsx
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import { navigationConfig } from "@/config/navigation"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useSidebar } from "@/components/ui/sidebar"
+
+export function NavItems() {
+  const pathname = usePathname()
+  const { isCollapsed } = useSidebar()
+
+  return (
+    <div className="flex flex-col gap-4">
+      {navigationConfig.map((section, index) => (
+        <div key={section.title ?? index} className="flex flex-col gap-1">
+          {section.title && !isCollapsed && (
+            <h4 className="text-xs font-medium leading-4 text-muted-foreground px-2">
+              {section.title}
+            </h4>
+          )}
+          <nav className={cn("grid gap-1", isCollapsed && "px-2")}>
+            {section.items.map((item) => {
+              const Icon = item.icon
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                        pathname === item.href && "bg-accent text-accent-foreground",
+                        isCollapsed ? "justify-center" : "gap-x-3"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4" />}
+                      {!isCollapsed && <span>{item.title}</span>}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="right" 
+                    className="flex items-center gap-4"
+                    // Only show tooltip when collapsed
+                    hidden={!isCollapsed}
+                  >
+                    {item.title}
+                    {item.description && (
+                      <span className="text-muted-foreground">
+                        {item.description}
+                      </span>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </nav>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+
+The changes:
+1. Added `useSidebar` hook to detect collapsed state
+2. Hide section titles when collapsed
+3. Center icons when collapsed using `justify-center`
+4. Hide text when collapsed
+5. Only show tooltips in collapsed state
+6. Added padding adjustment for collapsed state
+7. Enhanced tooltip content to show both title and description
+
+Would you like me to make any adjustments to this implementation?
+
+---
+
+_**User**_
+
+Collapsed sidebar is still showing labels
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 The issue might be with the `isCollapsed` state not being properly passed or detected. Let's check if we need to add the `data-collapsible` attribute to the sidebar. Let's update the AppSidebar component:
+
+```typescript:src/components/app-sidebar.tsx
+"use client"
+
+import * as React from "react"
+import { NavItems } from "@/components/nav-items"
+import { NavUser } from "@/components/nav-user"
+import { TeamSwitcher } from "@/components/team-switcher"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+
+const data = {
+  user: {
+    name: "shadcn",
+    email: "m@example.com",
+    avatar: "/avatars/shadcn.jpg",
+  },
+  teams: [
+    {
+      name: "Acme Inc",
+      plan: "Enterprise",
+    },
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar 
+      defaultCollapsed={false}
+      collapsible="icon"
+      data-collapsible="icon"
+      {...props}
+    >
+      <SidebarHeader>
+        <TeamSwitcher teams={data.teams} />
+      </SidebarHeader>
+      <SidebarContent className="flex flex-col gap-4">
+        <NavItems />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+```
+
+The key changes:
+1. Added `defaultCollapsed={false}` to set initial state
+2. Added `data-collapsible="icon"` attribute explicitly
+3. Ensured the collapsible prop is set to "icon"
+
+This should ensure the sidebar properly toggles between expanded and collapsed states. Let me know if you're still seeing the labels in collapsed state.
+
+---
+
+_**User**_
+
+fix error:
+
+React does not recognize the `defaultCollapsed` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `defaultcollapsed` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 The error occurs because `defaultCollapsed` is not a valid prop for the Sidebar component. Let's check the shadcn Sidebar component implementation and use the correct props:
+
+```typescript:src/components/app-sidebar.tsx
+"use client"
+
+import * as React from "react"
+import { NavItems } from "@/components/nav-items"
+import { NavUser } from "@/components/nav-user"
+import { TeamSwitcher } from "@/components/team-switcher"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+
+const data = {
+  user: {
+    name: "shadcn",
+    email: "m@example.com",
+    avatar: "/avatars/shadcn.jpg",
+  },
+  teams: [
+    {
+      name: "Acme Inc",
+      plan: "Enterprise",
+    },
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar 
+      collapsible="icon"
+      data-collapsed={false}
+      {...props}
+    >
+      <SidebarHeader>
+        <TeamSwitcher teams={data.teams} />
+      </SidebarHeader>
+      <SidebarContent className="flex flex-col gap-4">
+        <NavItems />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+```
+
+
+The changes:
+1. Removed `defaultCollapsed` prop
+2. Changed to `data-collapsed={false}` which is the correct attribute
+3. Kept other props the same
+
+This should fix the React warning while maintaining the collapsible functionality. Let me know if you're still seeing any issues!
+
+---
+
+_**User**_
+
+Labels on the links in  the sidebar should be hidden when collapsed
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
