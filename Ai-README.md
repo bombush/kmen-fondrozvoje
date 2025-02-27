@@ -81,9 +81,26 @@ kmen-fondrozvoje/
 
 ### Layout
 
-- dark mode/lightmode with toggle
-- slideable sidebar with links to projects, users, settings
-- navbar with logo, toggle button, breadcrumbs and back button
+
+React pseudocode sample:
+```
+<Layout>
+  <Navbar>
+    <SidebarTrigger/> # button to open/close LeftSidebar
+    <Logo />
+    <Breadcrumbs />
+    <BackButton />
+    <ThemeToggle />
+  </Navbar>
+  <LeftSidebar>
+    # links: projects, users, settings
+  </LeftSidebar>
+  <MainContent />
+  <Footer />
+</Layout>
+```
+
+
 
 
 

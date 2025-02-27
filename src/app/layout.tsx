@@ -2,8 +2,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
+import { AppSidebar } from "@/components/app-sidebar"
+import { ThemeSwitcher } from "@/components/theme-switcher"
+import { Breadcrumbs } from "@/components/breadcrumbs"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,11 +42,24 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="flex h-16 shrink-0 items-center justify-between border-b">
+                  <div className="flex items-center gap-2 px-4">
+                    <SidebarTrigger className="-ml-1" />
+                    <Separator orientation="vertical" className="mr-2 h-4" />
+                    <Breadcrumbs />
+                  </div>
+                  <div className="px-4">
+                    <ThemeSwitcher />
+                  </div>
+                </header>
+                <main className="flex-1 p-6">
+                  {children}
+                </main>
+              </SidebarInset>
+            </SidebarProvider>
           </div>
         </ThemeProvider>
       </body>
