@@ -10,43 +10,25 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import React from "react"
-
-const routeNameMap: Record<string, string> = {
-  "": "Home",
-  "dashboard": "Dashboard",
-  "projects": "Projects",
-  "users": "Users",
-  // Add more route mappings as needed
-}
+import { getBreadcrumbItems } from "@/config/navigation"
 
 export function Breadcrumbs() {
   const pathname = usePathname()
-  const segments = pathname.split('/').filter(Boolean)
+  const items = getBreadcrumbItems(pathname)
 
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {/* Home item */}
-        <BreadcrumbItem>
-          <BreadcrumbLink href="/">Home</BreadcrumbLink>
-        </BreadcrumbItem>
-
-        {/* Separator after Home if there are more items */}
-        {segments.length > 0 && <BreadcrumbSeparator />}
-
-        {/* Remaining segments */}
-        {segments.map((segment, index) => {
-          const isLast = index === segments.length - 1
-          const href = `/${segments.slice(0, index + 1).join('/')}`
-          const name = routeNameMap[segment] || segment
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1
 
           return (
-            <React.Fragment key={segment}>
+            <React.Fragment key={item.href}>
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage>{name}</BreadcrumbPage>
+                  <BreadcrumbPage>{item.title}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={href}>{name}</BreadcrumbLink>
+                  <BreadcrumbLink href={item.href}>{item.title}</BreadcrumbLink>
                 )}
               </BreadcrumbItem>
               {!isLast && <BreadcrumbSeparator />}
