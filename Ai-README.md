@@ -42,27 +42,16 @@ kmen-fondrozvoje/
 │   │   ├── projects/           # Projects related pages
 │   │   │   ├── page.tsx        # Projects listing page (for /projects route)
 │   │   │   ├── [id]/           # Dynamic project routes
-│   │   │   │   └── page.tsx    # Individual project page
 │   │   │   └── new/            # Create project page
-│   │   │       └── page.tsx    # Create project form
 │   │   ├── users/              # User management pages
 │   │   │   ├── page.tsx        # User management dashboard
 │   │   │   ├── create/         # Create user page
-│   │   │   │   └── page.tsx    # Create user form
 │   │   │   ├── [id]/           # Dynamic user routes
-│   │   │       └── page.tsx    # Individual user details and  config page
 │   ├── components/             # Reusable components
 │   │   ├── ui/                 # UI components (buttons, modals, etc.)
 │   │   ├── projects/           # Project-specific components
-│   │   │   ├── ProjectCard.tsx  # Project card component
-│   │   │   ├── ProjectGrid.tsx  # Grid of project cards
-│   │   │   └── ProjectHeader.tsx # Project page header
 │   │   ├── users/              # User-specific components
-│   │   │   ├── UserCard.tsx     # User card component
-│   │   │   └── UserList.tsx     # List of users component
-│   │   └── layout/             # Layout components (Navbar, Footer)
-│   │       ├── Navbar.tsx
-│   │       └── Footer.tsx
+│   │   └── layout/             # Layout components
 │   ├── styles/                 # Global styles
 │   │   └── globals.css         # Global CSS file
 │   ├── types/                  # TypeScript type definitions
@@ -79,26 +68,14 @@ kmen-fondrozvoje/
 └── postcss.config.js           # PostCSS configuration
 
 
-### Layout
 
+### Types
 
-React pseudocode sample:
-```
-<Layout>
-  <Navbar>
-    <SidebarTrigger/> # button to open/close LeftSidebar
-    <Logo />
-    <Breadcrumbs />
-    <BackButton />
-    <ThemeToggle />
-  </Navbar>
-  <LeftSidebar>
-    # links: projects, users, settings
-  </LeftSidebar>
-  <MainContent />
-  <Footer />
-</Layout>
-```
+- Project
+- User
+- Funding
+- Permission
+
 
 
 
