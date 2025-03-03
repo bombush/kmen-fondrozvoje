@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { AppSidebar } from "@/components/app-sidebar"
-import { ThemeSwitcher } from "@/components/theme-switcher"
-import { Breadcrumbs } from "@/components/breadcrumbs"
+import { AppSidebar } from "@/components/layout/app-sidebar"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
+import { ThemeSwitcher } from "@/components/layout/theme-switcher"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
