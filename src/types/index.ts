@@ -9,22 +9,13 @@ export type User = {
   updatedAt: string
 }
 
+// @TODO: add field for JSON of payments
 export type BankStatement = {
   id: string
   month: string // YYYY-MM format
-  uploadedAt: string
-  processedAt?: string
+  processedAt: string
   status: 'pending' | 'processed' | 'error'
-  payments: BankPayment[]
-}
-
-export type PaymentDistribution = {
-  id: string
-  paymentId: string
-  month: string // YYYY-MM format
-  amount: number // Portion of payment amount distributed to this month
-  createdAt: string
-  createdById: string
+  payments: string // JSON string of raw bank statement data
 }
 
 export type BankPayment = {
@@ -34,26 +25,9 @@ export type BankPayment = {
   amount: number
   receivedAt: string
   description: string
-  distributions: PaymentDistribution[] // Track distribution across months
-}
-
-export type CreditAward = {
-  id: string
-  userId: string // User receiving credits
-  amount: number // Amount of credits awarded
-  source: 'bank_distribution' | 'manual' | 'system'
-  sourceId?: string // Reference to BankStatement for bank_distribution
-  awardedById: string // User who awarded the credits (for manual) or system
-  reason?: string // Optional reason for the award
-  createdAt: string
-}
-
-export type MonthlyDistribution = {
-  month: string // YYYY-MM format
-  totalAmount: number // Total amount distributed
-  contributorCount: number // Number of users who contributed
-  creditPerContributor: number // Amount each contributor received
-  processedAt: string
+  isVirtualParent: boolean
+  virtualParentId?: string // References parent payment if this is a virtual split
+  targetMonth?: string // Which month this payment (or split) contributes to
 }
 
 // History action types
@@ -65,7 +39,7 @@ export type HistoryActionType =
   | 'update_pledge'
   | 'delete_pledge'
   | 'process_bank_statement'
-  | 'distribute_payment'
+  | 'split_payment'
   | 'award_credits'
 
 export type HistoryAction = {
