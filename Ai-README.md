@@ -136,8 +136,14 @@ Sum of all pledges to a project must not exceed the project's goal.
 __ Completion of a project __
 When the sum of all pledges to a project is equal to the project's goal, the project is considered fully funded, the pledges are locked and a "completed" flag is set to true.
 
+#### Bank statements and awarding of credits
+Every month a PROJECT BANK STATEMENT from the PROJECT BANK ACCOUNT is downloaded and processed.
+Income to the PROJECT BANK ACCOUNT contributed during the month from users is summed up and the sum is uniformly distributed among all users who contributed during the month in question. 
 
+Payments received by the PROJECT BANK ACCOUNT and downloaded from bank can be distributed by a user among past months. This must trigger a recalculation of credits awarded during the month in question and a corresponding update of users' balances.
 
+User balance can be negative.
 
+It is possible to manually award CREDITS to a user.
 
 

@@ -5987,7 +5987,184 @@ export default function RootLayout({
                 <header className="flex h-16 shrink-0 items-center justify-between border-b">
                   <div className="flex items-center gap-2 px-4">
                     <SidebarTrigger className="-ml-1" />
-                    
+                    <Separator orientation="vertical" className="mr-2 h-4" />
+                    <Breadcrumbs />
+                  </div>
+                  <div className="px-4">
+                    <ThemeSwitcher />
+                  </div>
+                </header>
+                <main className="flex-1 p-6">
+                  {children}
+                </main>
+              </SidebarInset>
+            </SidebarProvider>
+          </div>
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+````
+
+The key changes:
+1. Moved `SidebarProvider` to wrap both `AppSidebar` and `SidebarInset`
+2. Added `defaultOpen={true}` to set initial sidebar state
+3. Kept the rest of the layout structure the same
+
+This should resolve the error by ensuring the sidebar context is available to all components that need it.
+
+---
+
+_**User**_
+
+Design types and implementation for the basic  functionality 
+
+---
+
+_**Assistant**_
+
+🤖 Let's design the core types and basic functionality based on the requirements. We'll start with the type definitions:
+
+````typescript:src/types/index.ts
+/**
+ * Core entity types for the application
+ */
+
+export type User = {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  role: 'user' | 'admin'
+  balance: number // CREDITS balance
+  createdAt: string
+  updatedAt: string
+}
+
+export type Project = {
+  id: string
+  title: string
+  description: string
+  goal: number // CREDITS goal
+  currentAmount: number // Sum of pledges
+  ownerId: string
+  status: 'draft' | 'active' | 'completed' | 'cancelled'
+  createdAt: string
+  updatedAt: string
+}
+
+export type Pledge = {
+  id: string
+  projectId: string
+  userId: string
+  amount: number
+  isLocked: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type HistoryAction = {
+  id: string
+  type: 'create' | 'update' | 'delete'
+  entityType: 'project' | 'pledge' | 'user' | 'credits'
+  entityId: string
+  userId: string // Who performed the action
+  data: {
+    before?: any // State before action
+    after?: any  // State after action
+  }
+  createdAt: string
+}
+````
+
+Now let's create some mock data:
+
+````typescript:src/lib/mock-data/users.json
+{
+  "users": [
+    {
+      "id": "1",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "avatar": "/avatars/john.jpg",
+      "role": "admin",
+      "balance": 1000,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "2",
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "role": "user",
+      "balance": 500,
+      "createdAt": "2024-01-02T00:00:00Z",
+      "updatedAt": "2024-01-02T00:00:00Z"
+    }
+  ]
+}
+````
+
+````typescript:src/lib/mock-data/projects.json
+{
+  "projects": [
+    {
+      "id": "1",
+      "title": "AI Research Project",
+      "description": "Research project focused on AI development",
+      "goal": 1000,
+      "currentAmount": 500,
+      "ownerId": "1",
+      "status": "active",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "2",
+      "title": "Green Energy Initiative",
+      "description": "Sustainable energy research project",
+      "goal": 2000,
+      "currentAmount": 2000,
+      "ownerId": "2",
+      "status": "completed",
+      "createdAt": "2024-01-02T00:00:00Z",
+      "updatedAt": "2024-01-02T00:00:00Z"
+    }
+  ]
+}
+````
+
+````typescript:src/lib/mock-data/pledges.json
+{
+  "pledges": [
+    {
+      "id": "1",
+      "projectId": "1",
+      "userId": "2",
+      "amount": 500,
+      "isLocked": false,
+      "createdAt": "2024-01-03T00:00:00Z",
+      "updatedAt": "2024-01-03T00:00:00Z"
+    },
+    {
+      "id": "2", 
+      "projectId": "2",
+      "userId": "1",
+      "amount": 2000,
+      "isLocked": true,
+      "createdAt": "2024-01-04T00:00:00Z",
+      "updatedAt": "2024-01-04T00:00:00Z"
+    }
+  ]
+}
+````
+
+Would you like me to:
+1. Add more mock data?
+2. Create utility functions for data manipulation?
+3. Design specific components for displaying this data?
+4. Add more type definitions?
 
 ---
 
