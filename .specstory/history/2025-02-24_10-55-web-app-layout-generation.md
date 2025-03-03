@@ -6168,6 +6168,161 @@ Would you like me to:
 
 ---
 
+_**User**_
+
+Please design types and functions for implementing the functionality described. You can create types which were not mentioned if needed.
+
+---
+
+_**Assistant**_
+
+🤖 Let's design the types and functions needed to implement the bank statement and credits functionality:
+
+````typescript:src/types/index.ts
+export type User = {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  role: 'user' | 'admin'
+  balance: number // Can be negative
+  createdAt: string
+  updatedAt: string
+}
+
+export type BankStatement = {
+  id: string
+  month: string // YYYY-MM format
+  uploadedAt: string
+  processedAt?: string
+  status: 'pending' | 'processed' | 'error'
+  totalAmount: number
+}
+
+export type BankPayment = {
+  id: string
+  statementId: string
+  userId: string // User who made the payment
+  amount: number
+  receivedAt: string
+  description: string
+  distributedMonth?: string // YYYY-MM format, which month this payment was distributed to
+}
+
+export type CreditAward = {
+  id: string
+  userId: string // User receiving credits
+  amount: number // Amount of credits awarded
+  source: 'bank_distribution' | 'manual' | 'system'
+  sourceId?: string // Reference to BankStatement for bank_distribution
+  awardedById: string // User who awarded the credits (for manual) or system
+  reason?: string // Optional reason for the award
+  createdAt: string
+}
+
+export type MonthlyDistribution = {
+  month: string // YYYY-MM format
+  totalAmount: number // Total amount distributed
+  contributorCount: number // Number of users who contributed
+  creditPerContributor: number // Amount each contributor received
+  processedAt: string
+}
+
+// History action types
+export type HistoryActionType = 
+  | 'create_project' 
+  | 'update_project'
+  | 'delete_project'
+  | 'create_pledge'
+  | 'update_pledge'
+  | 'delete_pledge'
+  | 'process_bank_statement'
+  | 'distribute_payment'
+  | 'award_credits'
+
+export type HistoryAction = {
+  id: string
+  type: HistoryActionType
+  entityId: string
+  userId: string
+  data: {
+    before?: any
+    after?: any
+  }
+  createdAt: string
+}
+````
+
+And here are the key functions we'll need:
+
+````typescript:src/lib/credits.ts
+/**
+ * Functions for managing credits and bank statements
+ */
+
+import { BankStatement, BankPayment, User, MonthlyDistribution, CreditAward } from "@/types"
+
+export async function processBankStatement(statement: BankStatement): Promise<MonthlyDistribution> {
+  // 1. Mark all payments as unprocessed
+  // 2. Calculate total amount
+  // 3. Get all unique contributors
+  // 4. Calculate credits per contributor
+  // 5. Create credit awards for each contributor
+  // 6. Update user balances
+  // 7. Create history action
+  return {} as MonthlyDistribution
+}
+
+export async function distributePayment(
+  payment: BankPayment, 
+  targetMonth: string
+): Promise<void> {
+  // 1. Update payment's distributed month
+  // 2. Recalculate monthly distribution for target month
+  // 3. Adjust all affected user balances
+  // 4. Create history action
+}
+
+export async function awardCredits(
+  userId: string,
+  amount: number,
+  awardedById: string,
+  reason?: string
+): Promise<CreditAward> {
+  // 1. Create credit award record
+  // 2. Update user balance
+  // 3. Create history action
+  return {} as CreditAward
+}
+
+export async function recalculateUserBalance(userId: string): Promise<number> {
+  // 1. Get all user's credit awards
+  // 2. Get all user's pledges
+  // 3. Calculate net balance
+  return 0
+}
+````
+
+Would you like me to:
+1. Add more utility functions?
+2. Design the database schema?
+3. Create component interfaces for displaying this data?
+4. Add validation functions?
+
+---
+
+_**User**_
+
+I'd like to be able to distribute the BankPayment to multiple months
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
