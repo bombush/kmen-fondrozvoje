@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useSidebar } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/layout/sidebar"
 
 export function NavItems() {
   const pathname = usePathname()

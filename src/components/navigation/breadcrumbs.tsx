@@ -8,10 +8,20 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+} from "@/components/navigation/breadcrumb"
 import React from "react"
 import { getBreadcrumbItems } from "@/config/navigation"
 
+/**
+ * Breadcrumbs navigation component
+ * Shows the current location in the app hierarchy
+ * 
+ * Features:
+ * - Automatically generates breadcrumbs based on current path
+ * - Always starts with Home
+ * - Uses centralized navigation config
+ * - Accessible navigation with proper ARIA attributes
+ */
 export function Breadcrumbs() {
   const pathname = usePathname()
   const items = getBreadcrumbItems(pathname)

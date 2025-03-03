@@ -3,14 +3,14 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { Breadcrumbs } from "@/components/layout/breadcrumbs"
+import { Breadcrumbs } from "@/components/navigation/breadcrumbs"
 import { ThemeSwitcher } from "@/components/layout/theme-switcher"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/components/layout/sidebar"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,7 +42,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <div className="min-h-screen flex flex-col">
-            <SidebarProvider>
+            <SidebarProvider defaultOpen={true}>
               <AppSidebar />
               <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center justify-between border-b">

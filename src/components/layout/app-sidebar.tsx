@@ -10,7 +10,7 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
-} from "@/components/ui/sidebar"
+} from "@/components/layout/sidebar"
 
 const data = {
   user: {
