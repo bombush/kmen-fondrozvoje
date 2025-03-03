@@ -6618,6 +6618,496 @@ Yes, redesign please
 
 _**Assistant**_
 
+🤖 Let's redesign the credit system with BankPayment as our source of truth:
+
+````typescript:src/types/index.ts
+export type User = {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  role: 'user' | 'admin'
+  balance: number // Can be negative
+  createdAt: string
+  updatedAt: string
+}
+
+export type BankStatement = {
+  id: string
+  month: string // YYYY-MM format
+  processedAt: string
+  status: 'pending' | 'processed' | 'error'
+  payments: string // JSON string of raw bank statement data
+}
+
+export type BankPayment = {
+  id: string
+  statementId: string
+  userId: string // User who made the payment
+  amount: number
+  receivedAt: string
+  description: string
+  isVirtualParent: boolean
+  virtualParentId?: string // References parent payment if this is a virtual split
+  targetMonth?: string // Which month this payment (or split) contributes to
+}
+
+// History action types
+export type HistoryActionType = 
+  | 'create_project' 
+  | 'update_project'
+  | 'delete_project'
+  | 'create_pledge'
+  | 'update_pledge'
+  | 'delete_pledge'
+  | 'process_bank_statement'
+  | 'split_payment'
+  | 'award_credits'
+````
+
+````typescript:src/lib/credits.ts
+import { BankStatement, BankPayment, User } from "@/types"
+
+/**
+ * Split a bank payment into virtual payments for different months
+ */
+export async function splitPayment(
+  payment: BankPayment,
+  splits: Array<{
+    amount: number
+    targetMonth: string
+  }>
+): Promise<BankPayment[]> {
+  // Validate total split amount equals original payment
+  const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
+  if (totalSplit !== payment.amount) {
+    throw new Error("Split amounts must equal original payment amount")
+  }
+
+  // Create virtual payments
+  const virtualPayments = splits.map(split => ({
+    id: generateId(),
+    statementId: payment.statementId,
+    userId: payment.userId,
+    amount: split.amount,
+    receivedAt: payment.receivedAt,
+    description: `Split from payment ${payment.id}`,
+    isVirtualParent: false,
+    virtualParentId: payment.id,
+    targetMonth: split.targetMonth
+  }))
+
+  // Mark original payment as virtual parent
+  await updatePayment(payment.id, { isVirtualParent: true })
+
+  return virtualPayments
+}
+
+/**
+ * Calculate credits awarded for a specific month
+ */
+export async function calculateMonthlyCredits(month: string) {
+  // Get all payments targeting this month
+  const payments = await getPaymentsForMonth(month)
+  
+  // Get unique contributors (excluding virtual parents)
+  const contributors = new Set(
+    payments
+      .filter(p => !p.isVirtualParent)
+      .map(p => p.userId)
+  )
+
+  // Calculate total amount and credits per contributor
+  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0)
+  const creditsPerContributor = totalAmount / contributors.size
+
+  return {
+    month,
+    totalAmount,
+    contributorCount: contributors.size,
+    creditsPerContributor,
+    contributors: Array.from(contributors)
+  }
+}
+
+/**
+ * Calculate current balance for a user
+ */
+export async function calculateUserBalance(userId: string): Promise<number> {
+  // Get all months with payments
+  const months = await getMonthsWithPayments()
+  
+  // Calculate credits awarded from each month's contributions
+  const creditsByMonth = await Promise.all(
+    months.map(async month => {
+      const monthlyCredits = await calculateMonthlyCredits(month)
+      return monthlyCredits.contributors.includes(userId) 
+        ? monthlyCredits.creditsPerContributor 
+        : 0
+    })
+  )
+
+  // Sum up all credits
+  const totalCredits = creditsByMonth.reduce((sum, credits) => sum + credits, 0)
+
+  // Subtract pledges
+  const pledges = await getUserPledges(userId)
+  const totalPledged = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
+
+  return totalCredits - totalPledged
+}
+
+/**
+ * Process a new bank statement
+ */
+export async function processBankStatement(statement: BankStatement) {
+  // Parse raw payment data
+  const rawPayments = JSON.parse(statement.payments)
+  
+  // Create payment records
+  const payments = await Promise.all(
+    rawPayments.map(raw => createPayment({
+      ...raw,
+      statementId: statement.id,
+      isVirtualParent: false
+    }))
+  )
+
+  // Mark statement as processed
+  await updateStatement(statement.id, { 
+    status: 'processed',
+    processedAt: new Date().toISOString()
+  })
+
+  return payments
+}
+````
+
+Key changes:
+1. Removed intermediate tables/types
+2. Added virtual payment concept for splitting
+3. All values are calculated from payments
+4. Simpler data model but more computation
+5. Added targetMonth to payments for direct month assignment
+
+Would you like me to:
+1. Add more utility functions?
+2. Add caching strategies?
+3. Add validation functions?
+4. Design UI components for this model?
+
+---
+
+_**User**_
+
+Design UI components for the model
+
+---
+
+_**Assistant**_
+
+
+
+🤖 Let's design UI components for managing bank statements and payments. We'll create a hierarchy of components:
+
+````typescript:src/components/bank/bank-statement-list.tsx
+"use client"
+
+import { BankStatement } from "@/types"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { formatDate } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Eye } from "lucide-react"
+
+interface BankStatementListProps {
+  statements: BankStatement[]
+  onViewStatement: (statement: BankStatement) => void
+}
+
+export function BankStatementList({ statements, onViewStatement }: BankStatementListProps) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Month</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Processed</TableHead>
+          <TableHead>Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {statements.map((statement) => (
+          <TableRow key={statement.id}>
+            <TableCell>{statement.month}</TableCell>
+            <TableCell>
+              <Badge variant={statement.status === 'processed' ? 'success' : 'warning'}>
+                {statement.status}
+              </Badge>
+            </TableCell>
+            <TableCell>{formatDate(statement.processedAt)}</TableCell>
+            <TableCell>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onViewStatement(statement)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+````
+
+````typescript:src/components/bank/payment-list.tsx
+"use client"
+
+import { BankPayment } from "@/types"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { formatDate, formatMoney } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Split } from "lucide-react"
+
+interface PaymentListProps {
+  payments: BankPayment[]
+  onSplitPayment: (payment: BankPayment) => void
+}
+
+export function PaymentList({ payments, onSplitPayment }: PaymentListProps) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Amount</TableHead>
+          <TableHead>Received</TableHead>
+          <TableHead>Month</TableHead>
+          <TableHead>Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {payments.map((payment) => (
+          <TableRow 
+            key={payment.id}
+            className={payment.isVirtualParent ? "opacity-50" : ""}
+          >
+            <TableCell>{payment.userId}</TableCell>
+            <TableCell>{formatMoney(payment.amount)}</TableCell>
+            <TableCell>{formatDate(payment.receivedAt)}</TableCell>
+            <TableCell>{payment.targetMonth || "Unassigned"}</TableCell>
+            <TableCell>
+              {!payment.isVirtualParent && !payment.virtualParentId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onSplitPayment(payment)}
+                >
+                  <Split className="h-4 w-4" />
+                </Button>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+````
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash } from "lucide-react"
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplit: (splits: Array<{ amount: number; targetMonth: string }>) => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplit 
+}: PaymentSplitDialogProps) {
+  const [splits, setSplits] = useState([{ amount: 0, targetMonth: "" }])
+  const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
+  const remaining = payment.amount - totalSplit
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Split Payment</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="text-sm">
+            Total Amount: {payment.amount}
+            <br />
+            Remaining: {remaining}
+          </div>
+
+          {splits.map((split, index) => (
+            <div key={index} className="flex gap-4">
+              <div className="flex-1">
+                <Label>Amount</Label>
+                <Input 
+                  type="number"
+                  value={split.amount}
+                  onChange={(e) => {
+                    const newSplits = [...splits]
+                    newSplits[index].amount = Number(e.target.value)
+                    setSplits(newSplits)
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <Label>Month</Label>
+                <Input 
+                  type="month"
+                  value={split.targetMonth}
+                  onChange={(e) => {
+                    const newSplits = [...splits]
+                    newSplits[index].targetMonth = e.target.value
+                    setSplits(newSplits)
+                  }}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSplits(splits.filter((_, i) => i !== index))
+                }}
+              >
+                <Trash className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+
+          <Button
+            variant="outline"
+            onClick={() => setSplits([...splits, { amount: 0, targetMonth: "" }])}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Split
+          </Button>
+
+          <Button 
+            className="w-full"
+            disabled={remaining !== 0}
+            onClick={() => onSplit(splits)}
+          >
+            Split Payment
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+And a page to put it all together:
+
+````typescript:src/app/bank/page.tsx
+"use client"
+
+import { useState } from "react"
+import { BankStatement, BankPayment } from "@/types"
+import { BankStatementList } from "@/components/bank/bank-statement-list"
+import { PaymentList } from "@/components/bank/payment-list"
+import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
+import { splitPayment } from "@/lib/credits"
+
+export default function BankPage() {
+  const [selectedStatement, setSelectedStatement] = useState<BankStatement | null>(null)
+  const [splitDialogPayment, setSplitDialogPayment] = useState<BankPayment | null>(null)
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Bank Statements</h2>
+        <BankStatementList 
+          statements={[]} // TODO: Fetch statements
+          onViewStatement={setSelectedStatement}
+        />
+      </div>
+
+      {selectedStatement && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Payments</h2>
+          <PaymentList
+            payments={[]} // TODO: Fetch payments for statement
+            onSplitPayment={setSplitDialogPayment}
+          />
+        </div>
+      )}
+
+      {splitDialogPayment && (
+        <PaymentSplitDialog
+          payment={splitDialogPayment}
+          open={!!splitDialogPayment}
+          onOpenChange={(open) => !open && setSplitDialogPayment(null)}
+          onSplit={async (splits) => {
+            await splitPayment(splitDialogPayment, splits)
+            setSplitDialogPayment(null)
+            // TODO: Refresh payments
+          }}
+        />
+      )}
+    </div>
+  )
+}
+````
+
+Would you like me to:
+1. Add more components?
+2. Add loading states?
+3. Add error handling?
+4. Add more interactivity?
+
+---
+
+_**User**_
+
+How would you mock data for this functionality so API calls or firebase connection can be added later?
+
+---
+
+_**Assistant**_
+
 
 
 ---
