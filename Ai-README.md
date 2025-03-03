@@ -1,3 +1,5 @@
+
+
 # Fond rozvoje
 
 ## Overview
@@ -10,20 +12,20 @@ The app should be mobile-first and responsive.
 ## Core functionalities
 - User authentication (password+email and Google)
 - Project management (create, edit, delete)
-- Funding
+- Pledging to a project
 - User management (create, edit, delete)
 - superuser functionality and permissions management
 
-## Funding
+## Pledging
 ### Currency
 Currency used in the app is called CREDITS
 Users are awarded CREDITS based on a mechanism which will be described later.
 
 ### Project management and funding
 - User can create a project and set funding goal (in CREDITS) and other parameters
-- User can fund a project
-- User can see all projects and choose to fund one
-- User can see all projects they have funded
+- User can pledge to a project
+- User can see all projects and choose to pledge to one
+- User can see all projects they have pledged to
 - User can see and manage all projects they have created
 
 
@@ -68,13 +70,71 @@ kmen-fondrozvoje/
 └── postcss.config.js           # PostCSS configuration
 
 
+### Layout
+
+
+React pseudocode sample:
+```
+<Layout>
+  <Navbar>
+    <SidebarTrigger/> # button to open/close LeftSidebar
+    <Logo />
+    <Breadcrumbs />
+    <BackButton />
+    <ThemeToggle />
+  </Navbar>
+  <LeftSidebar>
+    # links: projects, users, settings
+  </LeftSidebar>
+  <MainContent />
+  <Footer />
+</Layout>
+```
+
+
 
 ### Types
 
-- Project
-- User
-- Funding
-- Permission
+#### Project
+Projects that can be funded and managed by users
+
+#### User
+Users of the app
+
+#### Pledge
+Single pledge in CREDITS by a user to a project
+
+#### HistoryAction
+Actions performed by users in the app
+
+
+### Functionality
+
+### HistoryAction 
+For every action performed by a user, a `HistoryAction` record is created.
+`HistoryAction` must contain enough information to be able to reverse the action.
+Data relevant to the action is stored in a subobject called `data`.
+
+`Project` can be created by a user
+`Project` can be edited by owner user
+`Project` can be deleted by owner user
+
+`User` can create another user
+
+CREDITS can be awarded to a user by another user
+
+`User` has a balance of CREDITS
+`User` can pledge to a project creating a `Pledge`
+
+#### Pledging
+`Pledge` can be deleted or edited by the creator of the pledge
+During creation of a pledge, the pledged amount of CREDITS is deducted from the creator's balance
+Until `Pledge` is locked, credits can be transferred between pledges by the creator in both directions
+A locked `Pledge` cannot be edited or deleted
+Sum of all pledges to a project must not exceed the project's goal.
+
+__ Completion of a project __
+When the sum of all pledges to a project is equal to the project's goal, the project is considered fully funded, the pledges are locked and a "completed" flag is set to true.
 
 
 
