@@ -25,8 +25,7 @@ export type BankPayment = {
   amount: number
   receivedAt: string
   description: string
-  isVirtualParent: boolean
-  virtualParentId?: string // References parent payment if this is a virtual split
+  isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
 }
 

@@ -138,11 +138,16 @@ When the sum of all pledges to a project is equal to the project's goal, the pro
 
 #### Bank statements and awarding of credits
 Every month a PROJECT BANK STATEMENT from the PROJECT BANK ACCOUNT is downloaded and processed.
-Income to the PROJECT BANK ACCOUNT contributed during the month from users is summed up and the sum is uniformly distributed among all users who contributed during the month in question. 
 
-Payments received by the PROJECT BANK ACCOUNT and downloaded from bank can be distributed by a user among past months. This must trigger a recalculation of credits awarded during the month in question and a corresponding update of users' balances.
+Payments received by the PROJECT BANK ACCOUNT are assigned to the month they were received.
+Payments can be split by a user over previous months. The virtual payments thus created are marked with the `isSplitFromId` field indicating the original payment id. The amount in the original payment must be updated so that the sum of the original payment and all its virtual children equals the original payment amount.
+The rationale for this is that a user can fail to pay in a month and then pay for retroactively in the following months.
 
-User balance can be negative.
+Whenever a month ends, income to the payments from users assigned to a month is summed up, the sum is converted to CREDITS and the CREDITS are uniformly distributed among all users who contributed during the month in question. 
+If ANY change in payments in previous months is detected, credits recalculation is triggered.
+
+User balance thus calculated can be negative.
+`BankPayment` should be the single source of truth for all automatically awarded CREDITS.
 
 It is possible to manually award CREDITS to a user.
 

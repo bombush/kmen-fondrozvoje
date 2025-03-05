@@ -2,84 +2,53 @@
  * Functions for managing credits and bank statements
  */
 
-import { 
-  BankStatement, 
-  BankPayment, 
-  PaymentDistribution,
-  User, 
-  MonthlyDistribution, 
-  CreditAward 
-} from "@/types"
+import { BankStatement, BankPayment } from "@/types"
+import { generateId } from "@/lib/utils"
+import { parseStatement } from './bank-parsers'
+import { getPaymentsForMonth, updatePayment, getUserPledges, getMonthsWithPayments } from "@/lib/services/payment-service"
 
 /**
- * Distribute a payment amount across multiple months
+ * Process a bank statement and create payment records
+ * All payments are initially assigned to their received month
  */
-export async function distributePayment(
-  payment: BankPayment,
-  distributions: Array<{
-    month: string,
-    amount: number
-  }>,
-  userId: string
-): Promise<PaymentDistribution[]> {
-  // 1. Validate total distribution amount doesn't exceed payment.remainingAmount
-  // 2. Create PaymentDistribution records
-  // 3. Update payment status and remainingAmount
-  // 4. Recalculate monthly distributions for affected months
-  // 5. Adjust all affected user balances
-  // 6. Create history action
-  return [] as PaymentDistribution[]
+export async function processBankStatement(statement: BankStatement): Promise<BankPayment[]> {
+  try {
+    // Parse raw payment data using appropriate parser
+    const rawPayments = parseStatement(statement.payments)
+    
+    // Create payment records with received month as target
+    const payments = await Promise.all(
+      rawPayments.map(raw => ({
+        id: generateId(),
+        statementId: statement.id,
+        userId: raw.userId,
+        amount: raw.amount,
+        receivedAt: raw.receivedAt,
+        description: raw.description,
+        targetMonth: new Date(raw.receivedAt).toISOString().slice(0, 7) // YYYY-MM format
+      }))
+    )
+
+    // Mark statement as processed
+    await updateStatement(statement.id, { 
+      status: 'processed',
+      processedAt: new Date().toISOString()
+    })
+
+    return payments
+  } catch (error) {
+    // Mark statement as error
+    await updateStatement(statement.id, {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+    throw error
+  }
 }
 
 /**
- * Process a bank statement and distribute credits for a specific month
- */
-export async function processBankStatement(statement: BankStatement): Promise<MonthlyDistribution> {
-  // 1. Get all payment distributions for this month
-  // 2. Calculate total amount for the month
-  // 3. Get all unique contributors
-  // 4. Calculate credits per contributor
-  // 5. Create credit awards for each contributor
-  // 6. Update user balances
-  // 7. Create history action
-  return {} as MonthlyDistribution
-}
-
-/**
- * Recalculate monthly distribution after payment distributions change
- */
-export async function recalculateMonthlyDistribution(month: string): Promise<MonthlyDistribution> {
-  // 1. Get all payment distributions for month
-  // 2. Calculate new total amount
-  // 3. Get all affected users
-  // 4. Recalculate credits per user
-  // 5. Update credit awards
-  // 6. Update user balances
-  // 7. Create history action
-  return {} as MonthlyDistribution
-}
-
-export async function awardCredits(
-  userId: string,
-  amount: number,
-  awardedById: string,
-  reason?: string
-): Promise<CreditAward> {
-  // 1. Create credit award record
-  // 2. Update user balance
-  // 3. Create history action
-  return {} as CreditAward
-}
-
-export async function recalculateUserBalance(userId: string): Promise<number> {
-  // 1. Get all user's credit awards
-  // 2. Get all user's pledges
-  // 3. Calculate net balance
-  return 0
-}
-
-/**
- * Split a bank payment into virtual payments for different months
+ * Split a payment into multiple payments for different months
+ * Allows retroactive payment distribution
  */
 export async function splitPayment(
   payment: BankPayment,
@@ -90,45 +59,48 @@ export async function splitPayment(
 ): Promise<BankPayment[]> {
   // Validate total split amount equals original payment
   const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
-  if (totalSplit !== payment.amount) {
-    throw new Error("Split amounts must equal original payment amount")
+  if (totalSplit > payment.amount) {
+    throw new Error("Split amounts cannot exceed original payment amount")
   }
 
-  // Create virtual payments
-  const virtualPayments = splits.map(split => ({
+  // Create split payments
+  const splitPayments = splits.map(split => ({
     id: generateId(),
     statementId: payment.statementId,
     userId: payment.userId,
     amount: split.amount,
     receivedAt: payment.receivedAt,
     description: `Split from payment ${payment.id}`,
-    isVirtualParent: false,
-    virtualParentId: payment.id,
+    isSplitFromId: payment.id,
     targetMonth: split.targetMonth
   }))
 
-  // Mark original payment as virtual parent
-  await updatePayment(payment.id, { isVirtualParent: true })
+  // Update original payment amount (remaining unsplit amount)
+  const remainingAmount = payment.amount - totalSplit
+  if (remainingAmount > 0) {
+    await updatePayment(payment.id, {
+      amount: remainingAmount
+    })
+  }
 
-  return virtualPayments
+  return splitPayments
 }
 
 /**
  * Calculate credits awarded for a specific month
+ * Includes both original and split payments targeting this month
  */
 export async function calculateMonthlyCredits(month: string) {
   // Get all payments targeting this month
   const payments = await getPaymentsForMonth(month)
   
-  // Get unique contributors (excluding virtual parents)
-  const contributors = new Set(
-    payments
-      .filter(p => !p.isVirtualParent)
-      .map(p => p.userId)
-  )
+  // Get unique contributors (from both original and split payments)
+  const contributors = new Set(payments.map(p => p.userId))
 
-  // Calculate total amount and credits per contributor
-  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0)
+  // Calculate total amount from all payments targeting this month
+  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0))
+
+  // Distribute credits equally among contributors
   const creditsPerContributor = totalAmount / contributors.size
 
   return {
@@ -142,6 +114,7 @@ export async function calculateMonthlyCredits(month: string) {
 
 /**
  * Calculate current balance for a user
+ * Based on their contributions across all months and pledges
  */
 export async function calculateUserBalance(userId: string): Promise<number> {
   // Get all months with payments
@@ -165,29 +138,4 @@ export async function calculateUserBalance(userId: string): Promise<number> {
   const totalPledged = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
 
   return totalCredits - totalPledged
-}
-
-/**
- * Process a new bank statement
- */
-export async function processBankStatement(statement: BankStatement) {
-  // Parse raw payment data
-  const rawPayments = JSON.parse(statement.payments)
-  
-  // Create payment records
-  const payments = await Promise.all(
-    rawPayments.map(raw => createPayment({
-      ...raw,
-      statementId: statement.id,
-      isVirtualParent: false
-    }))
-  )
-
-  // Mark statement as processed
-  await updateStatement(statement.id, { 
-    status: 'processed',
-    processedAt: new Date().toISOString()
-  })
-
-  return payments
 } 
