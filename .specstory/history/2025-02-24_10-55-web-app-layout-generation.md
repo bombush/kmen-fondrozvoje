@@ -12745,6 +12745,72 @@ _**Assistant**_
 
 
 
+
+
+🤖 The error is in the Breadcrumbs component. Let's add the props interface:
+
+````typescript:src/components/navigation/breadcrumbs.tsx
+interface BreadcrumbsProps {
+  items: NavItem[]
+}
+
+export function Breadcrumbs({ items }: BreadcrumbsProps) {
+  // ... existing component code
+}
+````
+
+
+Don't forget to import the NavItem type:
+````typescript
+import { NavItem } from "@/config/navigation"
+````
+
+This will properly type the component's props and resolve the error.
+
+---
+
+_**User**_
+
+Why do you think loading projects list takes so long when we're not querying any server?
+
+---
+
+_**Assistant**_
+
+
+
+🤖 The delay is coming from the artificial delay we added in the mock service functions:
+
+````typescript:src/lib/services/project-service.ts
+export const getProjects = async () => {
+  await new Promise(r => setTimeout(r, 500)) // <-- This causes 500ms delay
+  return mockProjects
+}
+
+export const getProject = async (id: string): Promise<Project | null> => {
+  await new Promise(r => setTimeout(r, 500)) // <-- Another 500ms delay
+  const project = mockProjects.find(p => p.id === id)
+  return project || null
+}
+````
+
+We can:
+1. Remove these delays entirely
+2. Reduce them to something like 100ms
+3. Only use delays in development mode
+
+Here's a quick fix:
+````typescript:src/lib/services/project-service.ts
+const MOCK_DELAY = process.env.NODE_ENV === 'development' ? 100 : 0
+
+export const getProjects = async () => {
+  await new Promise(r => setTimeout(r, MOCK_DELAY))
+  return mockProjects
+}
+````
+
+This will make the app feel much snappier while still simulating some network delay in development.
+
 ---
 
 
