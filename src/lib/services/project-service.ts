@@ -50,9 +50,12 @@ export const getProjects = async () => {
   return mockProjects
 }
 
-export const getProject = async (id: string) => {
+export const getProject = async (id: string): Promise<Project | null> => {
+  console.log('Fetching project:', id)
   await new Promise(r => setTimeout(r, 500))
-  return mockProjects.find(p => p.id === id)
+  const project = mockProjects.find(p => p.id === id)
+  console.log('Found project:', project)
+  return project || null
 }
 
 export const getProjectPledges = async (projectId: string) => {
@@ -82,4 +85,12 @@ export const updateProject = async (id: string, data: Partial<Project>) => {
     updatedAt: new Date().toISOString()
   }
   return mockProjects[index]
+}
+
+export const deleteProject = async (id: string) => {
+  await new Promise(r => setTimeout(r, 500))
+  const index = mockProjects.findIndex(p => p.id === id)
+  if (index === -1) throw new Error("Project not found")
+  
+  mockProjects.splice(index, 1)
 } 

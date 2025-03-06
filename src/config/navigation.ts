@@ -16,6 +16,7 @@ export interface NavItem {
   icon?: any
   description?: string
   disabled?: boolean
+  dynamic?: boolean
 }
 
 export interface NavSection {
@@ -106,13 +107,32 @@ export function getBreadcrumbItems(path: string): NavItem[] {
   // Always include home
   items.push(getNavItemByPath('/') as NavItem)
   
-  // Build up the path segments and find matching nav items
   let currentPath = ''
   for (const segment of segments) {
     currentPath += `/${segment}`
-    const item = getNavItemByPath(currentPath)
-    if (item) {
-      items.push(item)
+    
+    if (segment === 'projects') {
+      items.push({
+        title: 'Projects',
+        href: '/projects',
+        icon: FolderGit2
+      })
+      
+      // If next segment exists, it's a project detail page
+      const nextSegment = segments[segments.indexOf(segment) + 1]
+      if (nextSegment) {
+        items.push({
+          title: `Loading...`, // Placeholder until project loads
+          href: `/projects/${nextSegment}`,
+          dynamic: true
+        })
+      }
+      break // Stop processing further segments for project routes
+    } else {
+      const item = getNavItemByPath(currentPath)
+      if (item) {
+        items.push(item)
+      }
     }
   }
   

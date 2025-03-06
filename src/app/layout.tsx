@@ -12,6 +12,8 @@ import {
   SidebarTrigger,
 } from "@/components/layout/sidebar"
 import { Providers } from "./providers"
+import { Toaster } from "sonner"
+import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,7 +53,7 @@ export default function RootLayout({
                     <div className="flex items-center gap-2 px-4">
                       <SidebarTrigger className="-ml-1" />
                       <Separator orientation="vertical" className="mr-2 h-4" />
-                      <Breadcrumbs />
+                      <DynamicBreadcrumbs />
                     </div>
                     <div className="px-4">
                       <ThemeSwitcher />
@@ -65,6 +67,7 @@ export default function RootLayout({
             </div>
           </ThemeProvider>
         </Providers>
+        <Toaster richColors closeButton position="top-right" />
       </body>
     </html>
   );

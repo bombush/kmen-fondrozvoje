@@ -5,8 +5,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { useProject, useUpdateProject } from "@/hooks/use-projects"
+import { useParams, useRouter } from "next/navigation"
+import { useProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { formatMoney } from "@/lib/utils"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Project } from "@/types"
+import { AlertTriangle } from "lucide-react"
+import { MotionFade } from "@/components/ui/motion-fade"
+import { toast } from "sonner"
 
 /**
  * The page shows all the project details and buttons:
@@ -30,10 +33,12 @@ import { Project } from "@/types"
  * @returns 
  */
 export default function ProjectPage() {
+  const router = useRouter()
   const params = useParams()
   const id = params.id as string
   const { data: project, isLoading } = useProject(id)
   const updateProject = useUpdateProject()
+  const deleteProject = useDeleteProject()
   const [isEditing, setIsEditing] = useState(false)
   const [editedProject, setEditedProject] = useState<Project | undefined>(undefined)
 
@@ -58,14 +63,55 @@ export default function ProjectPage() {
         }
       })
       setIsEditing(false)
+      toast.success("Project updated", {
+        description: "Your changes have been saved successfully."
+      })
     } catch (error) {
+      toast.error("Failed to update", {
+        description: "There was a problem saving your changes. Please try again."
+      })
       console.error('Failed to update project:', error)
-      // You might want to show an error toast here
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await deleteProject.mutateAsync(id)
+      toast.success("Project deleted", {
+        description: "The project has been successfully deleted."
+      })
+    } catch (error) {
+      toast.error("Error", {
+        description: "Failed to delete the project. Please try again."
+      })
+      console.error('Failed to delete project:', error)
     }
   }
 
   if (isLoading) return <div>Loading...</div>
-  if (!project || !editedProject) return <div>Project not found</div>
+  
+  if (!project) {
+    return (
+      <MotionFade>
+        <div className="flex flex-col items-center justify-center gap-4 py-12">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="text-lg font-medium">
+              {deleteProject.isSuccess ? "Project deleted" : "Project not found"}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push("/projects")}
+          >
+            Go to Projects List
+          </Button>
+        </div>
+      </MotionFade>
+    )
+  }
+
+  if (!editedProject) return null
 
   return (
     <div className="space-y-6">
@@ -91,7 +137,12 @@ export default function ProjectPage() {
           ) : (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive">Delete</Button>
+                <Button 
+                  variant="destructive"
+                  disabled={deleteProject.isPending}
+                >
+                  {deleteProject.isPending ? "Deleting..." : "Delete"}
+                </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -102,9 +153,10 @@ export default function ProjectPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => {
-                    // Delete project
-                  }}>
+                  <AlertDialogAction 
+                    onClick={handleDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
                     Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>

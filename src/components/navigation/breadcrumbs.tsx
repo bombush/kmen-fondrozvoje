@@ -10,7 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/navigation/breadcrumb"
 import React from "react"
-import { getBreadcrumbItems } from "@/config/navigation"
+import { getBreadcrumbItems, NavItem } from "@/config/navigation"
 
 /**
  * Breadcrumbs navigation component
@@ -22,15 +22,20 @@ import { getBreadcrumbItems } from "@/config/navigation"
  * - Uses centralized navigation config
  * - Accessible navigation with proper ARIA attributes
  */
-export function Breadcrumbs() {
+
+interface BreadcrumbsProps {
+  items: NavItem[]
+}
+
+export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const pathname = usePathname()
-  const items = getBreadcrumbItems(pathname)
+  const breadcrumbItems = getBreadcrumbItems(pathname)
 
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1
+        {breadcrumbItems.map((item, index) => {
+          const isLast = index === breadcrumbItems.length - 1
 
           return (
             <React.Fragment key={item.href}>
