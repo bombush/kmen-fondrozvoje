@@ -71,10 +71,4 @@ export interface Project {
   completed: boolean
   createdAt: string
   updatedAt: string
-  pledges: {
-    userId: string
-    amount: number
-    locked: boolean
-    createdAt: string
-  }[]
 } 

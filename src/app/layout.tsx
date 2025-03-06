@@ -11,6 +11,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/layout/sidebar"
+import { Providers } from "./providers"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,33 +36,35 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="min-h-screen flex flex-col">
-            <SidebarProvider defaultOpen={true}>
-              <AppSidebar />
-              <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center justify-between border-b">
-                  <div className="flex items-center gap-2 px-4">
-                    <SidebarTrigger className="-ml-1" />
-                    <Separator orientation="vertical" className="mr-2 h-4" />
-                    <Breadcrumbs />
-                  </div>
-                  <div className="px-4">
-                    <ThemeSwitcher />
-                  </div>
-                </header>
-                <main className="flex-1 p-6">
-                  {children}
-                </main>
-              </SidebarInset>
-            </SidebarProvider>
-          </div>
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="min-h-screen flex flex-col">
+              <SidebarProvider defaultOpen={true}>
+                <AppSidebar />
+                <SidebarInset>
+                  <header className="flex h-16 shrink-0 items-center justify-between border-b">
+                    <div className="flex items-center gap-2 px-4">
+                      <SidebarTrigger className="-ml-1" />
+                      <Separator orientation="vertical" className="mr-2 h-4" />
+                      <Breadcrumbs />
+                    </div>
+                    <div className="px-4">
+                      <ThemeSwitcher />
+                    </div>
+                  </header>
+                  <main className="flex-1 p-6">
+                    {children}
+                  </main>
+                </SidebarInset>
+              </SidebarProvider>
+            </div>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
