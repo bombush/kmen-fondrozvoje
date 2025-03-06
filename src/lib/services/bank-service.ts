@@ -45,7 +45,14 @@ const mockPayments: BankPayment[] = [
     userId: "user_1",
     amount: 1000,
     receivedAt: "2024-01-15T10:30:00Z",
-    description: "January contribution",
+    message: "January contribution",
+    variableSymbol: "12345",
+    specificSymbol: "",
+    constantSymbol: "",
+    bankTransactionId: "tx_1",
+    counterpartyAccountNumber: "1234567890/0100",
+    counterpartyName: "John Doe",
+    comment: ""
   },
   {
     id: "pmt_2",
@@ -53,7 +60,14 @@ const mockPayments: BankPayment[] = [
     userId: "user_1",
     amount: 2000,
     receivedAt: "2024-02-15T14:20:00Z",
-    description: "February contribution",
+    message: "February contribution",
+    variableSymbol: "12346",
+    specificSymbol: "",
+    constantSymbol: "",
+    bankTransactionId: "tx_2",
+    counterpartyAccountNumber: "1234567890/0100",
+    counterpartyName: "John Doe",
+    comment: ""
   }
 ]
 
@@ -101,9 +115,14 @@ export class MockBankService implements BankService {
       userId: parent.userId,
       amount: split.amount,
       receivedAt: parent.receivedAt,
-      description: `Split from payment ${parentId}`,
-      isVirtualParent: false,
-      virtualParentId: parentId,
+      message: `Split from payment ${parentId}`,
+      variableSymbol: parent.variableSymbol,
+      specificSymbol: parent.specificSymbol,
+      constantSymbol: parent.constantSymbol,
+      bankTransactionId: parent.bankTransactionId,
+      counterpartyAccountNumber: parent.counterpartyAccountNumber,
+      counterpartyName: parent.counterpartyName,
+      comment: `Virtual payment split from ${parentId}`,
       targetMonth: split.targetMonth
     }))
 

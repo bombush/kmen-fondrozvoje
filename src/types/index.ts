@@ -23,8 +23,15 @@ export type BankPayment = {
   statementId: string
   userId: string // User who made the payment
   amount: number
+  variableSymbol: string
+  specificSymbol: string
+  constantSymbol: string
+  bankTransactionId: string // ID of the transaction in the bank statement
+  counterpartyAccountNumber: string
+  counterpartyName: string
   receivedAt: string
-  description: string
+  message: string
+  comment: string
   isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
 }
@@ -51,4 +58,23 @@ export type HistoryAction = {
     after?: any
   }
   createdAt: string
+} 
+
+
+export interface Project {
+  id: string
+  name: string
+  description: string
+  url?: string
+  goal: number
+  ownerId: string
+  completed: boolean
+  createdAt: string
+  updatedAt: string
+  pledges: {
+    userId: string
+    amount: number
+    locked: boolean
+    createdAt: string
+  }[]
 } 

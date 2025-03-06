@@ -126,6 +126,13 @@ CREDITS can be awarded to a user by another user
 `User` has a balance of CREDITS
 `User` can pledge to a project creating a `Pledge`
 
+
+#### Projects
+Project has a goal in CREDITS.
+Users submit pledges to a project.
+Project has flags that indicate whether money has been transferred to the project owner
+and flag which indicate whether the project was realized and a flag that indicates whether the project has been added to majetekKmene.
+
 #### Pledging
 `Pledge` can be deleted or edited by the creator of the pledge
 During creation of a pledge, the pledged amount of CREDITS is deducted from the creator's balance
@@ -151,4 +158,30 @@ User balance thus calculated can be negative.
 
 It is possible to manually award CREDITS to a user.
 
+- write about projects :)
+
+
+
+### Pages
+
+#### Home
+Empty for now.
+
+#### Projects
+A list of projects with a search bar and a filter by status.
+
+#### Project details
+Contains detailed information about a project and can be switched to an edit mode.
+
+#### Payment list
+A list of payments with a search bar and a filter by status.
+
+#### Payment matrix
+A matrix of payments with users on the x-axis and months on the y-axis.
+
+#### Users
+A user management page
+
+#### Profile
+A profile page for a user
 

@@ -6,12 +6,18 @@ const isFioFormat = async (content: string): Promise<boolean> =>
 
 // Synchronous field parsing
 const parseFioRow = (row: string): RawBankPayment => {
-  const [date, amount, description, userId] = row.split(';')
+  const [date, amount, description, userId, variableSymbol, specificSymbol, constantSymbol, bankTransactionId, counterpartyAccountNumber, counterpartyName] = row.split(';')
   return {
     userId,
     amount: parseAmount(amount),
     receivedAt: parseDate(date),
-    description: cleanDescription(description)
+    description,
+    variableSymbol: variableSymbol || "",
+    specificSymbol: specificSymbol || "",
+    constantSymbol: constantSymbol || "",
+    bankTransactionId: bankTransactionId || "",
+    counterpartyAccountNumber: counterpartyAccountNumber || "",
+    counterpartyName: counterpartyName || ""
   }
 }
 

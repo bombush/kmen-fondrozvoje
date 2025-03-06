@@ -2,7 +2,13 @@ export type RawBankPayment = {
   userId: string
   amount: number
   receivedAt: string
-  description: string
+  description: string   
+  variableSymbol: string
+  specificSymbol: string
+  constantSymbol: string
+  bankTransactionId: string
+  counterpartyAccountNumber: string
+  counterpartyName: string
 }
 
 export type ParserResult = {

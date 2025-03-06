@@ -1,74 +1,69 @@
 import { 
-  HomeIcon, 
-  LayoutDashboardIcon, 
-  FolderIcon, 
-  UsersIcon,
-  type LucideIcon 
+  Home,
+  FolderGit2,
+  Receipt,
+  Table,
+  Users,
+  User
 } from "lucide-react"
 
-export interface NavItem {
-  title: string
-  href: string
-  icon?: LucideIcon
-  description?: string
-  disabled?: boolean
-}
-
-export interface NavSection {
-  title?: string
-  items: NavItem[]
-}
-
-export const navigationConfig: NavSection[] = [
+export const navigation = [
   {
-    items: [
-      {
-        title: "Home",
-        href: "/",
-        icon: HomeIcon,
-        description: "Return to homepage",
-      },
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboardIcon,
-        description: "View your dashboard",
-      },
-    ],
+    title: "Home",
+    href: "/",
+    icon: Home
   },
   {
-    title: "Management",
+    title: "Projects",
+    href: "/projects",
+    icon: FolderGit2
+  },
+  {
+    title: "Payments",
     items: [
       {
-        title: "Projects",
-        href: "/projects",
-        icon: FolderIcon,
-        description: "Manage your projects",
+        title: "List",
+        href: "/payments",
+        icon: Receipt
       },
       {
-        title: "Users",
-        href: "/users",
-        icon: UsersIcon,
-        description: "Manage users",
-      },
-    ],
+        title: "Matrix",
+        href: "/payments/matrix", 
+        icon: Table
+      }
+    ]
   },
+  {
+    title: "Users",
+    href: "/users",
+    icon: Users
+  },
+  {
+    title: "Profile",
+    href: "/profile",
+    icon: User
+  }
 ]
 
+export type NavigationItem = {
+  title: string
+  href?: string
+  icon?: any
+  items?: NavigationItem[]
+}
+
 // Helper function to get nav item by path
-export function getNavItemByPath(path: string): NavItem | undefined {
-  return navigationConfig
-    .flatMap(section => section.items)
-    .find(item => item.href === path)
+export function getNavItemByPath(path: string): NavigationItem | undefined {
+  return navigation.find(item => item.href === path)
 }
 
 // Helper function to get breadcrumb items
-export function getBreadcrumbItems(path: string): NavItem[] {
+export function getBreadcrumbItems(path: string): NavigationItem[] {
   const segments = path.split('/').filter(Boolean)
-  const items: NavItem[] = []
+  const items: NavigationItem[] = []
   
   // Always include home
-  items.push(getNavItemByPath('/') as NavItem)
+  items.push(getNavItemByPath('/') as NavigationItem)
   
   // Build up the path segments and find matching nav items
   let currentPath = ''

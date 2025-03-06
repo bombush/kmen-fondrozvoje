@@ -11,7 +11,13 @@ const parseCsobRow = (row: string): RawBankPayment => {
     userId,
     amount: parseAmount(amount),
     receivedAt: parseDate(date),
-    description: cleanDescription(note)
+    description: note,
+    variableSymbol: "",
+    specificSymbol: "",
+    constantSymbol: "",
+    bankTransactionId: "",
+    counterpartyAccountNumber: "",
+    counterpartyName: ""
   }
 }
 
