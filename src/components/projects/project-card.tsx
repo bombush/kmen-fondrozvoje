@@ -1,5 +1,8 @@
+import Link from "next/link"
 import { Project } from "@/types"
 import { formatMoney } from "@/lib/utils"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 interface ProjectCardProps {
   project: Project
@@ -7,13 +10,21 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   return (
-    <div className="border rounded-lg p-4">
-      <h3 className="font-semibold">{project.name}</h3>
-      <p className="text-sm text-muted-foreground">{project.description}</p>
-      <div className="mt-2">
-        <div className="text-sm">Goal: {formatMoney(project.goal)}</div>
-        <div className="text-sm">Status: {project.completed ? "Completed" : "Active"}</div>
-      </div>
-    </div>
+    <Link href={`/projects/${project.id}`}>
+      <Card className="transition-colors hover:bg-muted/50">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <CardTitle>{project.name}</CardTitle>
+            <Badge variant={project.completed ? "default" : "secondary"}>
+              {project.completed ? "Completed" : "Active"}
+            </Badge>
+          </div>
+          <CardDescription>{project.description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm">Goal: {formatMoney(project.goal)}</div>
+        </CardContent>
+      </Card>
+    </Link>
   )
 } 

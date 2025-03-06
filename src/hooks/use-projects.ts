@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getProjects, getProject, createProject } from "@/lib/services/project-service"
+import { getProjects, getProject, createProject, updateProject } from "@/lib/services/project-service"
 import { Project } from "@/types"
 
 export function useProjects() {
@@ -22,6 +22,18 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (data: Omit<Project, "id" | "createdAt" | "updatedAt">) => 
       createProject(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    }
+  })
+}
+
+export function useUpdateProject() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Project> }) => 
+      updateProject(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
     }

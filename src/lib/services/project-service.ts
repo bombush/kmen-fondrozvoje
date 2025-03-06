@@ -69,4 +69,17 @@ export const createProject = async (data: Omit<Project, "id" | "createdAt" | "up
   }
   mockProjects.push(project)
   return project
+}
+
+export const updateProject = async (id: string, data: Partial<Project>) => {
+  await new Promise(r => setTimeout(r, 500))
+  const index = mockProjects.findIndex(p => p.id === id)
+  if (index === -1) throw new Error("Project not found")
+  
+  mockProjects[index] = {
+    ...mockProjects[index],
+    ...data,
+    updatedAt: new Date().toISOString()
+  }
+  return mockProjects[index]
 } 
