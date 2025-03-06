@@ -46,7 +46,6 @@ const mockPayments: BankPayment[] = [
     amount: 1000,
     receivedAt: "2024-01-15T10:30:00Z",
     description: "January contribution",
-    isVirtualParent: false
   },
   {
     id: "pmt_2",
@@ -55,7 +54,6 @@ const mockPayments: BankPayment[] = [
     amount: 2000,
     receivedAt: "2024-02-15T14:20:00Z",
     description: "February contribution",
-    isVirtualParent: false
   }
 ]
 

@@ -1,47 +1,22 @@
 import { BankPayment } from "@/types"
-import { DataProvider } from '@/lib/data'
 
-// Mock data
-const mockPayments: BankPayment[] = []
+// Mock data - in real app, this would be your database
+const payments: BankPayment[] = []
+const pledges: any[] = []
 
-// Service creator function
-const createPaymentService = (dataProvider: DataProvider) => ({
-  getPaymentsForMonth: (month: string) => 
-    dataProvider.payments.getForMonth(month),
+// Service functions
+export const getPaymentsForMonth = async (month: string): Promise<BankPayment[]> => 
+  payments.filter(p => p.targetMonth === month)
 
-  updatePayment: (id: string, data: Partial<BankPayment>) =>
-    dataProvider.payments.update(id, data),
-
-  getUserPledges: (userId: string) =>
-    dataProvider.pledges.getForUser(userId),
-
-  getMonthsWithPayments: () =>
-    dataProvider.payments.getMonthsWithPayments()
-})
-
-// Singleton instance with lazy initialization
-let paymentService: ReturnType<typeof createPaymentService>
-
-export const getPaymentService = () => {
-  if (!paymentService) {
-    // Switch providers here based on environment
-    const provider = process.env.NEXT_PUBLIC_USE_MOCK_DATA 
-      ? mockDataProvider
-      : firebaseDataProvider
-    paymentService = createPaymentService(provider)
+export const updatePayment = async (id: string, data: Partial<BankPayment>): Promise<void> => {
+  const index = payments.findIndex(p => p.id === id)
+  if (index >= 0) {
+    payments[index] = { ...payments[index], ...data }
   }
-  return paymentService
 }
 
-// Individual function exports if preferred
-export const getPaymentsForMonth = (month: string) =>
-  getPaymentService().getPaymentsForMonth(month)
+export const getUserPledges = async (userId: string) => 
+  pledges.filter(p => p.userId === userId)
 
-export const updatePayment = (id: string, data: Partial<BankPayment>) =>
-  getPaymentService().updatePayment(id, data)
-
-export const getUserPledges = (userId: string) =>
-  getPaymentService().getUserPledges(userId)
-
-export const getMonthsWithPayments = () =>
-  getPaymentService().getMonthsWithPayments() 
+export const getMonthsWithPayments = async (): Promise<string[]> => 
+  [...new Set(payments.map(p => p.targetMonth!))] 

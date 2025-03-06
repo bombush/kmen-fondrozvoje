@@ -36,24 +36,22 @@ export function PaymentList({ month }: PaymentListProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {payments?.map((payment) => (
+        {payments?.map((payment: BankPayment) => (
           <TableRow 
             key={payment.id}
-            className={payment.isVirtualParent ? "opacity-50" : ""}
+            className={""}
           >
             <TableCell>{payment.userId}</TableCell>
             <TableCell>{formatMoney(payment.amount)}</TableCell>
             <TableCell>{formatDate(payment.receivedAt)}</TableCell>
             <TableCell>{payment.targetMonth || "Unassigned"}</TableCell>
             <TableCell>
-              {!payment.isVirtualParent && !payment.virtualParentId && (
                 <Button
                   variant="ghost"
                   size="icon"
                 >
                   <Split className="h-4 w-4" />
                 </Button>
-              )}
             </TableCell>
           </TableRow>
         ))}

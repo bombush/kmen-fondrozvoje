@@ -97,8 +97,7 @@ export default function BankPage() {
         <div>
           <h2 className="text-lg font-semibold mb-4">Payments</h2>
           <PaymentList
-            payments={payments}
-            onSplitPayment={setSplitDialogPayment}
+            month={selectedStatement?.month || new Date().toISOString().slice(0, 7)}
           />
         </div>
       )}

@@ -9586,6 +9586,476 @@ Would you like me to:
 
 ---
 
+_**User**_
+
+For the code present, we get this error:
+```
+Cannot find module '@/lib/data' or its corresponding type declarations.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+🤖 Let's create the missing data module:
+
+````typescript:src/lib/data/index.ts
+export * from './types'
+export { mockDataProvider } from './mock'
+````
+
+This should resolve the import error since we already have:
+- `src/lib/data/types.ts`
+- `src/lib/data/mock/index.ts`
+
+Would you like me to show the Firebase implementation next?
+
+---
+
+_**User**_
+
+Yes. Write the Firebase implementation next
+
+---
+
+_**Assistant**_
+
+
+
+🤖 Here's the Firebase implementation:
+
+````typescript:src/lib/data/firebase/payment-provider.ts
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { PaymentDataProvider } from '../types'
+import { BankPayment } from '@/types'
+
+export const firebasePaymentProvider: PaymentDataProvider = {
+  getForMonth: async (month: string) => {
+    const q = query(
+      collection(db, 'payments'),
+      where('targetMonth', '==', month)
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankPayment))
+  },
+
+  update: async (id: string, data: Partial<BankPayment>) => {
+    const ref = doc(db, 'payments', id)
+    await updateDoc(ref, data)
+  },
+
+  getMonthsWithPayments: async () => {
+    const snapshot = await getDocs(collection(db, 'payments'))
+    const months = snapshot.docs.map(doc => doc.data().targetMonth)
+    return [...new Set(months)].filter(Boolean)
+  }
+}
+````
+
+````typescript:src/lib/data/firebase/index.ts
+import { DataProvider } from '../types'
+import { firebasePaymentProvider } from './payment-provider'
+import { firebaseStatementProvider } from './statement-provider'
+import { firebasePledgeProvider } from './pledge-provider'
+
+export const firebaseDataProvider: DataProvider = {
+  payments: firebasePaymentProvider,
+  statements: firebaseStatementProvider,
+  pledges: firebasePledgeProvider
+}
+````
+
+Then update the service factory:
+
+````typescript:src/lib/services/payment-service.ts
+import { mockDataProvider } from '@/lib/data/mock'
+import { firebaseDataProvider } from '@/lib/data/firebase'
+
+// ... rest of the file ...
+
+export const getPaymentService = () => {
+  if (!paymentService) {
+    const provider = process.env.NEXT_PUBLIC_USE_MOCK_DATA 
+      ? mockDataProvider
+      : firebaseDataProvider
+    paymentService = createPaymentService(provider)
+  }
+  return paymentService
+}
+````
+
+Would you like me to:
+1. Add the other Firebase providers?
+2. Add Firebase configuration?
+3. Add error handling?
+4. Add data validation?
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Cannot find module './statement-provider' or its corresponding type declarations.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+🤖 Let's create the missing statement provider:
+
+````typescript:src/lib/data/firebase/statement-provider.ts
+import { collection, doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { StatementDataProvider } from '../types'
+import { BankStatement } from '@/types'
+
+export const firebaseStatementProvider: StatementDataProvider = {
+  update: async (id: string, data: Partial<BankStatement>) => {
+    const ref = doc(db, 'statements', id)
+    await updateDoc(ref, data)
+  }
+}
+````
+
+Would you like me to create the pledge provider as well?
+
+---
+
+_**User**_
+
+yes
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 Here's the pledge provider:
+
+````typescript:src/lib/data/firebase/pledge-provider.ts
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { PledgeDataProvider } from '../types'
+import { Pledge } from '@/types'
+
+export const firebasePledgeProvider: PledgeDataProvider = {
+  getForUser: async (userId: string) => {
+    const q = query(
+      collection(db, 'pledges'),
+      where('userId', '==', userId)
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pledge))
+  }
+}
+````
+
+
+This completes our Firebase implementation with:
+1. Payment provider
+2. Statement provider
+3. Pledge provider
+
+Would you like me to:
+1. Add error handling?
+2. Add data validation?
+3. Add batch operations?
+4. Add caching?
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Cannot find module './pledge-provider' or its corresponding type declarations.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Let's create the mock pledge provider:
+
+````typescript:src/lib/data/mock/pledge-provider.ts
+import { PledgeDataProvider } from '../types'
+import { Pledge } from '@/types'
+
+const mockPledges: Pledge[] = []
+
+export const mockPledgeProvider: PledgeDataProvider = {
+  getForUser: async (userId: string) => 
+    mockPledges.filter(p => p.userId === userId)
+}
+````
+
+This matches the structure of our other mock providers and implements the required interface.
+
+---
+
+_**User**_
+
+Refactor payment service so no providers are needed and remove providers
+
+---
+
+_**Assistant**_
+
+🤖 I'll help refactor the payment service to be simpler without providers. Here's the streamlined version:
+
+````typescript:src/lib/services/payment-service.ts
+import { BankPayment } from "@/types"
+
+// Mock data - in real app, this would be your database
+const payments: BankPayment[] = []
+const pledges: any[] = []
+
+// Service functions
+export const getPaymentsForMonth = async (month: string): Promise<BankPayment[]> => 
+  payments.filter(p => p.targetMonth === month)
+
+export const updatePayment = async (id: string, data: Partial<BankPayment>): Promise<void> => {
+  const index = payments.findIndex(p => p.id === id)
+  if (index >= 0) {
+    payments[index] = { ...payments[index], ...data }
+  }
+}
+
+export const getUserPledges = async (userId: string) => 
+  pledges.filter(p => p.userId === userId)
+
+export const getMonthsWithPayments = async (): Promise<string[]> => 
+  [...new Set(payments.map(p => p.targetMonth!))]
+````
+
+Then we can delete:
+1. `src/lib/data/` directory (including all providers)
+2. Provider-related imports in components
+
+Would you like me to show:
+1. How to add real database integration later?
+2. How to handle errors?
+3. How to add data validation?
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Module '"@/lib/utils"' has no exported member 'generateId'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 Let's add the missing utility function:
+
+````typescript:src/lib/utils.ts
+export const generateId = (): string => 
+  Math.random().toString(36).substring(2) + Date.now().toString(36)
+````
+
+This creates unique IDs using a combination of random numbers and timestamps. Would you like me to:
+1. Add a more robust ID generator?
+2. Add type safety?
+3. Add validation?
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Type '{ payments: BankPayment[]; onSplitPayment: Dispatch<SetStateAction<BankPayment | null>>; }' is not assignable to type 'IntrinsicAttributes & PaymentListProps'.
+  Property 'payments' does not exist on type 'IntrinsicAttributes & PaymentListProps'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 The error is because `PaymentList` component now expects a `month` prop but is being passed `payments` and `onSplitPayment`. Let's update the usage:
+
+````typescript:src/app/bank/page.tsx
+// Before
+<PaymentList
+  payments={payments}
+  onSplitPayment={setSplitDialogPayment}
+/>
+
+// After
+<PaymentList
+  month={selectedStatement?.month || new Date().toISOString().slice(0, 7)}
+/>
+````
+
+The component now fetches its own data using the `useMonthlyPayments` hook based on the provided month.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Module '"@/lib/utils"' has no exported member 'formatMoney'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Let's add the missing formatting utilities:
+
+````typescript:src/lib/utils.ts
+export const formatMoney = (amount: number): string => 
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(amount)
+
+export const formatDate = (date: string): string => 
+  new Date(date).toLocaleDateString()
+````
+
+
+This adds both `formatMoney` and `formatDate` functions that were missing from the utils file.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Parameter 'payment' implicitly has an 'any' type.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Add type to the map parameter:
+
+````typescript:src/components/bank/payment-list.tsx
+{payments?.map((payment: BankPayment) => (
+  <TableRow 
+    key={payment.id}
+    className={payment.isVirtualParent ? "opacity-50" : ""}
+  >
+````
+
+
+Don't forget to import the type:
+
+````typescript
+import { BankPayment } from "@/types"
+````
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Cannot find module '@/components/ui/table' or its corresponding type declarations.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+🤖 Install and add the table component:
+
+```bash
+npx shadcn add table
+```
+
+This will create the table component at `src/components/ui/table.tsx` with all necessary dependencies.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Property 'isVirtualParent' does not exist on type 'BankPayment'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Update the BankPayment type to include the virtual payment fields:
+
+````typescript:src/types.ts
+export interface BankPayment {
+  id: string
+  statementId: string
+  userId: string
+  amount: number
+  receivedAt: string
+  description: string
+  targetMonth?: string
+  isVirtualParent?: boolean
+  virtualParentId?: string
+  isSplitFromId?: string
+}
+````
+
+This adds all the fields needed for payment splitting functionality.
+
+---
+
 
 
 ---

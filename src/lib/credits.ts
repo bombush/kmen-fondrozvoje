@@ -14,7 +14,7 @@ import { getPaymentsForMonth, updatePayment, getUserPledges, getMonthsWithPaymen
 export async function processBankStatement(statement: BankStatement): Promise<BankPayment[]> {
   try {
     // Parse raw payment data using appropriate parser
-    const rawPayments = parseStatement(statement.payments)
+    const rawPayments = await parseStatement(statement.payments)
     
     // Create payment records with received month as target
     const payments = await Promise.all(
@@ -30,18 +30,20 @@ export async function processBankStatement(statement: BankStatement): Promise<Ba
     )
 
     // Mark statement as processed
+    /*
     await updateStatement(statement.id, { 
       status: 'processed',
       processedAt: new Date().toISOString()
     })
-
+*/
     return payments
   } catch (error) {
     // Mark statement as error
+    /*
     await updateStatement(statement.id, {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error'
-    })
+    })*/
     throw error
   }
 }
@@ -98,7 +100,7 @@ export async function calculateMonthlyCredits(month: string) {
   const contributors = new Set(payments.map(p => p.userId))
 
   // Calculate total amount from all payments targeting this month
-  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0))
+  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0)
 
   // Distribute credits equally among contributors
   const creditsPerContributor = totalAmount / contributors.size
