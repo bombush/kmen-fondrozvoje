@@ -4,66 +4,107 @@ import {
   Receipt,
   Table,
   Users,
-  User
+  User,
+  LayoutDashboard,
+  CreditCard,
+  Settings
 } from "lucide-react"
 
-export const navigation = [
+export interface NavItem {
+  title: string
+  href: string
+  icon?: any
+  description?: string
+  disabled?: boolean
+}
+
+export interface NavSection {
+  title?: string
+  items: NavItem[]
+}
+
+export const navigationConfig: NavSection[] = [
   {
-    title: "Home",
-    href: "/",
-    icon: Home
-  },
-  {
-    title: "Projects",
-    href: "/projects",
-    icon: FolderGit2
-  },
-  {
-    title: "Payments",
+    title: "Dashboard",
     items: [
       {
-        title: "List",
-        href: "/payments",
-        icon: Receipt
+        title: "Home",
+        href: "/",
+        icon: Home
       },
       {
-        title: "Matrix",
-        href: "/payments/matrix", 
-        icon: Table
+        title: "Overview",
+        href: "/dashboard",
+        icon: LayoutDashboard
       }
     ]
   },
   {
-    title: "Users",
-    href: "/users",
-    icon: Users
+    title: "Projects",
+    items: [
+      {
+        title: "All Projects",
+        href: "/projects",
+        icon: FolderGit2
+      }
+    ]
   },
   {
-    title: "Profile",
-    href: "/profile",
-    icon: User
+    title: "Finances",
+    items: [
+      {
+        title: "Payments",
+        href: "/payments",
+        icon: Receipt
+      },
+      {
+        title: "Payment Matrix",
+        href: "/payments/matrix",
+        icon: Table
+      },
+      {
+        title: "Credits",
+        href: "/credits",
+        icon: CreditCard
+      }
+    ]
+  },
+  {
+    title: "Management",
+    items: [
+      {
+        title: "Users",
+        href: "/users",
+        icon: Users
+      },
+      {
+        title: "Profile",
+        href: "/profile",
+        icon: User
+      },
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings
+      }
+    ]
   }
 ]
 
-export type NavigationItem = {
-  title: string
-  href?: string
-  icon?: any
-  items?: NavigationItem[]
-}
-
 // Helper function to get nav item by path
-export function getNavItemByPath(path: string): NavigationItem | undefined {
-  return navigation.find(item => item.href === path)
+export function getNavItemByPath(path: string): NavItem | undefined {
+  return navigationConfig
+    .flatMap(section => section.items)
+    .find(item => item.href === path)
 }
 
 // Helper function to get breadcrumb items
-export function getBreadcrumbItems(path: string): NavigationItem[] {
+export function getBreadcrumbItems(path: string): NavItem[] {
   const segments = path.split('/').filter(Boolean)
-  const items: NavigationItem[] = []
+  const items: NavItem[] = []
   
   // Always include home
-  items.push(getNavItemByPath('/') as NavigationItem)
+  items.push(getNavItemByPath('/') as NavItem)
   
   // Build up the path segments and find matching nav items
   let currentPath = ''
