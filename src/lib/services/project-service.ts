@@ -45,8 +45,10 @@ const mockPledges = [
   }
 ]
 
+const MOCK_DELAY = process.env.NODE_ENV === 'development' ? 500 : 0
+
 export const getProjects = async () => {
-  await new Promise(r => setTimeout(r, 500)) // Simulate network delay
+  await new Promise(r => setTimeout(r, MOCK_DELAY))
   return mockProjects
 }
 
