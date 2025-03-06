@@ -6,6 +6,7 @@ import { BankStatementList } from "@/components/bank/bank-statement-list"
 import { PaymentList } from "@/components/bank/payment-list"
 import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
 import { getBankService } from "@/lib/services/bank-service"
+import { getPaymentsForMonth } from "@/lib/services/payment-service"
 
 export default function BankPage() {
   const [statements, setStatements] = useState<BankStatement[]>([])
@@ -13,6 +14,7 @@ export default function BankPage() {
   const [payments, setPayments] = useState<BankPayment[]>([])
   const [splitDialogPayment, setSplitDialogPayment] = useState<BankPayment | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     loadStatements()
@@ -23,6 +25,22 @@ export default function BankPage() {
       loadPayments(selectedStatement.id)
     }
   }, [selectedStatement])
+
+  useEffect(() => {
+    const loadPayments = async () => {
+      try {
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const data = await getPaymentsForMonth(currentMonth)
+        setPayments(data)
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to load payments'))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPayments()
+  }, [])
 
   async function loadStatements() {
     setLoading(true)
@@ -61,6 +79,9 @@ export default function BankPage() {
       console.error('Failed to split payment:', error)
     }
   }
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
 
   return (
     <div className="space-y-8">

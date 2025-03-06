@@ -9197,7 +9197,392 @@ import { BankPayment } from "@/types"
 const mockPayments: BankPayment[] = []
 
 export const getPaymentsForMonth = async (month: string): Promise<BankPayment[]> => {
-  return
+  return mockPayments.filter(p => p.targetMonth === month)
+}
+
+export const updatePayment = async (id: string, update: Partial<BankPayment>): Promise<void> => {
+  const index = mockPayments.findIndex(p => p.id === id)
+  if (index >= 0) {
+    mockPayments[index] = { ...mockPayments[index], ...update }
+  }
+}
+
+export const getUserPledges = async (userId: string) => {
+  return [] // Mock pledges
+}
+
+export const getMonthsWithPayments = async (): Promise<string[]> => {
+  return [...new Set(mockPayments.map(p => p.targetMonth!))]
+}
+````
+
+Then import these functions in credits.ts:
+
+````typescript:src/lib/credits.ts
+import { getPaymentsForMonth, updatePayment, getUserPledges, getMonthsWithPayments } from "@/lib/services/payment-service"
+````
+
+---
+
+_**User**_
+
+Can you design a data fetcher for the frontend so I can switch from mock data to firestore or REST API without having to modify the logic of the components?
+
+---
+
+_**Assistant**_
+
+
+
+
+
+🤖 Here's a design for a data fetcher that abstracts the data source:
+
+````typescript:src/lib/data/types.ts
+export interface DataProvider {
+  payments: PaymentDataProvider
+  statements: StatementDataProvider
+  pledges: PledgeDataProvider
+}
+
+export interface PaymentDataProvider {
+  getForMonth: (month: string) => Promise<BankPayment[]>
+  update: (id: string, data: Partial<BankPayment>) => Promise<void>
+  getMonthsWithPayments: () => Promise<string[]>
+}
+
+export interface StatementDataProvider {
+  update: (id: string, data: Partial<BankStatement>) => Promise<void>
+}
+
+export interface PledgeDataProvider {
+  getForUser: (userId: string) => Promise<Pledge[]>
+}
+````
+
+````typescript:src/lib/data/mock/index.ts
+import { DataProvider } from '../types'
+import { mockPaymentProvider } from './payment-provider'
+import { mockStatementProvider } from './statement-provider'
+import { mockPledgeProvider } from './pledge-provider'
+
+export const mockDataProvider: DataProvider = {
+  payments: mockPaymentProvider,
+  statements: mockStatementProvider,
+  pledges: mockPledgeProvider
+}
+````
+
+````typescript:src/lib/data/mock/payment-provider.ts
+import { PaymentDataProvider } from '../types'
+import { BankPayment } from '@/types'
+
+const mockPayments: BankPayment[] = []
+
+export const mockPaymentProvider: PaymentDataProvider = {
+  getForMonth: async (month: string) => 
+    mockPayments.filter(p => p.targetMonth === month),
+
+  update: async (id: string, data: Partial<BankPayment>) => {
+    const index = mockPayments.findIndex(p => p.id === id)
+    if (index >= 0) {
+      mockPayments[index] = { ...mockPayments[index], ...data }
+    }
+  },
+
+  getMonthsWithPayments: async () => 
+    [...new Set(mockPayments.map(p => p.targetMonth!))]
+}
+````
+
+Then update the service to use the data provider:
+
+````typescript:src/lib/services/payment-service.ts
+import { DataProvider } from '@/lib/data'
+
+export class PaymentService {
+  constructor(private dataProvider: DataProvider) {}
+
+  getPaymentsForMonth = (month: string) => 
+    this.dataProvider.payments.getForMonth(month)
+
+  updatePayment = (id: string, data: Partial<BankPayment>) =>
+    this.dataProvider.payments.update(id, data)
+
+  getUserPledges = (userId: string) =>
+    this.dataProvider.pledges.getForUser(userId)
+
+  getMonthsWithPayments = () =>
+    this.dataProvider.payments.getMonthsWithPayments()
+}
+
+// Service factory
+let paymentService: PaymentService
+
+export const getPaymentService = () => {
+  if (!paymentService) {
+    // Switch providers here based on environment
+    const provider = process.env.NEXT_PUBLIC_USE_MOCK_DATA 
+      ? mockDataProvider
+      : firebaseDataProvider
+    paymentService = new PaymentService(provider)
+  }
+  return paymentService
+}
+````
+
+Would you like me to show:
+1. The Firebase implementation?
+2. The REST API implementation?
+3. How to use this in components?
+4. How to add more providers?
+
+---
+
+_**User**_
+
+I like the idea of the service but is there a functional programming variant to this?
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Here's a functional programming variant that uses closures instead of classes:
+
+````typescript:src/lib/services/payment-service.ts
+import { BankPayment } from "@/types"
+import { DataProvider } from '@/lib/data'
+
+// Service creator function
+const createPaymentService = (dataProvider: DataProvider) => ({
+  getPaymentsForMonth: (month: string) => 
+    dataProvider.payments.getForMonth(month),
+
+  updatePayment: (id: string, data: Partial<BankPayment>) =>
+    dataProvider.payments.update(id, data),
+
+  getUserPledges: (userId: string) =>
+    dataProvider.pledges.getForUser(userId),
+
+  getMonthsWithPayments: () =>
+    dataProvider.payments.getMonthsWithPayments()
+})
+
+// Singleton instance with lazy initialization
+let paymentService: ReturnType<typeof createPaymentService>
+
+export const getPaymentService = () => {
+  if (!paymentService) {
+    const provider = process.env.NEXT_PUBLIC_USE_MOCK_DATA 
+      ? mockDataProvider
+      : firebaseDataProvider
+    paymentService = createPaymentService(provider)
+  }
+  return paymentService
+}
+
+// Individual function exports if preferred
+export const getPaymentsForMonth = (month: string) =>
+  getPaymentService().getPaymentsForMonth(month)
+
+export const updatePayment = (id: string, data: Partial<BankPayment>) =>
+  getPaymentService().updatePayment(id, data)
+
+export const getUserPledges = (userId: string) =>
+  getPaymentService().getUserPledges(userId)
+
+export const getMonthsWithPayments = () =>
+  getPaymentService().getMonthsWithPayments()
+````
+
+
+Key differences:
+1. Uses a factory function instead of a class
+2. No `this` context or instance properties
+3. Pure functions with explicit dependencies
+4. Optional individual function exports for direct use
+5. Immutable service object
+6. Simpler type inference
+
+Would you like me to:
+1. Show how to use this in components?
+2. Add error handling?
+3. Add function composition examples?
+4. Add data transformation utilities?
+
+---
+
+_**User**_
+
+Show me how to use this is components
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+🤖 Here's how to use the functional service in React components:
+
+````typescript:src/app/bank/page.tsx
+"use client"
+
+import { useEffect, useState } from "react"
+import { BankPayment } from "@/types"
+import { getPaymentsForMonth } from "@/lib/services/payment-service"
+
+export default function BankPage() {
+  const [payments, setPayments] = useState<BankPayment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const loadPayments = async () => {
+      try {
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const data = await getPaymentsForMonth(currentMonth)
+        setPayments(data)
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to load payments'))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPayments()
+  }, [])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <div>
+      <h1>Bank Payments</h1>
+      <PaymentList payments={payments} />
+    </div>
+  )
+}
+````
+
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { BankPayment } from "@/types"
+import { updatePayment } from "@/lib/services/payment-service"
+
+interface Props {
+  payment: BankPayment
+  onClose: () => void
+}
+
+export function PaymentSplitDialog({ payment, onClose }: Props) {
+  const [amount, setAmount] = useState(payment.amount)
+  const [month, setMonth] = useState("")
+
+  const handleSplit = async () => {
+    try {
+      await updatePayment(payment.id, { amount })
+      onClose()
+    } catch (error) {
+      console.error('Failed to split payment:', error)
+    }
+  }
+
+  return (
+    <Dialog>
+      <input 
+        type="number" 
+        value={amount} 
+        onChange={e => setAmount(Number(e.target.value))} 
+      />
+      <input 
+        type="month" 
+        value={month} 
+        onChange={e => setMonth(e.target.value)} 
+      />
+      <button onClick={handleSplit}>Split Payment</button>
+    </Dialog>
+  )
+}
+````
+
+
+Or using React Query for better data management:
+
+````typescript:src/hooks/use-payments.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getPaymentsForMonth, updatePayment } from '@/lib/services/payment-service'
+
+export function useMonthlyPayments(month: string) {
+  return useQuery({
+    queryKey: ['payments', month],
+    queryFn: () => getPaymentsForMonth(month)
+  })
+}
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }) => updatePayment(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+    }
+  })
+}
+````
+
+
+Then in components:
+
+````typescript:src/components/bank/payment-list.tsx
+"use client"
+
+import { useMonthlyPayments } from '@/hooks/use-payments'
+
+export function PaymentList({ month }: { month: string }) {
+  const { data: payments, isLoading, error } = useMonthlyPayments(month)
+
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error loading payments</div>
+
+  return (
+    <ul>
+      {payments?.map(payment => (
+        <li key={payment.id}>
+          {payment.amount} - {payment.description}
+        </li>
+      ))}
+    </ul>
+  )
+}
+````
+
+
+Key benefits:
+1. Clean separation of concerns
+2. Easy to test components
+3. Consistent error handling
+4. Type safety throughout
+5. Reusable data fetching logic
+
+Would you like me to:
+1. Add more complex examples?
+2. Show optimistic updates?
+3. Add error boundary handling?
+4. Show loading states with Suspense?
 
 ---
 

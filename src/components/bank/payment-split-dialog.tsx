@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, Trash } from "lucide-react"
+import { updatePayment } from "@/lib/services/payment-service"
 
 interface PaymentSplitDialogProps {
   payment: BankPayment
@@ -29,6 +30,17 @@ export function PaymentSplitDialog({
   const [splits, setSplits] = useState([{ amount: 0, targetMonth: "" }])
   const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
   const remaining = payment.amount - totalSplit
+  const [amount, setAmount] = useState(payment.amount)
+  const [month, setMonth] = useState("")
+
+  const handleSplit = async () => {
+    try {
+      await updatePayment(payment.id, { amount })
+      onSplit(splits)
+    } catch (error) {
+      console.error('Failed to split payment:', error)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,7 +105,7 @@ export function PaymentSplitDialog({
           <Button 
             className="w-full"
             disabled={remaining !== 0}
-            onClick={() => onSplit(splits)}
+            onClick={handleSplit}
           >
             Split Payment
           </Button>

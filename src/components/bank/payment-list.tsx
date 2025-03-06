@@ -1,5 +1,6 @@
 "use client"
 
+import { useMonthlyPayments } from '@/hooks/use-payments'
 import { BankPayment } from "@/types"
 import {
   Table,
@@ -14,11 +15,15 @@ import { Button } from "@/components/ui/button"
 import { Split } from "lucide-react"
 
 interface PaymentListProps {
-  payments: BankPayment[]
-  onSplitPayment: (payment: BankPayment) => void
+  month: string
 }
 
-export function PaymentList({ payments, onSplitPayment }: PaymentListProps) {
+export function PaymentList({ month }: PaymentListProps) {
+  const { data: payments, isLoading, error } = useMonthlyPayments(month)
+
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error loading payments</div>
+
   return (
     <Table>
       <TableHeader>
@@ -31,7 +36,7 @@ export function PaymentList({ payments, onSplitPayment }: PaymentListProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {payments.map((payment) => (
+        {payments?.map((payment) => (
           <TableRow 
             key={payment.id}
             className={payment.isVirtualParent ? "opacity-50" : ""}
@@ -45,7 +50,6 @@ export function PaymentList({ payments, onSplitPayment }: PaymentListProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onSplitPayment(payment)}
                 >
                   <Split className="h-4 w-4" />
                 </Button>
