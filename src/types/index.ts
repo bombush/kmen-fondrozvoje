@@ -69,6 +69,7 @@ export interface Project {
   goal: number
   ownerId: string
   completed: boolean
+  deleted?: boolean
   createdAt: string
   updatedAt: string
-} 
+}

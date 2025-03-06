@@ -10,6 +10,7 @@ const mockProjects: Project[] = [
     goal: 5000,
     ownerId: "user_1",
     completed: false,
+    deleted: false,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -20,6 +21,7 @@ const mockProjects: Project[] = [
     goal: 10000,
     ownerId: "user_2",
     completed: true,
+    deleted: false,
     createdAt: "2023-12-01T00:00:00Z",
     updatedAt: "2024-01-15T00:00:00Z"
   }
@@ -47,9 +49,9 @@ const mockPledges = [
 
 const MOCK_DELAY = process.env.NODE_ENV === 'development' ? 500 : 0
 
-export const getProjects = async () => {
+export const getProjects = async (includeDeleted = false) => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
-  return mockProjects
+  return includeDeleted ? mockProjects : mockProjects.filter(p => !p.deleted)
 }
 
 export const getProject = async (id: string): Promise<Project | null> => {
@@ -65,9 +67,10 @@ export const getProjectPledges = async (projectId: string) => {
   return mockPledges.filter(p => p.projectId === projectId)
 }
 
-export const createProject = async (data: Omit<Project, "id" | "createdAt" | "updatedAt">) => {
+export const createProject = async (data: Omit<Project, "id" | "createdAt" | "updatedAt" | "deleted">) => {
   const project: Project = {
     id: `proj_${Date.now()}`,
+    deleted: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...data
@@ -94,5 +97,28 @@ export const deleteProject = async (id: string) => {
   const index = mockProjects.findIndex(p => p.id === id)
   if (index === -1) throw new Error("Project not found")
   
-  mockProjects.splice(index, 1)
-} 
+  // Mark the project as deleted instead of removing it
+  mockProjects[index] = {
+    ...mockProjects[index],
+    deleted: true,
+    updatedAt: new Date().toISOString()
+  }
+  
+  return mockProjects[index]
+}
+
+export const undoDeleteProject = async (id: string) => {
+  await new Promise(r => setTimeout(r, 300))
+  
+  const index = mockProjects.findIndex(p => p.id === id && p.deleted)
+  if (index === -1) throw new Error("Deleted project not found")
+  
+  // Mark the project as not deleted
+  mockProjects[index] = {
+    ...mockProjects[index],
+    deleted: false,
+    updatedAt: new Date().toISOString()
+  }
+  
+  return mockProjects[index]
+}

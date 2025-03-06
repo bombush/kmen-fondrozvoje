@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getProjects, getProject, createProject, updateProject, deleteProject } from "@/lib/services/project-service"
+import { getProjects, getProject, createProject, updateProject, deleteProject, undoDeleteProject } from "@/lib/services/project-service"
 import { Project } from "@/types"
 import { useRouter } from "next/navigation"
 
-export function useProjects() {
+export function useProjects(includeDeleted = false) {
   return useQuery({
-    queryKey: ["projects"],
-    queryFn: getProjects
+    queryKey: ["projects", { includeDeleted }],
+    queryFn: () => getProjects(includeDeleted)
   })
 }
 
@@ -22,7 +22,7 @@ export function useCreateProject() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: (data: Omit<Project, "id" | "createdAt" | "updatedAt">) => 
+    mutationFn: (data: Omit<Project, "id" | "createdAt" | "updatedAt" | "deleted">) => 
       createProject(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
@@ -48,9 +48,23 @@ export function useDeleteProject() {
   
   return useMutation({
     mutationFn: deleteProject,
-    onSuccess: () => {
+    onSuccess: (deletedProject) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
-      router.push("/projects")
+      // Only navigate away if we're on the project detail page
+      if (window.location.pathname.includes(`/projects/${deletedProject.id}`)) {
+        router.push("/projects")
+      }
     }
   })
-} 
+}
+
+export function useUndoDeleteProject() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: undoDeleteProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    }
+  })
+}
