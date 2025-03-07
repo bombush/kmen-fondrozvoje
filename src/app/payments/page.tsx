@@ -394,10 +394,10 @@ export default function PaymentsPage() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {payment.isSplitFromId && (
-                          <GitBranch size={16} className="text-blue-500" title="Split from another payment" />
+                          <GitBranch size={16} className="text-blue-500" aria-label="Split from another payment" />
                         )}
                         {isParentPayment(payment) && (
-                          <GitMerge size={16} className="text-purple-500" title="Parent to split payments" />
+                          <GitMerge size={16} className="text-purple-500" aria-label="Parent to split payments" />
                         )}
                         {payment.amount > 0 ? (
                           <span className="text-green-600 dark:text-green-400">+{formatMoney(payment.amount)}</span>
