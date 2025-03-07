@@ -30,7 +30,7 @@
 import React, { useState } from "react"
 import { BankPayment } from "@/types"
 import { toast } from "sonner"
-import { ChevronDown, ChevronUp, Split } from "lucide-react"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch } from "lucide-react"
 import { formatMoney } from "@/lib/utils"
 import {
   Table,
@@ -125,6 +125,7 @@ const mockPayments: BankPayment[] = [
     comment: "Určeno pro konkrétní projekt",
     targetMonth: "2025-02"
   },
+  // This payment is a parent payment that has been split into two payments below
   {
     id: "pay-006",
     statementId: "stmt-2025-01",
@@ -139,6 +140,42 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-01-15T10:00:00Z",
     message: "Příspěvek leden 2025",
     comment: "",
+    targetMonth: "2025-01"
+  },
+  // Split payment from pay-006
+  {
+    id: "pay-006-split-1",
+    statementId: "stmt-2025-01",
+    userId: "user-006",
+    amount: 1500,
+    variableSymbol: "623456",
+    specificSymbol: "",
+    constantSymbol: "",
+    bankTransactionId: "tr-12350",
+    counterpartyAccountNumber: "123987456/0100",
+    counterpartyName: "Jana Horáková",
+    receivedAt: "2025-01-15T10:00:00Z",
+    message: "Příspěvek leden 2025 - část 1",
+    comment: "Split část 1",
+    isSplitFromId: "pay-006",
+    targetMonth: "2025-01"
+  },
+  // Split payment from pay-006
+  {
+    id: "pay-006-split-2",
+    statementId: "stmt-2025-01",
+    userId: "user-006",
+    amount: 1000,
+    variableSymbol: "623456",
+    specificSymbol: "",
+    constantSymbol: "",
+    bankTransactionId: "tr-12350",
+    counterpartyAccountNumber: "123987456/0100",
+    counterpartyName: "Jana Horáková",
+    receivedAt: "2025-01-15T10:00:00Z",
+    message: "Příspěvek leden 2025 - část 2",
+    comment: "Split část 2",
+    isSplitFromId: "pay-006",
     targetMonth: "2025-01"
   },
   {
@@ -157,6 +194,7 @@ const mockPayments: BankPayment[] = [
     comment: "",
     targetMonth: "2025-01"
   },
+  // This payment will be a parent to the split below
   {
     id: "pay-008",
     statementId: "stmt-2025-03",
@@ -171,6 +209,42 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-05T13:15:00Z",
     message: "Velký sponzorský dar",
     comment: "Určeno pro fond rozvoje",
+    targetMonth: "2025-03"
+  },
+  // Split payment from pay-008
+  {
+    id: "pay-008-split-1",
+    statementId: "stmt-2025-03",
+    userId: "user-007",
+    amount: 6000,
+    variableSymbol: "723456",
+    specificSymbol: "999888",
+    constantSymbol: "0558",
+    bankTransactionId: "tr-12352",
+    counterpartyAccountNumber: "555666777/0800",
+    counterpartyName: "Karel Černý",
+    receivedAt: "2025-03-05T13:15:00Z",
+    message: "Velký sponzorský dar - část 1",
+    comment: "Určeno pro fond rozvoje - projektová část",
+    isSplitFromId: "pay-008",
+    targetMonth: "2025-03"
+  },
+  // Split payment from pay-008
+  {
+    id: "pay-008-split-2",
+    statementId: "stmt-2025-03",
+    userId: "user-007",
+    amount: 4000,
+    variableSymbol: "723456",
+    specificSymbol: "999888",
+    constantSymbol: "0558",
+    bankTransactionId: "tr-12352",
+    counterpartyAccountNumber: "555666777/0800",
+    counterpartyName: "Karel Černý",
+    receivedAt: "2025-03-05T13:15:00Z",
+    message: "Velký sponzorský dar - část 2",
+    comment: "Určeno pro fond rozvoje - provozní část",
+    isSplitFromId: "pay-008",
     targetMonth: "2025-03"
   },
   {
@@ -238,6 +312,11 @@ export default function PaymentsPage() {
     toast.info(`Split payment functionality would open a modal for payment ID: ${payment.id}`, {
       description: "This functionality is not yet implemented"
     });
+  }
+
+  // Helper function to check if a payment is a parent payment (has children splits)
+  const isParentPayment = (payment: BankPayment) => {
+    return mockPayments.some(p => p.isSplitFromId === payment.id);
   }
 
   // Filter payments based on search and month filter
@@ -313,11 +392,19 @@ export default function PaymentsPage() {
                     onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
                   >
                     <TableCell className="font-medium">
-                      {payment.amount > 0 ? (
-                        <span className="text-green-600 dark:text-green-400">+{formatMoney(payment.amount)}</span>
-                      ) : (
-                        <span className="text-red-600 dark:text-red-400">{formatMoney(payment.amount)}</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {payment.isSplitFromId && (
+                          <GitBranch size={16} className="text-blue-500" title="Split from another payment" />
+                        )}
+                        {isParentPayment(payment) && (
+                          <GitMerge size={16} className="text-purple-500" title="Parent to split payments" />
+                        )}
+                        {payment.amount > 0 ? (
+                          <span className="text-green-600 dark:text-green-400">+{formatMoney(payment.amount)}</span>
+                        ) : (
+                          <span className="text-red-600 dark:text-red-400">{formatMoney(payment.amount)}</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="truncate">{payment.counterpartyName}</TableCell>
                     <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
