@@ -147,7 +147,10 @@ When the sum of all pledges to a project is equal to the project's goal, the pro
 Every month a PROJECT BANK STATEMENT from the PROJECT BANK ACCOUNT is downloaded and processed.
 
 Payments received by the PROJECT BANK ACCOUNT are assigned to the month they were received.
-Payments can be split by a user over previous months. The virtual payments thus created are marked with the `isSplitFromId` field indicating the original payment id. The amount in the original payment must be updated so that the sum of the original payment and all its virtual children equals the original payment amount.
+
+##### Splitting payments
+Payments can be split by a user over previous months. The virtual payments thus created are marked with the `isSplitFromId` field indicating the original payment id. Target month should be updated to the month of the new payment.
+The amount in the original payment must be updated so that the sum of the original payment and all its virtual children equals the original payment amount.
 The rationale for this is that a user can fail to pay in a month and then pay for retroactively in the following months.
 
 Whenever a month ends, income to the payments from users assigned to a month is summed up, the sum is converted to CREDITS and the CREDITS are uniformly distributed among all users who contributed during the month in question. 
