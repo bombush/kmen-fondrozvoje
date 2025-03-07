@@ -5,9 +5,15 @@ export type User = {
   avatar?: string
   role: 'user' | 'admin'
   balance: number // Can be negative
+  specificSymbol?:string
+  variableSymbol?: string
+  constantSymbol?: string
+  isActive: boolean
   createdAt: string
   updatedAt: string
 }
+
+//@TODO: what if specific symbol changes?
 
 // @TODO: add field for JSON of payments
 export type BankStatement = {
