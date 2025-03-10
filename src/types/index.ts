@@ -42,6 +42,27 @@ export type BankPayment = {
   targetMonth?: string // Which month this payment (or split) contributes to
 }
 
+export type CreditAward =  {
+  id: string
+  userId: string
+  amount: number
+  createdAt: string
+  updatedAt: string
+  originatingUserId?: string // Id of user who awarded credits
+  month: string // YYYY-MM format @TODO: create Month type
+  description: string
+}
+
+export type CreditAwardHistory = {
+  id: string
+  userId: string
+  amount: number
+  createdAt: string
+  updatedAt: string
+  originatingUserId?: string // Id of user who awarded credits
+  description: string
+}
+
 // History action types
 export type HistoryActionType = 
   | 'create_project' 
@@ -78,4 +99,17 @@ export interface Project {
   deleted?: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type Pledge = {
+  id: string
+  userId: string
+  projectId: string
+  amount: number
+  createdAt: string
+  updatedAt: string
+  locked: boolean
+  deleted?: boolean
+  originatingUserId?: string
+  description: string
 }
