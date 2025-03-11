@@ -1,75 +1,6 @@
 import { BankStatement, BankPayment } from "@/types"
-
-// Mock data
-const mockStatements: BankStatement[] = [
-  {
-    id: "stmt_1",
-    month: "2024-01",
-    processedAt: "2024-01-31T12:00:00Z",
-    status: "processed",
-    payments: JSON.stringify([
-      {
-        userId: "user_1",
-        amount: 1000,
-        receivedAt: "2024-01-15T10:30:00Z",
-        description: "January contribution"
-      }
-    ])
-  },
-  {
-    id: "stmt_2",
-    month: "2024-02",
-    processedAt: "2024-02-29T12:00:00Z",
-    status: "pending",
-    payments: JSON.stringify([
-      {
-        userId: "user_1",
-        amount: 2000,
-        receivedAt: "2024-02-15T14:20:00Z",
-        description: "February contribution"
-      },
-      {
-        userId: "user_2",
-        amount: 1500,
-        receivedAt: "2024-02-16T09:15:00Z",
-        description: "First contribution"
-      }
-    ])
-  }
-]
-
-const mockPayments: BankPayment[] = [
-  {
-    id: "pmt_1",
-    statementId: "stmt_1",
-    userId: "user_1",
-    amount: 1000,
-    receivedAt: "2024-01-15T10:30:00Z",
-    message: "January contribution",
-    variableSymbol: "12345",
-    specificSymbol: "",
-    constantSymbol: "",
-    bankTransactionId: "tx_1",
-    counterpartyAccountNumber: "1234567890/0100",
-    counterpartyName: "John Doe",
-    comment: ""
-  },
-  {
-    id: "pmt_2",
-    statementId: "stmt_2",
-    userId: "user_1",
-    amount: 2000,
-    receivedAt: "2024-02-15T14:20:00Z",
-    message: "February contribution",
-    variableSymbol: "12346",
-    specificSymbol: "",
-    constantSymbol: "",
-    bankTransactionId: "tx_2",
-    counterpartyAccountNumber: "1234567890/0100",
-    counterpartyName: "John Doe",
-    comment: ""
-  }
-]
+import { addDoc, collection, doc, getDoc, getDocs, query, where } from "firebase/firestore"
+import { db } from "../firebase/config"
 
 // Service interface
 export interface BankService {
@@ -82,54 +13,100 @@ export interface BankService {
   ): Promise<BankPayment[]>
 }
 
-// Mock implementation
-export class MockBankService implements BankService {
+// Firestore implementation
+export class FirestoreBankService implements BankService {
+  private statementsRef = collection(db, "bank_statements")
+  private paymentsRef = collection(db, "bank_payments")
+
   async getStatements(): Promise<BankStatement[]> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500))
-    return [...mockStatements]
+    try {
+      const querySnapshot = await getDocs(this.statementsRef)
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as BankStatement[]
+    } catch (error) {
+      console.error("Error fetching statements:", error)
+      throw error
+    }
   }
 
   async getStatement(id: string): Promise<BankStatement | null> {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    return mockStatements.find(s => s.id === id) || null
+    try {
+      const docRef = doc(this.statementsRef, id)
+      const docSnap = await getDoc(docRef)
+      
+      if (!docSnap.exists()) {
+        return null
+      }
+
+      return { id: docSnap.id, ...docSnap.data() } as BankStatement
+    } catch (error) {
+      console.error("Error fetching statement:", error)
+      throw error
+    }
   }
 
   async getPaymentsForStatement(statementId: string): Promise<BankPayment[]> {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    return mockPayments.filter(p => p.statementId === statementId)
+    try {
+      const q = query(
+        this.paymentsRef,
+        where("statementId", "==", statementId)
+      )
+      
+      const querySnapshot = await getDocs(q)
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as BankPayment[]
+    } catch (error) {
+      console.error("Error fetching payments:", error)
+      throw error
+    }
   }
 
   async createVirtualPayments(
     parentId: string,
     splits: Array<{ amount: number; targetMonth: string }>
   ): Promise<BankPayment[]> {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    const parent = mockPayments.find(p => p.id === parentId)
-    if (!parent) throw new Error("Payment not found")
+    try {
+      // Get parent payment
+      const parentRef = doc(this.paymentsRef, parentId)
+      const parentSnap = await getDoc(parentRef)
+      
+      if (!parentSnap.exists()) {
+        throw new Error("Parent payment not found")
+      }
 
-    const virtualPayments = splits.map((split, index) => ({
-      id: `pmt_virtual_${parentId}_${index}`,
-      statementId: parent.statementId,
-      userId: parent.userId,
-      amount: split.amount,
-      receivedAt: parent.receivedAt,
-      message: `Split from payment ${parentId}`,
-      variableSymbol: parent.variableSymbol,
-      specificSymbol: parent.specificSymbol,
-      constantSymbol: parent.constantSymbol,
-      bankTransactionId: parent.bankTransactionId,
-      counterpartyAccountNumber: parent.counterpartyAccountNumber,
-      counterpartyName: parent.counterpartyName,
-      comment: `Virtual payment split from ${parentId}`,
-      targetMonth: split.targetMonth
-    }))
+      const parent = { id: parentSnap.id, ...parentSnap.data() } as BankPayment
 
-    // In a real implementation, we would persist these
-    mockPayments.push(...virtualPayments)
-    
-    return virtualPayments
+      // Create virtual payments
+      const virtualPayments = await Promise.all(splits.map(async (split) => {
+        const virtualPayment: Omit<BankPayment, "id"> = {
+          statementId: parent.statementId,
+          userId: parent.userId,
+          amount: split.amount,
+          receivedAt: parent.receivedAt,
+          message: `Split from payment ${parentId}`,
+          variableSymbol: parent.variableSymbol,
+          specificSymbol: parent.specificSymbol,
+          constantSymbol: parent.constantSymbol,
+          bankTransactionId: parent.bankTransactionId,
+          counterpartyAccountNumber: parent.counterpartyAccountNumber,
+          counterpartyName: parent.counterpartyName,
+          comment: `Virtual payment split from ${parentId}`,
+          targetMonth: split.targetMonth
+        }
+
+        const docRef = await addDoc(this.paymentsRef, virtualPayment)
+        return { id: docRef.id, ...virtualPayment }
+      }))
+
+      return virtualPayments
+    } catch (error) {
+      console.error("Error creating virtual payments:", error)
+      throw error
+    }
   }
 }
 
@@ -138,8 +115,7 @@ let bankService: BankService
 
 export function getBankService(): BankService {
   if (!bankService) {
-    // Here we could switch between mock and real implementation
-    bankService = new MockBankService()
+    bankService = new FirestoreBankService()
   }
   return bankService
-} 
+}

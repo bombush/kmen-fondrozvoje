@@ -1,6 +1,5 @@
-import { toast } from "sonner"
 import { Pledge } from "@/types"
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore"
+import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore"
 import { db } from "../firebase/config"
 
 const COLLECTION_NAME = "pledges"
@@ -21,11 +20,9 @@ export const createPledge = async (data: Omit<Pledge, "id" | "createdAt" | "upda
     }
 
     const docRef = await addDoc(pledgesRef, pledge)
-    
-    toast.success("Pledge created successfully")
     return { id: docRef.id, ...pledge } as Pledge
   } catch (error) {
-    toast.error("Failed to create pledge")
+    console.error("Error creating pledge:", error)
     throw error
   }
 }
@@ -41,11 +38,9 @@ export const updatePledge = async (id: string, data: Partial<Pledge>) => {
     }
 
     await updateDoc(docRef, updatedData)
-    
-    toast.success("Pledge updated successfully")
     return { id, ...updatedData } as Pledge
   } catch (error) {
-    toast.error("Failed to update pledge")
+    console.error("Error updating pledge:", error)
     throw error
   }
 }
@@ -60,10 +55,9 @@ export const deletePledge = async (id: string) => {
       updatedAt: new Date().toISOString()
     })
 
-    toast.success("Pledge deleted successfully")
     return { id, deleted: true } as Pledge
   } catch (error) {
-    toast.error("Failed to delete pledge")
+    console.error("Error deleting pledge:", error)
     throw error
   }
 }
@@ -82,7 +76,7 @@ export const getPledge = async (id: string): Promise<Pledge | null> => {
     return { id: docSnap.id, ...docSnap.data() } as Pledge
   } catch (error) {
     console.error("Error fetching pledge:", error)
-    return null
+    throw error
   }
 }
 
@@ -103,7 +97,7 @@ export const getUserPledges = async (userId: string): Promise<Pledge[]> => {
     })) as Pledge[]
   } catch (error) {
     console.error("Error fetching user pledges:", error)
-    return []
+    throw error
   }
 }
 
@@ -112,10 +106,9 @@ export const lockPledge = async (id: string): Promise<Pledge> => {
   
   try {
     const updatedPledge = await updatePledge(id, { locked: true })
-    toast.success("Pledge locked successfully")
     return updatedPledge
   } catch (error) {
-    toast.error("Failed to lock pledge")
+    console.error("Error locking pledge:", error)
     throw error
   }
 }
@@ -125,10 +118,9 @@ export const unlockPledge = async (id: string): Promise<Pledge> => {
   
   try {
     const updatedPledge = await updatePledge(id, { locked: false })
-    toast.success("Pledge unlocked successfully")
     return updatedPledge
   } catch (error) {
-    toast.error("Failed to unlock pledge")
+    console.error("Error unlocking pledge:", error)
     throw error
   }
 }
