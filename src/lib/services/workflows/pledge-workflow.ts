@@ -22,11 +22,15 @@ export class PledgeWorkflow {
     amount: number,
     description: string
   ): Promise<Pledge> {
+    // check if user has enough balance
+    const balance = await this.userCrud.calculateBalance(userId)
+    if (balance < amount) {
+      throw new Error("User does not have enough balance")
+    }
+
     try {
       return await this.pledgeCrud.runTransaction(async (transaction: Transaction) => {
-        // Update user's balance
-        await this.userCrud.updateBalance(userId, -amount, transaction)
-
+        
         // Create pledge
         const pledge = await this.pledgeCrud.create({
           userId,
@@ -61,9 +65,6 @@ export class PledgeWorkflow {
           throw new Error("Cannot cancel a locked pledge")
         }
 
-        // Restore user's balance
-        await this.userCrud.updateBalance(pledge.userId, pledge.amount, transaction)
-
         // Mark pledge as deleted
         return this.pledgeCrud.softDelete(pledgeId, transaction)
       })
@@ -94,10 +95,13 @@ export class PledgeWorkflow {
         }
 
         // Calculate balance adjustment
-        const balanceAdjustment = pledge.amount - newAmount
+        const balanceAdjustment = newAmount - pledge.amount
 
-        // Update user's balance
-        await this.userCrud.updateBalance(pledge.userId, balanceAdjustment, transaction)
+        // check if user has enough balance
+        const balance = await this.userCrud.calculateBalance(pledge.userId)
+        if (balance < balanceAdjustment) {
+          throw new Error("User does not have enough balance")
+        }
 
         // Update pledge amount
         return this.pledgeCrud.update(pledgeId, { amount: newAmount }, transaction)

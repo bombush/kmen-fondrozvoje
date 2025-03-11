@@ -41,15 +41,18 @@ export type BankPayment = {
   targetMonth?: string // Which month this payment (or split) contributes to
 }
 
-export type CreditAward =  {
+export type CreditAward = {
   id: string
   userId: string
   amount: number
+  reason: 'monthly_allocation' | 'admin_award' | 'system' | 'refund'
+  sourceId?: string    // Could be projectId, paymentId, etc.
+  sourceType?: string  // Could be "project", "payment", etc.
+  notes?: string
+  targetMonth?: string // For monthly allocations
   createdAt: string
   updatedAt: string
-  originatingUserId?: string // Id of user who awarded credits
-  month: string // YYYY-MM format @TODO: create Month type
-  description: string
+  deleted?: boolean
 }
 
 export type CreditAwardHistory = {

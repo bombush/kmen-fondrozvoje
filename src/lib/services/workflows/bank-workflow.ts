@@ -2,6 +2,33 @@ import { BankPayment, BankStatement } from "@/types"
 import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
 import { runTransaction } from "firebase/firestore"
 
+export type CreateBankStatementInput = {
+  month: string
+  importedAt: string
+  fileName: string
+  content: string
+  totalAmount: number
+}
+
+export type UpdateBankStatementInput = Partial<Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>>
+
+export type CreateBankPaymentInput = {
+  userId: string
+  amount: number
+  receivedAt: string
+  description: string
+  targetMonth: string
+  variableSymbol?: string
+  specificSymbol?: string
+  constantSymbol?: string
+  bankTransactionId: string
+  counterpartyAccountNumber?: string
+  counterpartyName?: string
+  statementId?: string
+}
+
+export type UpdateBankPaymentInput = Partial<Omit<BankPayment, 'id' | 'createdAt' | 'updatedAt'>>
+
 export class BankWorkflow {
   constructor(
     private bankStatementCrud: BankStatementCrud = new BankStatementCrud(),
@@ -11,15 +38,13 @@ export class BankWorkflow {
   async createStatement(data: CreateBankStatementInput): Promise<BankStatement> {
     return this.bankStatementCrud.create({
       ...data,
-      processedAmount: 0,
       status: 'pending'
     })
   }
 
   async createPayment(data: CreateBankPaymentInput): Promise<BankPayment> {
     return this.bankPaymentCrud.create({
-      ...data,
-      status: 'pending'
+      ...data
     })
   }
 
