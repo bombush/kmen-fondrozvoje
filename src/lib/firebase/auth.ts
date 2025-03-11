@@ -6,13 +6,29 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  connectAuthEmulator
 } from 'firebase/auth'
-import { app } from './config'
+import { connectFirestoreEmulator } from "firebase/firestore"
+import { app, db } from './config'
 import { User } from '@/types'
 
 // Get Firebase Auth instance
 export const auth = getAuth(app)
+
+// Connect to emulators when in development
+if (process.env.NODE_ENV === 'development') {
+  // Use window to avoid SSR issues
+  if (typeof window !== 'undefined') {
+    // Connect to Auth emulator
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    
+    // Connect to Firestore emulator
+    connectFirestoreEmulator(db, 'localhost', 8080)
+    
+    console.log('Using Firebase emulators')
+  }
+}
 
 // Sign in with email and password
 export const signIn = async (email: string, password: string) => {

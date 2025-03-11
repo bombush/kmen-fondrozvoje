@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"firebase emulators:start\" \"next dev --turbopack\"",
+    "dev": "concurrently \"firebase emulators:start --project=kmen-fondrozvoje\" \"next dev --turbopack\"",
     "dev:next": "next dev --turbopack",
-    "dev:emulator": "firebase emulators:start",
+    "dev:emulator": "firebase emulators:start --project=kmen-fondrozvoje",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
