@@ -35,7 +35,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { mockUsers } from './mockUsers'
-import { User } from '../../types'
+import { User } from '../../../types'
 import { toast } from "sonner"
 import {
   Table,
