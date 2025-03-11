@@ -18,11 +18,11 @@ export class UserCrud extends BaseCrud<User> {
   }
 
   async getById(id: string, transaction?: Transaction): Promise<User | null> {
-    return super.getById(id, transaction)
+    return super.getById(id)
   }
 
-  async create(data: Partial<User>, transaction?: Transaction): Promise<User> {
-    return super.create(data, transaction)
+  async create(data: Omit<User, "id" | "createdAt" | "updatedAt">): Promise<User> {
+    return super.create(data)
   }
 
   async update(
@@ -30,7 +30,7 @@ export class UserCrud extends BaseCrud<User> {
     data: Partial<User>,
     transaction?: Transaction
   ): Promise<User> {
-    return super.update(id, data, transaction)
+    return super.update(id, data)
   }
 
   async getByEmail(email: string): Promise<User | null> {

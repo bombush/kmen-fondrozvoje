@@ -18,7 +18,7 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     return super.create({
       ...data,
       deleted: false
-    }, transaction)
+    })
   }
 
   async update(
@@ -26,15 +26,15 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     data: Partial<CreditAward>, 
     transaction?: Transaction
   ): Promise<CreditAward> {
-    return super.update(id, data, transaction)
+    return super.update(id, data)
   }
 
-  async softDelete(id: string, transaction?: Transaction): Promise<CreditAward> {
-    return this.update(id, { deleted: true }, transaction)
+  async softDelete(id: string): Promise<CreditAward> {
+    return this.update(id, { deleted: true })
   }
 
   async getById(id: string, transaction?: Transaction): Promise<CreditAward | null> {
-    return super.getById(id, transaction)
+    return super.getById(id)
   }
 
   /**

@@ -12,7 +12,7 @@ export class BankStatementCrud extends BaseCrud<BankStatement> {
     return super.getById(id)
   }
 
-  async create(data: Partial<BankStatement>): Promise<BankStatement> {
+  async create(data: Omit<BankStatement, "id" | "createdAt" | "updatedAt">): Promise<BankStatement> {
     return super.create(data)
   }
 
@@ -38,7 +38,7 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     return super.getById(id)
   }
 
-  async create(data: Partial<BankPayment>): Promise<BankPayment> {
+  async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">): Promise<BankPayment> {
     return super.create({
       ...data,
       deleted: false

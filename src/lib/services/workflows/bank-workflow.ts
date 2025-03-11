@@ -2,30 +2,11 @@ import { BankPayment, BankStatement } from "@/types"
 import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
 import { runTransaction } from "firebase/firestore"
 
-export type CreateBankStatementInput = {
-  month: string
-  importedAt: string
-  fileName: string
-  content: string
-  totalAmount: number
-}
+export type CreateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
 
-export type UpdateBankStatementInput = Partial<Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>>
+export type UpdateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
 
-export type CreateBankPaymentInput = {
-  userId: string
-  amount: number
-  receivedAt: string
-  description: string
-  targetMonth: string
-  variableSymbol?: string
-  specificSymbol?: string
-  constantSymbol?: string
-  bankTransactionId: string
-  counterpartyAccountNumber?: string
-  counterpartyName?: string
-  statementId?: string
-}
+export type CreateBankPaymentInput = Omit<BankPayment, 'id' | 'createdAt' | 'updatedAt'>
 
 export type UpdateBankPaymentInput = Partial<Omit<BankPayment, 'id' | 'createdAt' | 'updatedAt'>>
 

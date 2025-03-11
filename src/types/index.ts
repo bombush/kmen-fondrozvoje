@@ -21,6 +21,9 @@ export type BankStatement = {
   processedAt: string
   status: 'pending' | 'processed' | 'error'
   payments: string // JSON string of raw bank statement data
+  createdAt: string
+  updatedAt: string
+  deleted?: boolean
 }
 
 export type BankPayment = {
@@ -39,6 +42,7 @@ export type BankPayment = {
   comment: string
   isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
+  deleted?: boolean
 }
 
 export type CreditAward = {
