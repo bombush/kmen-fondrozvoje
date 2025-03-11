@@ -43,6 +43,8 @@ export type BankPayment = {
   isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
   deleted?: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export type CreditAward = {
