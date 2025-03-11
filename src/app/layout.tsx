@@ -14,6 +14,7 @@ import {
 import { Providers } from "./providers"
 import { Toaster } from "sonner"
 import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs"
+import { AuthProvider } from "@/contexts/auth-context"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,14 +39,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <div className="min-h-screen flex flex-col">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <Providers>
               <SidebarProvider defaultOpen={true}>
                 <AppSidebar />
                 <SidebarInset>
@@ -64,10 +65,10 @@ export default function RootLayout({
                   </main>
                 </SidebarInset>
               </SidebarProvider>
-            </div>
-          </ThemeProvider>
-        </Providers>
-        <Toaster richColors closeButton position="top-right" />
+            </Providers>
+            <Toaster richColors closeButton position="top-right" />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

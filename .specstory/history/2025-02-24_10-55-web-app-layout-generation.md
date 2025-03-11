@@ -16060,6 +16060,665 @@ Generate user workflow
 
 ---
 
+_**Assistant**_
+
+<think>
+Let's design a UserWorkflow class to manage user-related operations. This workflow will coordinate operations between UserCrud and potentially other related services.
+
+Key user workflow operations should include:
+1. User creation
+2. User updates 
+3. User activation/deactivation
+4. User balance management (coordinating with credits and pledges)
+5. User specific symbol management
+
+Let's implement this class based on the project's existing workflow pattern.
+</think>
+
+🤖 Here's a comprehensive UserWorkflow implementation that follows your project's architecture patterns:
+
+````typescript:src/lib/services/workflows/user-workflow.ts
+import { User } from "@/types"
+import { UserCrud } from "../crud/user-crud"
+import { CreditAwardCrud } from "../crud/credit-award-crud"
+import { PledgeCrud } from "../crud/pledge-crud"
+import { CreditWorkflow } from "./credit-workflow"
+import { db } from "../../firebase/config"
+import { runTransaction } from "firebase/firestore"
+
+export type CreateUserInput = Omit<User, "id" | "createdAt" | "updatedAt" | "isActive"> & {
+  isActive?: boolean
+}
+
+export type UpdateUserInput = Partial<Omit<User, "id" | "createdAt" | "updatedAt">>
+
+export class UserWorkflow {
+  private userCrud: UserCrud
+  private creditAwardCrud: CreditAwardCrud
+  private pledgeCrud: PledgeCrud
+  private creditWorkflow: CreditWorkflow
+
+  constructor() {
+    this.userCrud = new UserCrud()
+    this.creditAwardCrud = new CreditAwardCrud()
+    this.pledgeCrud = new PledgeCrud()
+    this.creditWorkflow = new CreditWorkflow()
+  }
+
+  /**
+   * Create a new user
+   */
+  async createUser(userData: CreateUserInput): Promise<User> {
+    try {
+      const user = await this.userCrud.create({
+        ...userData,
+        isActive: userData.isActive ?? true
+      })
+      
+      return user
+    } catch (error) {
+      console.error("Error in createUser workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Update an existing user
+   */
+  async updateUser(userId: string, userData: UpdateUserInput): Promise<User> {
+    try {
+      const user = await this.userCrud.getById(userId)
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
+
+      return await this.userCrud.update(userId, userData)
+    } catch (error) {
+      console.error("Error in updateUser workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Get a user by ID
+   */
+  async getUserById(userId: string): Promise<User | null> {
+    try {
+      return await this.userCrud.getById(userId)
+    } catch (error) {
+      console.error("Error in getUserById workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Get a user by email
+   */
+  async getUserByEmail(email: string): Promise<User | null> {
+    try {
+      return await this.userCrud.getByEmail(email)
+    } catch (error) {
+      console.error("Error in getUserByEmail workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Get all active users
+   */
+  async getActiveUsers(): Promise<User[]> {
+    try {
+      return await this.userCrud.getActiveUsers()
+    } catch (error) {
+      console.error("Error in getActiveUsers workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Activate a user
+   */
+  async activateUser(userId: string): Promise<User> {
+    try {
+      const user = await this.userCrud.getById(userId)
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
+
+      return await this.userCrud.update(userId, { isActive: true })
+    } catch (error) {
+      console.error("Error in activateUser workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Deactivate a user
+   */
+  async deactivateUser(userId: string): Promise<User> {
+    try {
+      const user = await this.userCrud.getById(userId)
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
+
+      return await this.userCrud.update(userId, { isActive: false })
+    } catch (error) {
+      console.error("Error in deactivateUser workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Calculate a user's balance
+   */
+  async getUserBalance(userId: string): Promise<number> {
+    try {
+      return await this.userCrud.calculateBalance(userId)
+    } catch (error) {
+      console.error("Error in getUserBalance workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Award credits to a user
+   */
+  async awardCreditsToUser(
+    userId: string,
+    amount: number,
+    reason: 'admin_award' | 'system',
+    notes?: string
+  ): Promise<User> {
+    try {
+      await this.creditWorkflow.awardCredits(userId, amount, reason, { notes })
+      
+      // Get updated user with new balance
+      const user = await this.userCrud.getById(userId)
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
+      
+      return user
+    } catch (error) {
+      console.error("Error in awardCreditsToUser workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Update a user's payment symbols
+   */
+  async updateUserPaymentSymbols(
+    userId: string, 
+    symbols: { 
+      variableSymbol?: string, 
+      specificSymbol?: string, 
+      constantSymbol?: string 
+    }
+  ): Promise<User> {
+    try {
+      const user = await this.userCrud.getById(userId)
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
+
+      return await this.userCrud.update(userId, symbols)
+    } catch (error) {
+      console.error("Error in updateUserPaymentSymbols workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Generate a new unique specific symbol for a user
+   */
+  async generateUniqueSpecificSymbol(): Promise<string> {
+    try {
+      // Get all users to check existing specific symbols
+      const users = await this.userCrud.getAll()
+      const existingSymbols = new Set(
+        users
+          .filter(user => user.specificSymbol)
+          .map(user => user.specificSymbol)
+      )
+      
+      // Generate a random 10-digit number until we find one that's not used
+      let newSymbol: string
+      do {
+        newSymbol = Math.floor(1000000000 + Math.random() * 9000000000).toString()
+      } while (existingSymbols.has(newSymbol))
+      
+      return newSymbol
+    } catch (error) {
+      console.error("Error in generateUniqueSpecificSymbol workflow:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a user (for admin purposes only)
+   * This will soft-delete the user and all their pledges
+   */
+  async deleteUser(userId: string): Promise<User> {
+    try {
+      return await runTransaction(db, async (transaction) => {
+        // Get user
+        const user = await this.userCrud.getById(userId, transaction)
+        if (!user) {
+          throw new Error(`User ${userId} not found`)
+        }
+
+        // Get all user's pledges
+        const pledges = await this.pledgeCrud.getByUserId(userId)
+        
+        // Soft delete each pledge
+        for (const pledge of pledges) {
+          await this.pledgeCrud.softDelete(pledge.id, transaction)
+        }
+        
+        // Soft delete user
+        const deletedUser = await this.userCrud.softDelete(userId, transaction)
+
+        return deletedUser
+      })
+    } catch (error) {
+      console.error("Error in deleteUser workflow:", error)
+      throw error
+    }
+  }
+}
+````
+
+
+And here are complementary unit tests for the UserWorkflow:
+
+````typescript:src/lib/services/workflows/__tests__/user-workflow.test.ts
+import { UserWorkflow } from '../user-workflow'
+import { UserCrud } from '../../crud/user-crud'
+import { CreditAwardCrud } from '../../crud/credit-award-crud'
+import { PledgeCrud } from '../../crud/pledge-crud'
+import { CreditWorkflow } from '../credit-workflow'
+import { User, Pledge } from '@/types'
+import { runTransaction } from 'firebase/firestore'
+
+// Mock Firebase's runTransaction
+jest.mock('firebase/firestore', () => ({
+  runTransaction: jest.fn(async (db, callback) => callback()),
+}))
+
+// Mock the CRUD classes and CreditWorkflow
+jest.mock('../../crud/user-crud')
+jest.mock('../../crud/credit-award-crud')
+jest.mock('../../crud/pledge-crud')
+jest.mock('../credit-workflow')
+
+describe('UserWorkflow', () => {
+  let userWorkflow: UserWorkflow
+  let mockUserCrud: jest.Mocked<UserCrud>
+  let mockCreditAwardCrud: jest.Mocked<CreditAwardCrud>
+  let mockPledgeCrud: jest.Mocked<PledgeCrud>
+  let mockCreditWorkflow: jest.Mocked<CreditWorkflow>
+  
+  beforeEach(() => {
+    // Clear all mocks
+    jest.clearAllMocks()
+    
+    // Create mock instances
+    mockUserCrud = new UserCrud() as jest.Mocked<UserCrud>
+    mockCreditAwardCrud = new CreditAwardCrud() as jest.Mocked<CreditAwardCrud>
+    mockPledgeCrud = new PledgeCrud() as jest.Mocked<PledgeCrud>
+    mockCreditWorkflow = new CreditWorkflow() as jest.Mocked<CreditWorkflow>
+    
+    // Create workflow with mocked dependencies
+    userWorkflow = new UserWorkflow()
+    // @ts-ignore - access private properties for testing
+    userWorkflow.userCrud = mockUserCrud
+    // @ts-ignore
+    userWorkflow.creditAwardCrud = mockCreditAwardCrud
+    // @ts-ignore
+    userWorkflow.pledgeCrud = mockPledgeCrud
+    // @ts-ignore
+    userWorkflow.creditWorkflow = mockCreditWorkflow
+  })
+  
+  describe('createUser', () => {
+    it('should create a new user with default isActive value', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'user' as const
+      }
+      
+      const createdUser = {
+        id: 'user1',
+        ...userData,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      mockUserCrud.create.mockResolvedValue(createdUser)
+      
+      // Act
+      const result = await userWorkflow.createUser(userData)
+      
+      // Assert
+      expect(mockUserCrud.create).toHaveBeenCalledWith({
+        ...userData,
+        isActive: true
+      })
+      expect(result).toEqual(createdUser)
+    })
+    
+    it('should create a new user with provided isActive value', async () => {
+      // Arrange
+      const userData = {
+        name: 'Inactive User',
+        email: 'inactive@example.com',
+        role: 'user' as const,
+        isActive: false
+      }
+      
+      const createdUser = {
+        id: 'user2',
+        ...userData,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      mockUserCrud.create.mockResolvedValue(createdUser)
+      
+      // Act
+      const result = await userWorkflow.createUser(userData)
+      
+      // Assert
+      expect(mockUserCrud.create).toHaveBeenCalledWith(userData)
+      expect(result).toEqual(createdUser)
+    })
+  })
+  
+  describe('updateUser', () => {
+    it('should update an existing user', async () => {
+      // Arrange
+      const userId = 'user1'
+      const userData = {
+        name: 'Updated Name'
+      }
+      
+      const existingUser = {
+        id: userId,
+        name: 'Original Name',
+        email: 'test@example.com',
+        role: 'user' as const,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      const updatedUser = {
+        ...existingUser,
+        name: 'Updated Name',
+        updatedAt: '2023-01-02T00:00:00Z'
+      }
+      
+      mockUserCrud.getById.mockResolvedValue(existingUser)
+      mockUserCrud.update.mockResolvedValue(updatedUser)
+      
+      // Act
+      const result = await userWorkflow.updateUser(userId, userData)
+      
+      // Assert
+      expect(mockUserCrud.getById).toHaveBeenCalledWith(userId)
+      expect(mockUserCrud.update).toHaveBeenCalledWith(userId, userData)
+      expect(result).toEqual(updatedUser)
+    })
+    
+    it('should throw an error if user not found', async () => {
+      // Arrange
+      const userId = 'nonexistent'
+      const userData = { name: 'Updated Name' }
+      
+      mockUserCrud.getById.mockResolvedValue(null)
+      
+      // Act & Assert
+      await expect(userWorkflow.updateUser(userId, userData)).rejects.toThrow(
+        `User ${userId} not found`
+      )
+    })
+  })
+  
+  describe('getUserBalance', () => {
+    it('should return the user balance', async () => {
+      // Arrange
+      const userId = 'user1'
+      const balance = 500
+      
+      mockUserCrud.calculateBalance.mockResolvedValue(balance)
+      
+      // Act
+      const result = await userWorkflow.getUserBalance(userId)
+      
+      // Assert
+      expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+      expect(result).toBe(balance)
+    })
+  })
+  
+  describe('awardCreditsToUser', () => {
+    it('should award credits to a user and return the updated user', async () => {
+      // Arrange
+      const userId = 'user1'
+      const amount = 100
+      const reason = 'admin_award' as const
+      const notes = 'Test award'
+      
+      const user = {
+        id: userId,
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'user' as const,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      mockCreditWorkflow.awardCredits.mockResolvedValue({
+        id: 'award1',
+        userId,
+        amount,
+        reason,
+        notes,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      })
+      
+      mockUserCrud.getById.mockResolvedValue(user)
+      
+      // Act
+      const result = await userWorkflow.awardCreditsToUser(userId, amount, reason, notes)
+      
+      // Assert
+      expect(mockCreditWorkflow.awardCredits).toHaveBeenCalledWith(
+        userId,
+        amount,
+        reason,
+        { notes }
+      )
+      expect(mockUserCrud.getById).toHaveBeenCalledWith(userId)
+      expect(result).toEqual(user)
+    })
+    
+    it('should throw an error if user not found after awarding credits', async () => {
+      // Arrange
+      const userId = 'nonexistent'
+      const amount = 100
+      const reason = 'admin_award' as const
+      
+      mockCreditWorkflow.awardCredits.mockResolvedValue({
+        id: 'award1',
+        userId,
+        amount,
+        reason,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      })
+      
+      mockUserCrud.getById.mockResolvedValue(null)
+      
+      // Act & Assert
+      await expect(userWorkflow.awardCreditsToUser(userId, amount, reason)).rejects.toThrow(
+        `User ${userId} not found`
+      )
+    })
+  })
+  
+  describe('generateUniqueSpecificSymbol', () => {
+    it('should generate a unique specific symbol', async () => {
+      // Arrange
+      const users: User[] = [
+        { 
+          id: 'user1', 
+          name: 'User 1', 
+          email: 'user1@example.com', 
+          role: 'user', 
+          isActive: true, 
+          specificSymbol: '1234567890',
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01' 
+        },
+        { 
+          id: 'user2', 
+          name: 'User 2', 
+          email: 'user2@example.com', 
+          role: 'user', 
+          isActive: true, 
+          specificSymbol: '0987654321',
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01' 
+        }
+      ]
+      
+      mockUserCrud.getAll.mockResolvedValue(users)
+      
+      // Mock Math.random to return predictable values
+      const originalRandom = Math.random
+      Math.random = jest.fn()
+        .mockReturnValueOnce(0.1) // This would generate '1900000000' (which is in use)
+        .mockReturnValueOnce(0.5) // This would generate '5500000000' (not in use)
+      
+      // Act
+      const result = await userWorkflow.generateUniqueSpecificSymbol()
+      
+      // Restore Math.random
+      Math.random = originalRandom
+      
+      // Assert
+      expect(mockUserCrud.getAll).toHaveBeenCalled()
+      expect(result).toBeTruthy()
+      expect(result).not.toBe('1234567890')
+      expect(result).not.toBe('0987654321')
+      expect(result.length).toBe(10)
+    })
+  })
+  
+  describe('deleteUser', () => {
+    it('should delete a user and all their pledges', async () => {
+      // Arrange
+      const userId = 'user1'
+      const user = {
+        id: userId,
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'user' as const,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      const pledges: Pledge[] = [
+        { id: 'pledge1', userId, projectId: 'project1', amount: 100, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01', description: 'Pledge 1' },
+        { id: 'pledge2', userId, projectId: 'project2', amount: 200, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01', description: 'Pledge 2' }
+      ]
+      
+      const deletedUser = {
+        ...user,
+        deleted: true,
+        updatedAt: '2023-01-02T00:00:00Z'
+      }
+      
+      mockUserCrud.getById.mockResolvedValue(user)
+      mockPledgeCrud.getByUserId.mockResolvedValue(pledges)
+      mockPledgeCrud.softDelete.mockImplementation((id) => 
+        Promise.resolve({ ...pledges.find(p => p.id === id), deleted: true, updatedAt: new Date().toISOString() } as Pledge)
+      )
+      mockUserCrud.softDelete.mockResolvedValue(deletedUser)
+      
+      // Act
+      const result = await userWorkflow.deleteUser(userId)
+      
+      // Assert
+      expect(runTransaction).toHaveBeenCalled()
+      expect(mockUserCrud.getById).toHaveBeenCalledWith(userId, expect.anything())
+      expect(mockPledgeCrud.getByUserId).toHaveBeenCalledWith(userId)
+      expect(mockPledgeCrud.softDelete).toHaveBeenCalledTimes(pledges.length)
+      expect(mockUserCrud.softDelete).toHaveBeenCalledWith(userId, expect.anything())
+      expect(result).toEqual(deletedUser)
+    })
+    
+    it('should throw an error if user not found', async () => {
+      // Arrange
+      const userId = 'nonexistent'
+      
+      mockUserCrud.getById.mockResolvedValue(null)
+      
+      // Act & Assert
+      await expect(userWorkflow.deleteUser(userId)).rejects.toThrow(
+        `User ${userId} not found`
+      )
+    })
+  })
+})
+````
+
+
+This UserWorkflow implements comprehensive functionality for:
+
+1. **User Management**:
+   - Create, update, and delete users
+   - Get users by ID or email
+   - Activate/deactivate users
+
+2. **Financial Operations**:
+   - Calculate user balances
+   - Award credits
+   - Handle payment symbols
+
+3. **Data Integrity**:
+   - Transactional operations when needed (e.g., deleting users)
+   - Cascading soft-deletes of related records
+   - Validations for required entities
+
+4. **Helper Functions**:
+   - Generate unique specific symbols for payment identification
+
+The implementation follows your project patterns with error handling and typed interfaces, and the test suite covers all the main workflows with different scenarios.
+
+---
+
+_**User**_
+
+Implement Firebase auth
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
