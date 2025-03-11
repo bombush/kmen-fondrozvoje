@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "concurrently \"firebase emulators:start\" \"next dev --turbopack\"",
+    "dev:next": "next dev --turbopack",
+    "dev:emulator": "firebase emulators:start",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -25,6 +27,8 @@
     "@tanstack/react-query": "^5.67.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "firebase": "^11.4.0",
+    "firebase-admin": "^13.2.0",
     "framer-motion": "^12.4.10",
     "lucide-react": "^0.476.0",
     "next": "15.1.7",
@@ -41,6 +45,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
     "postcss": "^8.5.3",

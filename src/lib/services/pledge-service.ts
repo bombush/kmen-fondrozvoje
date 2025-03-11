@@ -1,25 +1,29 @@
 import { toast } from "sonner"
 import { Pledge } from "@/types"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore"
+import { db } from "../firebase/config"
+
+const COLLECTION_NAME = "pledges"
+const pledgesRef = collection(db, COLLECTION_NAME)
 
 const MOCK_DELAY = process.env.NODE_ENV === 'development' ? 500 : 0
 
 export const createPledge = async (data: Omit<Pledge, "id" | "createdAt" | "updatedAt" | "locked" | "deleted">) => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
   
-  const pledge: Pledge = {
-    id: `pld_${Date.now()}`,
-    locked: false,
-    deleted: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...data
-  }
-
   try {
-    // In a real implementation, this would be a DB call
-    // For now using mock success
+    const pledge: Omit<Pledge, "id"> = {
+      locked: false,
+      deleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...data
+    }
+
+    const docRef = await addDoc(pledgesRef, pledge)
+    
     toast.success("Pledge created successfully")
-    return pledge
+    return { id: docRef.id, ...pledge } as Pledge
   } catch (error) {
     toast.error("Failed to create pledge")
     throw error
@@ -28,16 +32,18 @@ export const createPledge = async (data: Omit<Pledge, "id" | "createdAt" | "upda
 
 export const updatePledge = async (id: string, data: Partial<Pledge>) => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
-
+  
   try {
-    const updatedPledge: Pledge = {
+    const docRef = doc(db, COLLECTION_NAME, id)
+    const updatedData = {
       ...data,
-      id,
       updatedAt: new Date().toISOString()
-    } as Pledge
+    }
 
+    await updateDoc(docRef, updatedData)
+    
     toast.success("Pledge updated successfully")
-    return updatedPledge
+    return { id, ...updatedData } as Pledge
   } catch (error) {
     toast.error("Failed to update pledge")
     throw error
@@ -46,16 +52,16 @@ export const updatePledge = async (id: string, data: Partial<Pledge>) => {
 
 export const deletePledge = async (id: string) => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
-
+  
   try {
-    const deletedPledge: Pledge = {
-      id,
+    const docRef = doc(db, COLLECTION_NAME, id)
+    await updateDoc(docRef, {
       deleted: true,
       updatedAt: new Date().toISOString()
-    } as Pledge
+    })
 
     toast.success("Pledge deleted successfully")
-    return deletedPledge
+    return { id, deleted: true } as Pledge
   } catch (error) {
     toast.error("Failed to delete pledge")
     throw error
@@ -66,18 +72,14 @@ export const getPledge = async (id: string): Promise<Pledge | null> => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
   
   try {
-    // Mock implementation
-    return {
-      id,
-      userId: "user_1",
-      projectId: "proj_1",
-      amount: 1000,
-      locked: false,
-      deleted: false,
-      description: "Sample pledge",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+    const docRef = doc(db, COLLECTION_NAME, id)
+    const docSnap = await getDoc(docRef)
+    
+    if (!docSnap.exists()) {
+      return null
     }
+
+    return { id: docSnap.id, ...docSnap.data() } as Pledge
   } catch (error) {
     console.error("Error fetching pledge:", error)
     return null
@@ -88,18 +90,17 @@ export const getUserPledges = async (userId: string): Promise<Pledge[]> => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
   
   try {
-    // Mock implementation
-    return [{
-      id: "pld_1",
-      userId,
-      projectId: "proj_1",
-      amount: 1000,
-      locked: false,
-      deleted: false,
-      description: "Sample pledge",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }]
+    const q = query(
+      pledgesRef, 
+      where("userId", "==", userId),
+      where("deleted", "==", false)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    })) as Pledge[]
   } catch (error) {
     console.error("Error fetching user pledges:", error)
     return []
@@ -108,7 +109,7 @@ export const getUserPledges = async (userId: string): Promise<Pledge[]> => {
 
 export const lockPledge = async (id: string): Promise<Pledge> => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
-
+  
   try {
     const updatedPledge = await updatePledge(id, { locked: true })
     toast.success("Pledge locked successfully")
@@ -121,7 +122,7 @@ export const lockPledge = async (id: string): Promise<Pledge> => {
 
 export const unlockPledge = async (id: string): Promise<Pledge> => {
   await new Promise(r => setTimeout(r, MOCK_DELAY))
-
+  
   try {
     const updatedPledge = await updatePledge(id, { locked: false })
     toast.success("Pledge unlocked successfully")
