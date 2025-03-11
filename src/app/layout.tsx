@@ -1,20 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { AppSidebar } from "@/components/layout/app-sidebar"
-import { Breadcrumbs } from "@/components/navigation/breadcrumbs"
-import { ThemeSwitcher } from "@/components/layout/theme-switcher"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/layout/sidebar"
-import { Providers } from "./providers"
-import { Toaster } from "sonner"
-import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs"
-import { AuthProvider } from "@/contexts/auth-context"
+import { AuthProvider } from "@/contexts/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,37 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <Providers>
-              <SidebarProvider defaultOpen={true}>
-                <AppSidebar />
-                <SidebarInset>
-                  <header className="flex h-16 shrink-0 items-center justify-between border-b">
-                    <div className="flex items-center gap-2 px-4">
-                      <SidebarTrigger className="-ml-1" />
-                      <Separator orientation="vertical" className="mr-2 h-4" />
-                      <DynamicBreadcrumbs />
-                    </div>
-                    <div className="px-4">
-                      <ThemeSwitcher />
-                    </div>
-                  </header>
-                  <main className="flex-1 p-6">
-                    {children}
-                  </main>
-                </SidebarInset>
-              </SidebarProvider>
-            </Providers>
-            <Toaster richColors closeButton position="top-right" />
-          </AuthProvider>
-        </ThemeProvider>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -33,7 +33,7 @@
 
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { mockUsers } from './mockUsers'
 import { User } from '../../types'
 import { toast } from "sonner"
@@ -198,7 +198,7 @@ const UsersPage = () => {
                   </div>
                 </TableCell>
                 <TableCell>{user.name}</TableCell>
-                <TableCell>{user.balance} Kč</TableCell>
+                <TableCell>0 Kč</TableCell>
                 <TableCell>{user.specificSymbol || "-"}</TableCell>
 
               </TableRow>
@@ -256,8 +256,7 @@ const UsersPage = () => {
                                     <Input 
                                       id="balance" 
                                       type="number"
-                                      value={editedUser.balance} 
-                                      onChange={(e) => handleEditChange('balance', Number(e.target.value))}
+                                      value="0"
                                     />
                                   </div>
                                   <div className="space-y-2">
@@ -322,7 +321,7 @@ const UsersPage = () => {
                                       <Banknote className="h-4 w-4" />
                                       Balance
                                     </div>
-                                    <div className="font-semibold text-lg">{user.balance} Kč</div>
+                                    <div className="font-semibold text-lg">0 Kč</div>
                                   </div>
                                   <Separator />
                                   <div>

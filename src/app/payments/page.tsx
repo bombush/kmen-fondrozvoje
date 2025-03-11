@@ -59,7 +59,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-01T10:30:00Z",
     message: "Členský příspěvek - Březen 2025",
     comment: "",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-01T10:30:00Z",
+    updatedAt: "2025-03-01T10:30:00Z"
   },
   {
     id: "pay-002",
@@ -75,7 +77,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-02T09:15:00Z",
     message: "Fond rozvoje - Příspěvek březen",
     comment: "",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-02T09:15:00Z",
+    updatedAt: "2025-03-02T09:15:00Z"
   },
   {
     id: "pay-003",
@@ -91,7 +95,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-03T14:45:00Z",
     message: "Příspěvek na projekt XYZ",
     comment: "Dodatečná platba",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-03T14:45:00Z",
+    updatedAt: "2025-03-03T14:45:00Z"
   },
   {
     id: "pay-004",
@@ -107,7 +113,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-02-25T11:20:00Z",
     message: "Členské příspěvky únor",
     comment: "",
-    targetMonth: "2025-02"
+    targetMonth: "2025-02",
+    createdAt: "2025-02-25T11:20:00Z",
+    updatedAt: "2025-02-25T11:20:00Z"
   },
   {
     id: "pay-005",
@@ -123,7 +131,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-02-28T16:30:00Z",
     message: "Sponzorský dar - projekt ABC",
     comment: "Určeno pro konkrétní projekt",
-    targetMonth: "2025-02"
+    targetMonth: "2025-02",
+    createdAt: "2025-02-28T16:30:00Z",
+    updatedAt: "2025-02-28T16:30:00Z"
   },
   // This payment is a parent payment that has been split into two payments below
   {
@@ -140,7 +150,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-01-15T10:00:00Z",
     message: "Příspěvek leden 2025",
     comment: "",
-    targetMonth: "2025-01"
+    targetMonth: "2025-01",
+    createdAt: "2025-01-15T10:00:00Z",
+    updatedAt: "2025-01-15T10:00:00Z"
   },
   // Split payment from pay-006
   {
@@ -158,7 +170,9 @@ const mockPayments: BankPayment[] = [
     message: "Příspěvek leden 2025 - část 1",
     comment: "Split část 1",
     isSplitFromId: "pay-006",
-    targetMonth: "2025-01"
+    targetMonth: "2025-01",
+    createdAt: "2025-01-15T10:00:00Z",
+    updatedAt: "2025-01-15T10:00:00Z"
   },
   // Split payment from pay-006
   {
@@ -176,7 +190,9 @@ const mockPayments: BankPayment[] = [
     message: "Příspěvek leden 2025 - část 2",
     comment: "Split část 2",
     isSplitFromId: "pay-006",
-    targetMonth: "2025-01"
+    targetMonth: "2025-01",
+    createdAt: "2025-01-15T10:00:00Z",
+    updatedAt: "2025-01-15T10:00:00Z"
   },
   {
     id: "pay-007",
@@ -192,7 +208,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-01-10T09:30:00Z",
     message: "Členský příspěvek - Leden 2025",
     comment: "",
-    targetMonth: "2025-01"
+    targetMonth: "2025-01",
+    createdAt: "2025-01-10T09:30:00Z",
+    updatedAt: "2025-01-10T09:30:00Z"
   },
   // This payment will be a parent to the split below
   {
@@ -209,7 +227,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-05T13:15:00Z",
     message: "Velký sponzorský dar",
     comment: "Určeno pro fond rozvoje",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-05T13:15:00Z",
+    updatedAt: "2025-03-05T13:15:00Z"
   },
   // Split payment from pay-008
   {
@@ -227,7 +247,9 @@ const mockPayments: BankPayment[] = [
     message: "Velký sponzorský dar - část 1",
     comment: "Určeno pro fond rozvoje - projektová část",
     isSplitFromId: "pay-008",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-05T13:15:00Z",
+    updatedAt: "2025-03-05T13:15:00Z"
   },
   // Split payment from pay-008
   {
@@ -245,7 +267,9 @@ const mockPayments: BankPayment[] = [
     message: "Velký sponzorský dar - část 2",
     comment: "Určeno pro fond rozvoje - provozní část",
     isSplitFromId: "pay-008",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-05T13:15:00Z",
+    updatedAt: "2025-03-05T13:15:00Z"
   },
   {
     id: "pay-009",
@@ -261,7 +285,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-03-04T10:45:00Z",
     message: "Příspěvek březen + drobný dar",
     comment: "",
-    targetMonth: "2025-03"
+    targetMonth: "2025-03",
+    createdAt: "2025-03-04T10:45:00Z",
+    updatedAt: "2025-03-04T10:45:00Z"
   },
   {
     id: "pay-010",
@@ -277,7 +303,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-02-20T14:00:00Z",
     message: "Platba únor 2025",
     comment: "Opožděná platba",
-    targetMonth: "2025-02"
+    targetMonth: "2025-02",
+    createdAt: "2025-02-20T14:00:00Z",
+    updatedAt: "2025-02-20T14:00:00Z"
   },
   {
     id: "pay-011",
@@ -293,7 +321,9 @@ const mockPayments: BankPayment[] = [
     receivedAt: "2025-01-28T11:30:00Z",
     message: "Příspěvek leden + fond rozvoje",
     comment: "Část pro fond rozvoje",
-    targetMonth: "2025-01"
+    targetMonth: "2025-01",
+    createdAt: "2025-01-28T11:30:00Z",
+    updatedAt: "2025-01-28T11:30:00Z"
   }
 ];
 

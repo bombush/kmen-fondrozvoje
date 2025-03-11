@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,8 +15,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, currentUser } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectPath = searchParams.get('redirect') || '/'
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      router.push(redirectPath)
+    }
+  }, [currentUser, redirectPath, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -30,7 +39,7 @@ export default function LoginPage() {
     try {
       setLoading(true)
       await login(email, password)
-      router.push('/')
+      router.push(redirectPath)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to sign in')
     } finally {
