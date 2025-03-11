@@ -15905,7 +15905,158 @@ create npm test script using jest
 _**Assistant**_
 
 <think>
-Let's create
+Let's create an npm test script using Jest for the project. This will involve:
+
+1. Adding the appropriate Jest configuration
+2. Setting up npm scripts for running tests
+3. Ensuring the proper test environment is configured
+
+Since this is a Next.js project, we'll want to make sure Jest is configured to work with:
+- TypeScript
+- Next.js configuration
+- React components
+
+Here's how I would implement this:
+</think>
+
+🤖 Let's set up Jest for testing your codebase:
+
+````json:package.json
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  }
+}
+````
+
+Next, let's create a Jest configuration file:
+
+````typescript:jest.config.ts
+import type { Config } from 'jest';
+import nextJest from 'next/jest';
+
+const createJestConfig = nextJest({
+  // Provide the path to your Next.js app to load next.config.js and .env files
+  dir: './',
+});
+
+// Add any custom config to be passed to Jest
+const customJestConfig: Config = {
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  testEnvironment: 'jest-environment-jsdom',
+  preset: 'ts-jest',
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+  },
+  moduleNameMapper: {
+    // Handle module aliases (if you use them in your project)
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/__tests__/**',
+    '!**/node_modules/**',
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
+};
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+export default createJestConfig(customJestConfig);
+````
+
+Now create a setup file for Jest:
+
+````typescript:jest.setup.ts
+// Optional: configure or set up a testing framework before each test
+// For example, if you're using Enzyme:
+// import '@testing-library/jest-dom';
+
+// Mock Firebase
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  runTransaction: jest.fn(async (db, callback) => callback()),
+}));
+
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
+  signOut: jest.fn(),
+  onAuthStateChanged: jest.fn(),
+}));
+
+// Mock date for consistent testing
+const mockDate = new Date('2023-01-01T00:00:00Z');
+global.Date = class extends Date {
+  constructor(date) {
+    if (date) {
+      return super(date);
+    }
+    return mockDate;
+  }
+};
+````
+
+You'll also need to install the required packages:
+
+```bash
+npm install --save-dev jest ts-jest @types/jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom
+```
+
+This setup provides:
+
+1. Basic npm scripts for running tests:
+   - `npm test`: Run all tests
+   - `npm run test:watch`: Run tests in watch mode
+   - `npm run test:coverage`: Run tests with coverage reports
+
+2. Jest configuration for Next.js with TypeScript support:
+   - Path aliases setup
+   - Testing environment configured for DOM testing
+   - Coverage thresholds
+   - Proper test file matching
+
+3. Setup file that:
+   - Mocks Firebase
+   - Sets a consistent date for testing
+   - Can be expanded with more testing framework setup
+
+4. With this in place, the unit tests we created for your workflows will run correctly.
+
+---
+
+_**User**_
+
+Generate user workflow
 
 ---
 

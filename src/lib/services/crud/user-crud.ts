@@ -53,4 +53,15 @@ export class UserCrud extends BaseCrud<User> {
   async getActiveUsers(): Promise<User[]> {
     return this.query([{ field: "isActive", operator: "==", value: true }])
   }
+
+  async softDelete(id: string): Promise<void> {
+    // check if user exists
+    const user = await this.getById(id)
+    if (!user) {
+      throw new Error(`User ${id} not found`)
+    }
+
+    // soft delete user
+    await this.update(id, { isActive: false })
+  }
 }

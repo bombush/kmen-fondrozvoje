@@ -1,10 +1,12 @@
-import { CreatePledgeInput, Pledge } from "@/types"
+import { Pledge } from "@/types"
 import { QueryConstraint } from "../database/database-adapter"
 import { FirebaseAdapter } from "../database/firebase-adapter"
 import { BaseCrud } from "./base-crud"
 import { Transaction } from "firebase/firestore"
 
 const COLLECTION_NAME = "pledges"
+
+export type CreatePledgeInput = Omit<Pledge, "locked" | "id" | "createdAt" | "updatedAt" | "deleted">
 
 export class PledgeCrud extends BaseCrud<Pledge> {
   constructor() {
@@ -20,7 +22,7 @@ export class PledgeCrud extends BaseCrud<Pledge> {
       locked: false,
       deleted: false
     }
-    return super.create(pledgeData, transaction)
+    return super.create(pledgeData)
   }
 
   async update(
@@ -28,7 +30,7 @@ export class PledgeCrud extends BaseCrud<Pledge> {
     data: Partial<Pledge>, 
     transaction?: Transaction
   ): Promise<Pledge> {
-    return super.update(id, data, transaction)
+    return super.update(id, data)
   }
 
   async softDelete(id: string, transaction?: Transaction): Promise<Pledge> {
@@ -36,7 +38,7 @@ export class PledgeCrud extends BaseCrud<Pledge> {
   }
 
   async getById(id: string, transaction?: Transaction): Promise<Pledge | null> {
-    return super.getById(id, transaction)
+    return super.getById(id)
   }
 
   async getByUserId(userId: string): Promise<Pledge[]> {

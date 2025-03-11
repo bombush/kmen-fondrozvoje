@@ -36,9 +36,8 @@ export class PledgeWorkflow {
           userId,
           projectId,
           amount,
-          description,
-          status: "pending"
-        }, transaction)
+          description
+        })
 
         return pledge
       })
