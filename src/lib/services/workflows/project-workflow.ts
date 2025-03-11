@@ -35,6 +35,11 @@ export class ProjectWorkflow {
    * This operation is atomic - either all pledges are locked and project is closed, or none
    */
   async closeProject(projectId: string): Promise<Project> {
+    const canDelete = await this.canDeleteProject(projectId)
+    if (!canDelete) {
+      throw new Error("Project cannot be closed because it has an outstanding balance")
+    }
+
     try {
       return await runTransaction(db, async (transaction) => {
         // Get the project
@@ -68,6 +73,16 @@ export class ProjectWorkflow {
       console.error("Error in closeProject workflow:", error)
       throw error
     }
+  }
+
+  async canDeleteProject(projectId: string): Promise<boolean> {
+    const project = await this.projectCrud.getById(projectId)
+    if (!project) {
+      throw new Error("Project not found")
+    }
+
+    const currentBalance = await this.getProjectBalance(projectId)
+    return currentBalance === project.goal
   }
 
   async getProjectBalance(projectId: string): Promise<number> {
