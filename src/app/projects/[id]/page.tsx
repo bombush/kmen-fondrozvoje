@@ -58,7 +58,7 @@ export default function ProjectPage() {
           name: editedProject.name,
           description: editedProject.description,
           goal: editedProject.goal,
-          completed: editedProject.completed,
+          closed: editedProject.closed,
           url: editedProject.url
         }
       })
@@ -207,10 +207,10 @@ export default function ProjectPage() {
               <div className="space-y-2">
                 <label>Status</label>
                 <select
-                  value={editedProject.completed ? "completed" : "active"}
+                  value={editedProject.closed ? "completed" : "active"}
                   onChange={e => setEditedProject({
                     ...editedProject,
-                    completed: e.target.value === "completed"
+                    closed: e.target.value === "completed"
                   })}
                 >
                   <option value="active">Active</option>
@@ -221,8 +221,8 @@ export default function ProjectPage() {
           ) : (
             <>
               <div>
-                <Badge variant={project.completed ? "default" : "secondary"}>
-                  {project.completed ? "Completed" : "Active"}
+                <Badge variant={project.closed ? "default" : "secondary"}>
+                  {project.closed ? "Completed" : "Active"}
                 </Badge>
               </div>
               <p>{project.description}</p>

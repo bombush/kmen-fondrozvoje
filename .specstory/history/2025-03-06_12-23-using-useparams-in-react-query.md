@@ -28,6 +28,46 @@ In summary, using `useParams` in client components aligns with the React paradig
 
 ---
 
+_**User**_
+
+All read actions should take soft deletion into account. 
+
+---
+
+_**Assistant**_
+
+🤖
+
+To implement soft deletion in your read actions, you typically need to modify your queries to filter out any records that have been marked as deleted. This often involves adding a `deleted` or `isDeleted` flag to your data model. Here’s a general approach to achieve this:
+
+1. **Update Your Data Model**: Ensure your data model includes a field for soft deletion. For example, you might have a boolean field called `isDeleted`.
+
+2. **Modify Your Queries**: When fetching data, add a condition to exclude soft-deleted records. This can be done in your database queries or API calls.
+
+3. **Update Your Read Actions**: Ensure that all read actions (e.g., fetching lists, retrieving single records) respect the soft deletion logic.
+
+Here’s a simplified example in TypeScript using a hypothetical database query:
+
+```typescript
+// Example of a read action that takes soft deletion into account
+async function getActiveItems() {
+    const items = await db.items.findMany({
+        where: {
+            isDeleted: false, // Only fetch items that are not soft deleted
+        },
+    });
+    return items;
+}
+```
+
+### Explanation of Changes:
+- **Data Model**: Ensure your data model has an `isDeleted` field.
+- **Query Modification**: Update your read queries to filter out soft-deleted records.
+
+If you have specific code or a file you want to modify to implement soft deletion, please share it, and I can help you with the exact changes!
+
+---
+
 
 
 ---

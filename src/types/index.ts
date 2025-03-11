@@ -4,7 +4,6 @@ export type User = {
   email: string
   avatar?: string
   role: 'user' | 'admin'
-  balance: number // Can be negative
   specificSymbol?:string
   variableSymbol?: string
   constantSymbol?: string
@@ -95,7 +94,8 @@ export interface Project {
   url?: string
   goal: number
   ownerId: string
-  completed: boolean
+  closed: boolean
+  closedAt?: string
   deleted?: boolean
   createdAt: string
   updatedAt: string

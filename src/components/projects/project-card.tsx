@@ -15,8 +15,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle>{project.name}</CardTitle>
-            <Badge variant={project.completed ? "default" : "secondary"}>
-              {project.completed ? "Completed" : "Active"}
+            <Badge variant={project.closed ? "default" : "secondary"}>
+              {project.closed ? "Completed" : "Active"}
             </Badge>
           </div>
           <CardDescription>{project.description}</CardDescription>

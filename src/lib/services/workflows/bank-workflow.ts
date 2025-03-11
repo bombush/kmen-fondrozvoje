@@ -1,4 +1,4 @@
-import { BankPayment, BankStatement, CreateBankPaymentInput, CreateBankStatementInput, UpdateBankPaymentInput, UpdateBankStatementInput } from "@/types"
+import { BankPayment, BankStatement } from "@/types"
 import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
 import { runTransaction } from "firebase/firestore"
 
@@ -55,15 +55,4 @@ export class BankWorkflow {
     })
   }
 
-  async processPayment(id: string): Promise<BankPayment> {
-    const payment = await this.bankPaymentCrud.getById(id)
-    if (!payment) {
-      throw new Error(`Payment ${id} not found`)
-    }
-
-    return this.bankPaymentCrud.update(id, {
-      processedAt: new Date().toISOString(),
-      status: 'processed'
-    })
-  }
 }

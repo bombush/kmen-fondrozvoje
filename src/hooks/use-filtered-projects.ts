@@ -13,7 +13,7 @@ export function useFilteredProjects(
       project.description.toLowerCase().includes(search.toLowerCase())
       
     const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "completed" ? project.completed : !project.completed)
+      (statusFilter === "completed" ? project.closed : !project.closed)
       
     return matchesSearch && matchesStatus
   })

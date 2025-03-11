@@ -21,8 +21,7 @@ export class ProjectWorkflow {
   ): Promise<Project> {
     try {
       const project = await this.projectCrud.create({
-        ...data,
-        currentAmount: 0
+        ...data
       })
       return project
     } catch (error) {
@@ -59,7 +58,7 @@ export class ProjectWorkflow {
 
         // Update project status
         const updatedProject = await this.projectCrud.update(projectId, { 
-          status: "closed",
+          closed: true,
           closedAt: new Date().toISOString()
         })
 
@@ -71,36 +70,9 @@ export class ProjectWorkflow {
     }
   }
 
-  /**
-   * Updates project funding amount based on its pledges
-   * This ensures the project's currentAmount always reflects the sum of its active pledges
-   */
-  async updateProjectFunding(projectId: string): Promise<Project> {
-    try {
-      return await runTransaction(db, async (transaction) => {
-        // Get the project
-        const project = await this.projectCrud.getById(projectId)
-        if (!project) {
-          throw new Error("Project not found")
-        }
-
-        // Get all active pledges for the project
-        const pledges = await this.pledgeCrud.getByProjectId(projectId)
-        
-        // Calculate total amount from active pledges
-        const totalAmount = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
-
-        // Update project's current amount
-        const updatedProject = await this.projectCrud.update(projectId, {
-          currentAmount: totalAmount
-        })
-
-        return updatedProject
-      })
-    } catch (error) {
-      console.error("Error in updateProjectFunding workflow:", error)
-      throw error
-    }
+  async getProjectBalance(projectId: string): Promise<number> {
+    const pledges = await this.pledgeCrud.getByProjectId(projectId)
+    return pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
   }
 
   /**
