@@ -56,9 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false)
         
         // If not on a public path, redirect to login
-        if (!PUBLIC_PATHS.includes(pathname) && !loading) {
-          router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
-        }
+        //if (!PUBLIC_PATHS.includes(pathname) && !loading) {
+        //  router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
+        //}
       }
       
       setLoading(false)

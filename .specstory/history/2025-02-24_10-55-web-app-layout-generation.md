@@ -18697,6 +18697,88 @@ The key is that route groups in Next.js need matching layouts to work properly. 
 
 ---
 
+_**User**_
+
+why does the app redirect on every routing (click on a link)?
+
+---
+
+_**Assistant**_
+
+<think>
+The constant redirection on every routing suggests there's an issue with the authentication flow that's causing a redirect loop. Let's analyze what might be happening:
+
+1. The `AuthGuard` component or the authentication check in the `auth-context.tsx` is likely triggering a redirect on every route change.
+
+2. This is probably because the auth state isn't being properly maintained or recognized across navigation.
+
+Looking at the code structures:
+
+- You have a route structure with `(app)` and `(auth)` groups
+- The authentication logic is checking for auth state on pathname changes
+- There seems to be a disconnect between the auth state and routing
+
+The most likely causes are:
+
+1. **Auth state checking on every page load**: The `useEffect` in the auth context might be aggressively redirecting based on pathname changes.
+
+2. **Route protection logic**: The `AuthGuard` component or similar protection logic might not be correctly identifying authenticated users.
+
+3. **Client-side routing issues**: Next.js client-side routing might be interacting with your auth checks in a way that's causing repeated redirects.
+
+Let's look at the potential issues in the auth context specifically since that's likely where the problem is:
+</think>
+
+🤖 The constant redirection is likely happening because your authentication state is being checked with every route change, and the `pathname` dependency in your `useEffect` is triggering redirects.
+
+Let's fix the issue in your auth context:
+
+````typescript:src/contexts/auth-context.tsx
+'use client'
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth'
+import { auth, signIn, signOut, signUp, resetPassword } from '@/lib/firebase/auth'
+import { User } from '@/types'
+import { UserCrud } from '@/lib/services/crud/user-crud'
+import { usePathname, useRouter } from 'next/navigation'
+
+// Define public paths that don't require authentication
+const PUBLIC_PATHS = ['/login', '/register', '/forgot-password']
+
+interface AuthContextType {
+  currentUser: FirebaseUser | null
+  appUser: User | null
+  isAdmin: boolean
+  loading: boolean
+  login: (email: string, password: string) => Promise<FirebaseUser>
+  logout: () => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<FirebaseUser>
+  sendPasswordResetEmail: (email: string) => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null)
+  const [appUser, setAppUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+  
+  const userCrud = new UserCrud()
+  
+  // Handle authentication state without redirecting on every path change
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user)
+      
+      if (user) {
+        try
+
+---
+
 
 
 ---

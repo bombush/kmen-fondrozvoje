@@ -7,6 +7,7 @@ import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs";
 import { Providers } from "@/app/providers";
 import { Toaster } from "sonner";
+import { AuthGuard } from "@/components/auth/auth-guard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function AppLayout({
         enableSystem
         disableTransitionOnChange
       >
+        <AuthGuard>
         <Providers>
           <SidebarProvider defaultOpen={true}>
             <AppSidebar />
@@ -51,6 +53,7 @@ export default function AppLayout({
             </SidebarInset>
           </SidebarProvider>
         </Providers>
+        </AuthGuard>
         <Toaster richColors closeButton position="top-right" />
       </ThemeProvider>
     </div>
