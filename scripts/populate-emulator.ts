@@ -46,7 +46,7 @@ async function waitForEmulators() {
   // Add check to Make sure emulators are running: firebase emulators:start
     // poll if emulators are running periodically until a timeout is reached. 
     // Throw error if they are not running after the timeout
-    const timeout = 100
+    const timeout = 20000
     const startTime = Date.now()
     log('Waiting for emulators to start...')
 
