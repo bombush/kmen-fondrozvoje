@@ -33,7 +33,11 @@ const firebaseConfig = {
 function log(message: string, obj?:any) {
   const yellow = '\x1b[33m'; // ANSI escape code for yellow
   const reset = '\x1b[0m'; // ANSI escape code to reset color
-  console.log(`${yellow}[populate-emulator]${reset} ${message}`, obj);
+  if (arguments.length > 1) {
+    console.log(`${yellow}[populate-emulator]${reset} ${message}`, obj);
+  } else {
+    console.log(`${yellow}[populate-emulator]${reset} ${message}`);
+  }
 }
 
 function logError(message: string, error?:any) {
