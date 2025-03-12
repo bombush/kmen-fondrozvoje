@@ -14,7 +14,8 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "dev:debug": "NODE_OPTIONS='--inspect' next dev"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",

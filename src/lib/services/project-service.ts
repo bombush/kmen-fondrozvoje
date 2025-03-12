@@ -24,7 +24,10 @@ export const getProjects = async (includeDeleted = false) => {
 
 export const getProject = async (id: string): Promise<Project | null> => {
   try {
+    console.trace()
+    console.log('id', id)
     const docRef = doc(db, COLLECTION_NAME, id)
+    console.log('docRef', docRef) 
     const docSnap = await getDoc(docRef)
     
     if (!docSnap.exists()) {

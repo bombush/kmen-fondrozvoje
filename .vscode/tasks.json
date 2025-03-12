@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Emulators",
+      "type": "shell",
+      "command": "npm run dev:emulator",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": ".",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "All emulators started",
+          "endsPattern": "All emulators ready"
+        }
+      }
+    },
+    {
+      "label": "Populate Emulators",
+      "type": "shell",
+      "command": "npm run populate-emulator",
+      "dependsOn": ["Start Emulators"]
+    },
+    {
+      "label": "Start Development",
+      "dependsOn": ["Populate Emulators"],
+      "type": "shell",
+      "command": "npm run dev:next",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+} 
