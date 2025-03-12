@@ -19305,6 +19305,1148 @@ The key issue is that the Firebase SDK defaults to using the real service unless
 
 ---
 
+_**User**_
+
+Please populate Firebase with sample data based on all types defined for the app
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants me to create a script to populate their Firebase emulator with sample data based on the types defined in their application. Let me review all the types in their codebase to understand what data I need to generate:
+
+From `src/types/index.ts`, I see these main types:
+1. User
+2. BankStatement
+3. BankPayment
+4. CreditAward
+5. CreditAwardHistory
+6. Project
+7. Pledge
+8. HistoryAction
+
+I've already provided a script called `scripts/populate-emulator.ts` but they want me to update it to properly populate all these data types.
+
+For this task, I should:
+1. Create a comprehensive data seeding script that includes all entity types
+2. Make sure the data is interconnected (e.g., payments are associated with users, pledges with projects, etc.)
+3. Include different scenarios (active/inactive users, completed/active projects, etc.)
+4. Make sure all required fields are populated
+5. Generate realistic and comprehensive test data
+
+I'll create an updated version of the populate-emulator.ts script that covers all these requirements.
+</think>
+
+🤖 Here's a comprehensive script to populate your Firebase emulator with sample data for all entity types:
+
+````typescript:scripts/populate-emulator.ts
+/**
+ * Firebase Emulator Population Script
+ * 
+ * This script populates the Firebase emulators with sample data for development.
+ * Run with: npx ts-node scripts/populate-emulator.ts
+ * 
+ * Make sure emulators are running: firebase emulators:start
+ */
+
+// Configure emulator connection
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'
+
+import * as admin from 'firebase-admin'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
+import {
+  User, BankStatement, BankPayment, Project, Pledge, 
+  CreditAward, CreditAwardHistory, HistoryAction
+} from '../src/types'
+
+// Initialize Firebase Admin SDK
+const serviceAccount = {
+  projectId: 'dev-project', // Can be any string in emulator
+  privateKey: 'fake-key',
+  clientEmail: 'fake@example.com',
+}
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as any),
+})
+
+const auth = getAuth()
+const db = getFirestore()
+
+// Clear existing data
+async function clearCollections() {
+  console.log('Clearing existing collections...')
+  
+  const collections = [
+    'users', 
+    'projects', 
+    'payments', 
+    'statements', 
+    'pledges', 
+    'creditAwards',
+    'creditAwardHistory',
+    'historyActions'
+  ]
+  
+  for (const collection of collections) {
+    try {
+      const snapshot = await db.collection(collection).get()
+      const batch = db.batch()
+      
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref)
+      })
+      
+      if (snapshot.docs.length > 0) {
+        await batch.commit()
+        console.log(`✓ Cleared ${snapshot.docs.length} documents from ${collection}`)
+      } else {
+        console.log(`✓ Collection ${collection} is already empty`)
+      }
+    } catch (error) {
+      console.error(`Error clearing collection ${collection}:`, error)
+    }
+  }
+}
+
+// Create users
+async function createUsers() {
+  console.log('Creating users...')
+  
+  const users = [
+    {
+      uid: 'user-001',
+      email: 'admin@example.com',
+      password: 'password123',
+      displayName: 'Admin User',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-002',
+      email: 'johndoe@example.com',
+      password: 'password123',
+      displayName: 'John Doe',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-003',
+      email: 'janesmith@example.com',
+      password: 'password123',
+      displayName: 'Jane Smith',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-004',
+      email: 'bobmartin@example.com',
+      password: 'password123',
+      displayName: 'Bob Martin',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-005',
+      email: 'alice@example.com',
+      password: 'password123',
+      displayName: 'Alice Johnson',
+      emailVerified: true,
+      disabled: true,
+    }
+  ]
+
+  const userDocs: User[] = []
+
+  for (const user of users) {
+    try {
+      // Create auth user
+      await auth.createUser(user)
+      console.log(`✓ Created auth user: ${user.email}`)
+      
+      // Create user document
+      const userData: User = {
+        id: user.uid,
+        name: user.displayName,
+        email: user.email,
+        role: user.email === 'admin@example.com' ? 'admin' : 'user',
+        isActive: !user.disabled,
+        specificSymbol: `SS${user.uid.substring(5).padStart(8, '0')}`,
+        variableSymbol: `VS${user.uid.substring(5).padStart(8, '0')}`,
+        constantSymbol: user.email === 'admin@example.com' ? 'CS0308' : '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      
+      await db.collection('users').doc(user.uid).set(userData)
+      console.log(`✓ Created user document: ${user.email}`)
+      
+      userDocs.push(userData)
+    } catch (error) {
+      console.error(`Error creating user ${user.email}:`, error)
+    }
+  }
+
+  return userDocs
+}
+
+// Create projects
+async function createProjects(users: User[]) {
+  console.log('Creating projects...')
+  
+  const projects: Project[] = [
+    {
+      id: 'project-001',
+      name: 'Community Library Upgrade',
+      description: 'Expansion and modernization of our local community library',
+      url: 'https://example.com/library',
+      goal: 50000,
+      ownerId: users[1].id, // John Doe
+      closed: false,
+      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
+      updatedAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'project-002',
+      name: 'Playground Renovation',
+      description: 'Renovation of the central playground with new equipment',
+      url: 'https://example.com/playground',
+      goal: 35000,
+      ownerId: users[2].id, // Jane Smith
+      closed: false,
+      createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'project-003',
+      name: 'Community Garden',
+      description: 'Creation of a sustainable community garden',
+      url: 'https://example.com/garden',
+      goal: 15000,
+      ownerId: users[3].id, // Bob Martin
+      closed: true,
+      closedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'project-004',
+      name: 'Tech Workshop Equipment',
+      description: 'Purchase of equipment for community tech workshops',
+      goal: 25000,
+      ownerId: users[1].id, // John Doe
+      closed: false,
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'project-005',
+      name: 'Canceled Project',
+      description: 'This project was canceled',
+      goal: 5000,
+      ownerId: users[2].id, // Jane Smith
+      closed: true,
+      closedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      deleted: true,
+      createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    }
+  ]
+
+  const batch = db.batch()
+  
+  projects.forEach(project => {
+    const docRef = db.collection('projects').doc(project.id)
+    batch.set(docRef, project)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${projects.length} projects`)
+  
+  return projects
+}
+
+// Create credit awards
+async function createCreditAwards(users: User[]) {
+  console.log('Creating credit awards...')
+  
+  const awards: CreditAward[] = []
+  const months = ['2025-01', '2025-02', '2025-03']
+  
+  // Monthly allocations for all users
+  for (const month of months) {
+    for (const user of users) {
+      if (user.isActive) {
+        awards.push({
+          id: `award-${month}-${user.id}`,
+          userId: user.id,
+          amount: 1000, // Standard monthly allocation
+          reason: 'monthly_allocation',
+          targetMonth: month,
+          notes: `Monthly credit allocation for ${month}`,
+          createdAt: new Date(Date.now() - (months.indexOf(month) * 30 * 24 * 60 * 60 * 1000)).toISOString(),
+          updatedAt: new Date(Date.now() - (months.indexOf(month) * 30 * 24 * 60 * 60 * 1000)).toISOString()
+        })
+      }
+    }
+  }
+  
+  // Special awards
+  awards.push({
+    id: 'award-special-001',
+    userId: users[1].id, // John Doe
+    amount: 2000,
+    reason: 'admin_award',
+    notes: 'Bonus for community engagement',
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
+  })
+  
+  awards.push({
+    id: 'award-special-002',
+    userId: users[2].id, // Jane Smith
+    amount: 1500,
+    reason: 'admin_award',
+    notes: 'Special contribution to the program',
+    createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
+  })
+  
+  // System refund
+  awards.push({
+    id: 'award-refund-001',
+    userId: users[3].id, // Bob Martin
+    amount: 500,
+    reason: 'refund',
+    sourceId: 'project-005',
+    sourceType: 'project',
+    notes: 'Refund from canceled project',
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+  })
+
+  const batch = db.batch()
+  
+  awards.forEach(award => {
+    const docRef = db.collection('creditAwards').doc(award.id)
+    batch.set(docRef, award)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${awards.length} credit awards`)
+  
+  // Create credit award history
+  const history: CreditAwardHistory[] = awards.map(award => ({
+    id: `history-${award.id}`,
+    userId: award.userId,
+    amount: award.amount,
+    createdAt: award.createdAt,
+    updatedAt: award.updatedAt,
+    originatingUserId: award.reason === 'admin_award' ? users[0].id : undefined, // Admin for admin awards
+    description: award.notes || `Credit award: ${award.reason}`
+  }))
+  
+  const historyBatch = db.batch()
+  
+  history.forEach(item => {
+    const docRef = db.collection('creditAwardHistory').doc(item.id)
+    historyBatch.set(docRef, item)
+  })
+  
+  await historyBatch.commit()
+  console.log(`✓ Created ${history.length} credit award history records`)
+  
+  return awards
+}
+
+// Create pledges
+async function createPledges(users: User[], projects: Project[]) {
+  console.log('Creating pledges...')
+  
+  const pledges: Pledge[] = [
+    // Pledges for Community Library project
+    {
+      id: 'pledge-001',
+      userId: users[1].id, // John Doe
+      projectId: 'project-001',
+      amount: 5000,
+      locked: false,
+      description: 'Initial pledge for community library',
+      createdAt: new Date(Date.now() - 58 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 58 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'pledge-002',
+      userId: users[2].id, // Jane Smith
+      projectId: 'project-001',
+      amount: 7500,
+      locked: false,
+      description: 'Supporting the library project',
+      createdAt: new Date(Date.now() - 55 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 55 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'pledge-003',
+      userId: users[3].id, // Bob Martin
+      projectId: 'project-001',
+      amount: 3000,
+      locked: false,
+      description: 'Contribution to library renovation',
+      createdAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Pledges for Playground Renovation
+    {
+      id: 'pledge-004',
+      userId: users[1].id, // John Doe
+      projectId: 'project-002',
+      amount: 2500,
+      locked: false,
+      description: 'For the playground equipment',
+      createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'pledge-005',
+      userId: users[3].id, // Bob Martin
+      projectId: 'project-002',
+      amount: 5000,
+      locked: false,
+      description: 'Supporting the playground renovation',
+      createdAt: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Pledges for completed Community Garden
+    {
+      id: 'pledge-006',
+      userId: users[1].id, // John Doe
+      projectId: 'project-003',
+      amount: 4000,
+      locked: true, // Locked because project is closed
+      description: 'For gardening supplies',
+      createdAt: new Date(Date.now() - 85 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'pledge-007',
+      userId: users[2].id, // Jane Smith
+      projectId: 'project-003',
+      amount: 6000,
+      locked: true, // Locked because project is closed
+      description: 'For sustainable garden development',
+      createdAt: new Date(Date.now() - 80 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'pledge-008',
+      userId: users[3].id, // Bob Martin
+      projectId: 'project-003',
+      amount: 5000,
+      locked: true, // Locked because project is closed
+      description: 'Final contribution to complete the garden',
+      createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Pledges for Tech Workshop
+    {
+      id: 'pledge-009',
+      userId: users[2].id, // Jane Smith
+      projectId: 'project-004',
+      amount: 8000,
+      locked: false,
+      description: 'For tech workshop equipment',
+      createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Deleted pledge for canceled project
+    {
+      id: 'pledge-010',
+      userId: users[3].id, // Bob Martin
+      projectId: 'project-005',
+      amount: 500,
+      locked: false,
+      deleted: true,
+      description: 'Initial pledge for canceled project',
+      createdAt: new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  ]
+
+  const batch = db.batch()
+  
+  pledges.forEach(pledge => {
+    const docRef = db.collection('pledges').doc(pledge.id)
+    batch.set(docRef, pledge)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${pledges.length} pledges`)
+  
+  return pledges
+}
+
+// Create bank statements
+async function createStatements() {
+  console.log('Creating bank statements...')
+  
+  const statements: BankStatement[] = [
+    {
+      id: 'stmt-2025-01',
+      month: '2025-01',
+      processedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'processed',
+      payments: JSON.stringify([
+        { amount: 1500, userId: 'user-002', receivedAt: '2025-01-05' },
+        { amount: 3000, userId: 'user-003', receivedAt: '2025-01-10' },
+        { amount: 2500, userId: 'user-004', receivedAt: '2025-01-15' }
+      ]),
+      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'stmt-2025-02',
+      month: '2025-02',
+      processedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'processed',
+      payments: JSON.stringify([
+        { amount: 2000, userId: 'user-002', receivedAt: '2025-02-05' },
+        { amount: 1500, userId: 'user-003', receivedAt: '2025-02-12' },
+        { amount: 3500, userId: 'user-004', receivedAt: '2025-02-18' }
+      ]),
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'stmt-2025-03',
+      month: '2025-03',
+      processedAt: new Date().toISOString(),
+      status: 'processed',
+      payments: JSON.stringify([
+        { amount: 3000, userId: 'user-002', receivedAt: '2025-03-05' },
+        { amount: 2000, userId: 'user-003', receivedAt: '2025-03-10' },
+        { amount: 5000, userId: 'user-001', receivedAt: '2025-03-15' },
+        { amount: 1500, userId: 'user-004', receivedAt: '2025-03-20' }
+      ]),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'stmt-2025-04',
+      month: '2025-04',
+      status: 'pending',
+      payments: JSON.stringify([]),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  ]
+
+  const batch = db.batch()
+  
+  statements.forEach(statement => {
+    const docRef = db.collection('statements').doc(statement.id)
+    batch.set(docRef, statement)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${statements.length} bank statements`)
+  
+  return statements
+}
+
+// Create payments
+async function createPayments(statements: BankStatement[], users: User[]) {
+  console.log('Creating payments...')
+  
+  const payments: BankPayment[] = []
+  const months = ['2025-01', '2025-02', '2025-03']
+  
+  // Regular payments based on statements
+  let paymentId = 1
+  for (let i = 0; i < months.length; i++) {
+    const month = months[i]
+    const statement = statements.find(s => s.month === month)
+    if (!statement) continue
+    
+    // Extract payment data from statement.payments JSON
+    const statementPayments = JSON.parse(statement.payments || '[]')
+    
+    for (const paymentData of statementPayments) {
+      const user = users.find(u => u.id === paymentData.userId)
+      if (!user) continue
+      
+      payments.push({
+        id: `pay-${paymentId.toString().padStart(3, '0')}`,
+        statementId: statement.id,
+        userId: user.id,
+        amount: paymentData.amount,
+        variableSymbol: user.variableSymbol || `VS${paymentId.toString().padStart(8, '0')}`,
+        specificSymbol: user.specificSymbol || '',
+        constantSymbol: user.constantSymbol || '',
+        bankTransactionId: `tr-${paymentId.toString().padStart(5, '0')}`,
+        counterpartyAccountNumber: `12345${paymentId}/${paymentId.toString().padStart(4, '0')}`,
+        counterpartyName: user.name,
+        receivedAt: paymentData.receivedAt || new Date(Date.now() - (3 - i) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        message: `Payment for ${month}`,
+        comment: paymentId % 3 === 0 ? 'Regular monthly payment' : '',
+        targetMonth: month,
+        createdAt: new Date(Date.now() - (3 - i) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - (3 - i) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      
+      paymentId++
+    }
+  }
+  
+  // Add a split payment example
+  const parentPayment: BankPayment = {
+    id: 'pay-split-parent',
+    statementId: 'stmt-2025-03',
+    userId: users[1].id, // John Doe
+    amount: 5000,
+    variableSymbol: 'VS00000099',
+    specificSymbol: users[1].specificSymbol || '',
+    constantSymbol: '0308',
+    bankTransactionId: 'tr-99999',
+    counterpartyAccountNumber: '9876543210/0300',
+    counterpartyName: users[1].name,
+    receivedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    message: 'Payment to be split',
+    comment: 'Original payment before splitting',
+    targetMonth: '2025-03',
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+  
+  const splitPayment1: BankPayment = {
+    ...parentPayment,
+    id: 'pay-split-child-1',
+    amount: 3000,
+    message: 'Split payment part 1',
+    comment: 'First part of split payment',
+    isSplitFromId: 'pay-split-parent',
+    targetMonth: '2025-03',
+    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+  
+  const splitPayment2: BankPayment = {
+    ...parentPayment,
+    id: 'pay-split-child-2',
+    amount: 2000,
+    message: 'Split payment part 2',
+    comment: 'Second part of split payment',
+    isSplitFromId: 'pay-split-parent',
+    targetMonth: '2025-04',
+    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+  
+  payments.push(parentPayment, splitPayment1, splitPayment2)
+  
+  const batch = db.batch()
+  
+  payments.forEach(payment => {
+    const docRef = db.collection('payments').doc(payment.id)
+    batch.set(docRef, payment)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${payments.length} payments`)
+  
+  return payments
+}
+
+// Create history actions
+async function createHistoryActions(users: User[], projects: Project[], pledges: Pledge[]) {
+  console.log('Creating history actions...')
+  
+  const historyActions: HistoryAction[] = [
+    // Project creation actions
+    ...projects.map(project => ({
+      id: `history-project-create-${project.id}`,
+      type: 'create_project' as HistoryActionType,
+      entityId: project.id,
+      userId: project.ownerId,
+      data: {
+        after: project
+      },
+      createdAt: project.createdAt
+    })),
+    
+    // Project updates
+    {
+      id: 'history-project-update-001',
+      type: 'update_project' as HistoryActionType,
+      entityId: projects[0].id,
+      userId: projects[0].ownerId,
+      data: {
+        before: { ...projects[0], description: 'Original description' },
+        after: { ...projects[0] }
+      },
+      createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Project closing
+    {
+      id: 'history-project-close-001',
+      type: 'update_project' as HistoryActionType,
+      entityId: projects[2].id, // Community Garden (closed)
+      userId: projects[2].ownerId,
+      data: {
+        before: { ...projects[2], closed: false, closedAt: undefined },
+        after: { ...projects[2] }
+      },
+      createdAt: projects[2].closedAt || projects[2].updatedAt
+    },
+    
+    // Pledge creation actions
+    ...pledges.filter(p => !p.deleted).map(pledge => ({
+      id: `history-pledge-create-${pledge.id}`,
+      type: 'create_pledge' as HistoryActionType,
+      entityId: pledge.id,
+      userId: pledge.userId,
+      data: {
+        after: pledge
+      },
+      createdAt: pledge.createdAt
+    })),
+    
+    // Pledge lock actions (for closed project)
+    ...pledges.filter(p => p.locked).map(pledge => ({
+      id: `history-pledge-lock-${pledge.id}`,
+      type: 'update_pledge' as HistoryActionType,
+      entityId: pledge.id,
+      userId: users[0].id, // Admin user
+      data: {
+        before: { ...pledge, locked: false },
+        after: { ...pledge, locked: true }
+      },
+      createdAt: pledge.updatedAt
+    })),
+    
+    // Bank statement processing
+    {
+      id: 'history-statement-process-001',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-01',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-01', status: 'processed' }
+      },
+      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'history-statement-process-002',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-02',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-02', status: 'processed' }
+      },
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'history-statement-process-003',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-03',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-03', status: 'processed' }
+      },
+      createdAt: new Date().toISOString()
+    },
+    
+    // Payment split action
+    {
+      id: 'history-payment-split-001',
+      type: 'split_payment' as HistoryActionType,
+      entityId: 'pay-split-parent',
+      userId: users[0].id, // Admin user
+      data: {
+        before: { id: 'pay-split-parent', amount: 5000 },
+        after: {
+          parent: { id: 'pay-split-parent', amount: 5000 },
+          children: [
+            { id: 'pay-split-child-1', amount: 3000, targetMonth: '2025-03' },
+            { id: 'pay-split-child-2', amount: 2000, targetMonth: '2025-04' }
+          ]
+        }
+      },
+      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    
+    // Credit awards
+    {
+      id: 'history-credit-award-001',
+      type: 'award_credits' as HistoryActionType,
+      entityId: 'award-special-001',
+      userId: users[0].id, // Admin user
+      data: {
+        after: {
+          userId: users[1].id,
+          amount: 2000,
+          reason: 'admin_award',
+          notes: 'Bonus for community engagement'
+        }
+      },
+      createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  ]
+
+  const batch = db.batch()
+  
+  // Split into smaller batches to avoid size limits
+  const batchSize = 20
+  for (let i = 0; i < historyActions.length; i += batchSize) {
+    const currentBatch = db.batch()
+    
+    const batch = historyActions.slice(i, i + batchSize)
+    batch.forEach(action => {
+      const docRef = db.collection('historyActions').doc(action.id)
+      currentBatch.set(docRef, action)
+    })
+    
+    await currentBatch.commit()
+    console.log(`✓ Created batch of history actions: ${i + 1} to ${Math.min(i + batchSize, historyActions.length)}`)
+  }
+  
+  console.log(`✓ Created total of ${historyActions.length} history actions`)
+  
+  return historyActions
+}
+
+// Main function to initialize the entire database
+async function initializeEmulator() {
+  try {
+    console.log('Starting Firebase emulator data population...')
+    console.log('=============================================')
+    
+    await clearCollections()
+    
+    const users = await createUsers()
+    const projects = await createProjects(users)
+    const statements = await createStatements()
+    const awards = await createCreditAwards(users)
+    const pledges = await createPledges(users, projects)
+    const payments = await createPayments(statements, users)
+    const history = await createHistoryActions(users, projects, pledges)
+    
+    console.log('=============================================')
+    console.log('✓ Firebase emulator data population completed successfully!')
+    console.log(`  - ${users.length} users`)
+    console.log(`  - ${projects.length} projects`)
+    console.log(`  - ${statements.length} bank statements`)
+    console.log(`  - ${payments.length} payments`)
+    console.log(`  - ${awards.length} credit awards`)
+    console.log(`  - ${pledges.length} pledges`)
+    console.log(`  - ${history.length} history actions`)
+    
+  } catch (error) {
+    console.error('Error populating emulator data:', error)
+  } finally {
+    process.exit(0)
+  }
+}
+
+// Execute the initialization
+initializeEmulator()
+````
+
+To run this script:
+
+1. Make sure your Firebase emulators are running:
+   ```bash
+   firebase emulators:start
+   ```
+
+2. Execute the script:
+   ```bash
+   npx ts-node scripts/populate-emulator.ts
+   ```
+
+This script will:
+- Clear all existing collections
+- Create users in both Auth and Firestore
+- Create projects with different statuses (active, completed, deleted)
+- Create credit awards with different reasons
+- Create pledges linked to projects and users
+- Create bank statements and payments
+- Create split payments
+- Create history actions for all major events
+
+All data is properly linked and includes a variety of scenarios to test different features of your application.
+
+---
+
+_**User**_
+
+Please abstract away to a different file the pure generated data objects from logic that populates Firebase
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants me to abstract the data generation away from the Firebase population logic. This is a good separation of concerns that will make the code more maintainable. I should:
+
+1. Create a data file that exports all the sample data objects
+2. Modify the populate-emulator.ts file to import this data and focus only on Firebase operations
+
+I'll create a new file called `scripts/sample-data.ts` that will contain all the data generation, and then modify the `populate-emulator.ts` to import and use this data.
+</think>
+
+🤖 Let's separate the data generation from the Firebase population logic. I'll create a new file for sample data:
+
+````typescript:scripts/sample-data.ts
+/**
+ * Sample data for Firebase emulator
+ * This file contains all the sample data objects used to populate the emulator
+ */
+
+import { 
+  User, BankStatement, BankPayment, Project, Pledge, 
+  CreditAward, HistoryAction, HistoryActionType 
+} from '../src/types'
+import { generateId } from '../src/lib/utils'
+
+// Generate timestamp for a date offset in days
+const getTimestamp = (daysOffset = 0) => {
+  const date = new Date()
+  date.setDate(date.getDate() - daysOffset)
+  return date.toISOString()
+}
+
+// Generate sample users
+export const generateUsers = () => {
+  const authUsers = [
+    {
+      uid: 'user-001',
+      email: 'admin@example.com',
+      password: 'password123',
+      displayName: 'Admin User',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-002',
+      email: 'johndoe@example.com',
+      password: 'password123',
+      displayName: 'John Doe',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-003',
+      email: 'janesmith@example.com',
+      password: 'password123',
+      displayName: 'Jane Smith',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-004',
+      email: 'bobmartin@example.com',
+      password: 'password123',
+      displayName: 'Bob Martin',
+      emailVerified: true,
+      disabled: false,
+    },
+    {
+      uid: 'user-005',
+      email: 'alice@example.com',
+      password: 'password123',
+      displayName: 'Alice Johnson',
+      emailVerified: true,
+      disabled: true,
+    }
+  ]
+  
+  const userDocs: User[] = authUsers.map(user => ({
+    id: user.uid,
+    name: user.displayName,
+    email: user.email,
+    role: user.uid === 'user-001' ? 'admin' : 'user',
+    isActive: !user.disabled,
+    specificSymbol: `${parseInt(user.uid.split('-')[1]) * 1000000000}`,
+    variableSymbol: `${parseInt(user.uid.split('-')[1]) * 2000000000}`,
+    constantSymbol: '0308',
+    createdAt: getTimestamp(90),
+    updatedAt: getTimestamp(90)
+  }))
+  
+  return { authUsers, userDocs }
+}
+
+// Generate sample projects
+export const generateProjects = (users: User[]): Project[] => {
+  return [
+    {
+      id: 'project-001',
+      name: 'Community Garden',
+      description: 'Create a garden for the local community to grow vegetables and flowers.',
+      url: 'https://example.com/community-garden',
+      goal: 10000,
+      ownerId: users[1].id,
+      closed: false,
+      createdAt: getTimestamp(60),
+      updatedAt: getTimestamp(60),
+      deleted: false
+    },
+    {
+      id: 'project-002',
+      name: 'Tech Workshop',
+      description: 'Workshop for teaching programming to kids and teenagers.',
+      goal: 5000,
+      ownerId: users[2].id,
+      closed: false,
+      createdAt: getTimestamp(45),
+      updatedAt: getTimestamp(45),
+      deleted: false
+    },
+    {
+      id: 'project-003',
+      name: 'Hiking Trail Cleanup',
+      description: 'Organize a cleanup event for the local hiking trails.',
+      goal: 3000,
+      ownerId: users[3].id,
+      closed: true,
+      closedAt: getTimestamp(10),
+      createdAt: getTimestamp(30),
+      updatedAt: getTimestamp(10),
+      deleted: false
+    },
+    {
+      id: 'project-004',
+      name: 'Art Exhibition',
+      description: 'Exhibition showcasing local artists and their work.',
+      goal: 8000,
+      ownerId: users[2].id,
+      closed: false,
+      createdAt: getTimestamp(20),
+      updatedAt: getTimestamp(20),
+      deleted: false
+    },
+    {
+      id: 'project-005',
+      name: 'Canceled Project',
+      description: 'This project was canceled and marked as deleted.',
+      goal: 2000,
+      ownerId: users[1].id,
+      closed: false,
+      createdAt: getTimestamp(15),
+      updatedAt: getTimestamp(5),
+      deleted: true
+    }
+  ]
+}
+
+// Generate sample bank statements
+export const generateStatements = (): BankStatement[] => {
+  return [
+    {
+      id: 'stmt-2025-01',
+      month: '2025-01',
+      status: 'processed',
+      processedAt: getTimestamp(60),
+      payments: JSON.stringify([]), // This will be populated separately
+      createdAt: getTimestamp(60),
+      updatedAt: getTimestamp(60),
+    },
+    {
+      id: 'stmt-2025-02',
+      month: '2025-02',
+      status: 'processed',
+      processedAt: getTimestamp(30),
+      payments: JSON.stringify([]),
+      createdAt: getTimestamp(30),
+      updatedAt: getTimestamp(30),
+    },
+    {
+      id: 'stmt-2025-03',
+      month: '2025-03',
+      status: 'processed',
+      processedAt: getTimestamp(1),
+      payments: JSON.stringify([]),
+      createdAt: getTimestamp(1),
+      updatedAt: getTimestamp(1),
+    },
+    {
+      id: 'stmt-2025-04',
+      month: '2025-04',
+      status: 'pending',
+      processedAt: null as any,
+      payments: JSON.stringify([]),
+      createdAt: getTimestamp(0),
+      updatedAt: getTimestamp(0),
+    }
+  ]
+}
+
+// Generate sample payments
+export const generatePayments = (statements: BankStatement[], users: User[]): BankPayment[] => {
+  // Create a function to generate a standard payment
+  const createPayment = (
+    id: string, 
+    statementId: string, 
+    userId: string, 
+    amount: number, 
+    daysAgo: number,
+    targetMonth?: string,
+    isSplitFromId?: string
+  ): BankPayment => ({
+    id,
+    statementId,
+    userId,
+    amount,
+    variableSymbol: users.find(u => u.id === userId)?.variableSymbol || '',
+    specificSymbol: users.find(u => u.id === userId)?.specificSymbol || '',
+    constantSymbol: '0308',
+    bankTransactionId: `bank-${id}`,
+    counterpartyAccountNumber: '123456789/0100',
+    counterpartyName: users.find(u => u.id === userId)?.name || 'Unknown',
+    receivedAt: getTimestamp(daysAgo),
+    message: `Payment from ${users.find(u => u.id === userId)?.name}`,
+    comment: `Monthly contribution for ${targetMonth || statements.find(s => s.id === statementId)?.month}`,
+    targetMonth: targetMonth || statements.find(s => s.id === statementId)?.month,
+    deleted: false,
+    createdAt: getTimestamp(daysAgo),
+    updatedAt: getTimestamp(daysAgo),
+    isSplitFromId
+  })
+
+  // Create regular payments
+  const payments: BankPayment[] = [
+    // January payments
+    createPayment('pay-001', 'stmt-2025-01', users[1].id, 1000, 60, '2025-01'),
+    createPayment('pay-002', 'stmt-2025-01', users[2].id, 1500, 58, '2025-01'),
+    createPayment('pay-003', 'stmt-2025-01', users[3].id, 2000, 55, '2025-01'),
+    
+    // February payments
+    createPayment('pay-004', 'stmt-2025-02', users[1].id, 1000, 30, '2025-02'),
+    createPayment('pay-005', 'stmt-2025-02', users[2].id, 1500, 28, '2025-02'),
+    createPayment('pay-006', 'stmt-2025-02', users[3].id, 2000, 26, '2025-02'),
+    
+    // March payments
+    createPayment('pay-007', 'stmt-2025-03', users[1].id, 1000, 8, '2025-03'),
+    createPayment('pay-008', 'stmt-2025-03', users[2].id, 1500, 7, '2025-03'),
+    createPayment('pay-009', 'stmt-2025-03', users[3].id, 2000, 5, '2025-03')
+  ]
+  
+  // Add a parent payment for split demo
+  const parentPayment = createPayment('pay-split-parent', 'stmt-2025-03', users[1].id, 5000, 5)
+  
+  // Add split payments
+  const splitPayment1 = createPayment('pay-split-child-1', 'stmt-2025-
+
+---
+
 
 
 ---
