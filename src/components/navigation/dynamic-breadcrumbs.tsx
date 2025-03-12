@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { useProject } from "@/hooks/use-projects"
 import { Breadcrumbs } from "./breadcrumbs"
 import { getBreadcrumbItems } from "@/config/navigation"
+import { Project } from "@/types"
 
 export function DynamicBreadcrumbs() {
   const pathname = usePathname()
@@ -12,8 +13,10 @@ export function DynamicBreadcrumbs() {
 
   //@TODO: check if in projects route? Check if projectId in segments?
   const projectId = segments[0] === 'projects' ? segments[1] : undefined
+  let project: Project | null | undefined = null
   if(projectId) {
-  const { data: project, isLoading } = useProject(projectId ?? '')
+    const { data, isLoading } = useProject(projectId ?? '')
+    project = data
 
     console.log({
       pathname,

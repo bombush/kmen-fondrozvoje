@@ -21632,7 +21632,7 @@ First, create a `.vscode` directory in your project root with a `launch.json` fi
 
 Add a Chrome debugger configuration to the array in the same file:
 
-````json
+````json:.vscode/launch.json
 {
   "name": "Chrome",
   "type": "chrome",
@@ -21649,7 +21649,7 @@ Add a Chrome debugger configuration to the array in the same file:
 
 Add a debug script to your package.json:
 
-````json
+````json:package.json
 "scripts": {
   "dev:debug": "NODE_OPTIONS='--inspect' next dev",
   // other scripts...
@@ -21664,7 +21664,7 @@ For React component debugging, install the React Developer Tools extension for C
 
 Update your tsconfig.json to ensure source maps are generated:
 
-````json
+````json:.vscode/launch.json
 {
   "compilerOptions": {
     // other options...
@@ -21722,6 +21722,120 @@ Create a `.vscode/tasks.json` file:
 ````
 
 ## 7. Setup Firebase Emulator Debugging
+
+For Firebase functions debugging (if you add them later):
+
+````json:.vscode/launch.json
+{
+  "name": "Debug Firebase Functions",
+  "type": "node",
+  "request": "attach",
+  "port": 9229,
+  "skipFiles": ["<node_internals>/**"]
+}
+````
+
+## 8. Use the Firebase Extension for VS Code
+
+Install the Firebase extension for VS Code to manage emulators and see real-time data:
+- Firebase Explorer (by Google)
+
+## 9. Add VS Code Extensions (recommended)
+
+Here are some recommended extensions for VS Code:
+
+```
+ext install dbaeumer.vscode-eslint
+ext install esbenp.prettier-vscode
+ext install ms-vscode.vscode-typescript-next
+ext install ms-vscode.js-debug-nightly
+ext install bradlc.vscode-tailwindcss
+ext install dsznajder.es7-react-js-snippets
+ext install github.copilot
+ext install firebase.vscode-firebase-explorer
+```
+
+## 10. Using the debugger
+
+- To debug Next.js: Press F5 and select "Next.js: Debug Web"
+- To debug a script: Open the script file, press F5 and select "Debug Scripts"
+- To debug a test: Open the test file, press F5 and select "Debug Current Test"
+- To run the full development stack: Run the "Start Development" task
+
+## 11. Browser DevTools Tips
+
+For effective browser debugging:
+
+1. In Chrome DevTools, go to Sources > Filesystem and add your project folder to enable direct editing
+2. Enable "Pause on caught exceptions" in the Sources panel for catching errors
+3. Use the Network tab to debug API calls and authentication issues
+
+This setup provides comprehensive debugging across your entire stack - client code, server code, scripts, and tests.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Property 'name' does not exist on type 'never'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+<think>
+The error message "Property 'name' does not exist on type 'never'" is coming from the DynamicBreadcrumbs component in src/components/navigation/dynamic-breadcrumbs.tsx.
+
+Looking at your code, I can see an issue in how you're handling the `project` variable. Let's analyze what's happening:
+
+1. You declare a variable `let project: Project | null = null`
+2. Inside the `if(projectId)` block, you then declare a new variable with the same name using destructuring from `useProject` hook.
+3. This creates a scope issue - the second `project` variable only exists within the `if(projectId)` block and doesn't update the outer `project` variable.
+4. Later in the component, you try to access `project.name`, but the outer `project` variable is still `null`.
+
+The solution is to not redeclare the variable inside the if block. Instead, use the already declared variable to store the result from `useProject`.
+
+Here's the concise fix:
+</think>
+
+🤖 The error occurs because you're declaring a new `project` variable inside the `if` block which shadows the outer variable. The inner `project` is only accessible within that scope, while you're trying to use it outside.
+
+Here's the fix:
+
+````typescript:src/components/navigation/dynamic-breadcrumbs.tsx
+"use client"
+
+import { usePathname } from "next/navigation"
+import { useProject } from "@/hooks/use-projects"
+import { Breadcrumbs } from "./breadcrumbs"
+import { getBreadcrumbItems } from "@/config/navigation"
+import { Project } from "@/types"
+
+export function DynamicBreadcrumbs() {
+  const pathname = usePathname()
+  const segments = pathname.split('/').filter(Boolean)
+  
+  const projectId = segments[0] === 'projects' ? segments[1] : undefined
+  const { data: project, isLoading } = useProject(projectId ?? '')
+
+  const items = getBreadcrumbItems(pathname)
+
+  // Update project title if available
+  if (projectId && project) {
+    const dynamicItem = items.find(item => item.dynamic)
+    if (dynamicItem) {
+      dynamicItem.title = project.name
+    }
+  }
+
+  return <Breadcrumbs items={items} />
+}
+````
+
+The key change is removing the nested variable declaration and conditional logic that was causing the scope issue.
 
 ---
 
