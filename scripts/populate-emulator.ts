@@ -30,10 +30,10 @@ const firebaseConfig = {
   projectId: 'kmen-fondrozvoje',
 }
 
-function log(message: string) {
+function log(message: string, obj?:any) {
   const yellow = '\x1b[33m'; // ANSI escape code for yellow
   const reset = '\x1b[0m'; // ANSI escape code to reset color
-  console.log(`${yellow}[populate-emulator]${reset} ${message}`);
+  console.log(`${yellow}[populate-emulator]${reset} ${message}`, obj);
 }
 
 function logError(message: string, error?:any) {
@@ -48,7 +48,10 @@ async function waitForEmulators() {
     // Throw error if they are not running after the timeout
     const timeout = 20000
     const startTime = Date.now()
+    log('Using Firebase Auth Emulator at:', process.env.FIREBASE_AUTH_EMULATOR_HOST)
+    log('Using Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST)
     log('Waiting for emulators to start...')
+    
 
     while (true) {
 
@@ -92,10 +95,6 @@ try {
 // Connect to emulator explicitly to ensure connection
 const auth = getAuth()
 const db = getFirestore()
-
-// You can also add these lines to confirm emulator connection
-log('Using Firebase Auth Emulator at:', process.env.FIREBASE_AUTH_EMULATOR_HOST)
-log('Using Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST)
 
 // Clear existing data
 async function clearCollections() {
