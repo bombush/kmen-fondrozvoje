@@ -20443,7 +20443,1007 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
   const parentPayment = createPayment('pay-split-parent', 'stmt-2025-03', users[1].id, 5000, 5)
   
   // Add split payments
-  const splitPayment1 = createPayment('pay-split-child-1', 'stmt-2025-
+  const splitPayment1 = createPayment('pay-split-child-1', 'stmt-2025-03', users[1].id, 3000, 4, '2025-03', 'pay-split-parent')
+  const splitPayment2 = createPayment('pay-split-child-2', 'stmt-2025-03', users[1].id, 2000, 4, '2025-04', 'pay-split-parent')
+  
+  // Combine all payments
+  return [...payments, parentPayment, splitPayment1, splitPayment2]
+}
+
+// Generate sample credit awards
+export const generateCreditAwards = (users: User[]): CreditAward[] => {
+  return [
+    // Monthly allocations
+    ...users.filter(u => u.isActive).flatMap((user, index) => ([
+      {
+        id: `award-monthly-${user.id}-01`,
+        userId: user.id,
+        amount: 1000,
+        reason: 'monthly_allocation' as const,
+        targetMonth: '2025-01',
+        notes: 'Monthly credit allocation for January 2025',
+        createdAt: getTimestamp(60),
+        updatedAt: getTimestamp(60),
+        deleted: false
+      },
+      {
+        id: `award-monthly-${user.id}-02`,
+        userId: user.id,
+        amount: 1000,
+        reason: 'monthly_allocation' as const,
+        targetMonth: '2025-02',
+        notes: 'Monthly credit allocation for February 2025',
+        createdAt: getTimestamp(30),
+        updatedAt: getTimestamp(30),
+        deleted: false
+      },
+      {
+        id: `award-monthly-${user.id}-03`,
+        userId: user.id,
+        amount: 1000,
+        reason: 'monthly_allocation' as const,
+        targetMonth: '2025-03',
+        notes: 'Monthly credit allocation for March 2025',
+        createdAt: getTimestamp(1),
+        updatedAt: getTimestamp(1),
+        deleted: false
+      }
+    ])),
+    
+    // Special awards
+    {
+      id: 'award-special-001',
+      userId: users[1].id,
+      amount: 2000,
+      reason: 'admin_award' as const,
+      notes: 'Bonus for community engagement',
+      createdAt: getTimestamp(15),
+      updatedAt: getTimestamp(15),
+      deleted: false
+    },
+    {
+      id: 'award-special-002',
+      userId: users[2].id,
+      amount: 1500,
+      reason: 'admin_award' as const,
+      notes: 'Award for organizing workshops',
+      createdAt: getTimestamp(10),
+      updatedAt: getTimestamp(10),
+      deleted: false
+    }
+  ]
+}
+
+// Generate sample pledges
+export const generatePledges = (users: User[], projects: Project[]): Pledge[] => {
+  const timestamp = new Date().toISOString()
+  
+  return [
+    // Pledges for Community Garden (project-001)
+    {
+      id: 'pledge-001',
+      userId: users[1].id,
+      projectId: projects[0].id,
+      amount: 3000,
+      locked: false,
+      createdAt: getTimestamp(50),
+      updatedAt: getTimestamp(50),
+      deleted: false,
+      description: 'Supporting community garden'
+    },
+    {
+      id: 'pledge-002',
+      userId: users[2].id,
+      projectId: projects[0].id,
+      amount: 2000,
+      locked: false,
+      createdAt: getTimestamp(48),
+      updatedAt: getTimestamp(48),
+      deleted: false,
+      description: 'For community garden tools'
+    },
+    
+    // Pledges for Tech Workshop (project-002)
+    {
+      id: 'pledge-003',
+      userId: users[1].id,
+      projectId: projects[1].id,
+      amount: 1500,
+      locked: false,
+      createdAt: getTimestamp(40),
+      updatedAt: getTimestamp(40),
+      deleted: false,
+      description: 'Supporting tech education'
+    },
+    {
+      id: 'pledge-004',
+      userId: users[3].id,
+      projectId: projects[1].id,
+      amount: 2500,
+      locked: false,
+      createdAt: getTimestamp(38),
+      updatedAt: getTimestamp(38),
+      deleted: false,
+      description: 'For programming equipment'
+    },
+    
+    // Pledges for Hiking Trail Cleanup (project-003, closed)
+    {
+      id: 'pledge-005',
+      userId: users[2].id,
+      projectId: projects[2].id,
+      amount: 1000,
+      locked: true, // Locked because project is closed
+      createdAt: getTimestamp(25),
+      updatedAt: getTimestamp(10),
+      deleted: false,
+      description: 'For cleanup supplies'
+    },
+    {
+      id: 'pledge-006',
+      userId: users[3].id,
+      projectId: projects[2].id,
+      amount: 2000,
+      locked: true, // Locked because project is closed
+      createdAt: getTimestamp(22),
+      updatedAt: getTimestamp(10),
+      deleted: false,
+      description: 'Supporting trail maintenance'
+    },
+    
+    // Pledges for Art Exhibition (project-004)
+    {
+      id: 'pledge-007',
+      userId: users[1].id,
+      projectId: projects[3].id,
+      amount: 3000,
+      locked: false,
+      createdAt: getTimestamp(18),
+      updatedAt: getTimestamp(18),
+      deleted: false,
+      description: 'Supporting local artists'
+    },
+    
+    // Deleted pledge
+    {
+      id: 'pledge-008',
+      userId: users[3].id,
+      projectId: projects[3].id,
+      amount: 1000,
+      locked: false,
+      createdAt: getTimestamp(17),
+      updatedAt: getTimestamp(12),
+      deleted: true,
+      description: 'Canceled pledge'
+    }
+  ]
+}
+
+// Generate history actions
+export const generateHistoryActions = (
+  users: User[], 
+  projects: Project[], 
+  pledges: Pledge[]
+): HistoryAction[] => {
+  return [
+    // Project creation history
+    ...projects.map(project => ({
+      id: `history-project-create-${project.id}`,
+      type: 'create_project' as HistoryActionType,
+      entityId: project.id,
+      userId: project.ownerId,
+      data: {
+        after: {
+          name: project.name,
+          description: project.description,
+          goal: project.goal
+        }
+      },
+      createdAt: project.createdAt
+    })),
+    
+    // Project update history
+    {
+      id: 'history-project-update-001',
+      type: 'update_project' as HistoryActionType,
+      entityId: projects[0].id,
+      userId: projects[0].ownerId,
+      data: {
+        before: { description: 'Create a garden.' },
+        after: { description: projects[0].description }
+      },
+      createdAt: getTimestamp(55)
+    },
+    
+    // Project closing history
+    {
+      id: 'history-project-close-001',
+      type: 'update_project' as HistoryActionType,
+      entityId: projects[2].id,
+      userId: projects[2].ownerId,
+      data: {
+        before: { closed: false },
+        after: { closed: true, closedAt: projects[2].closedAt }
+      },
+      createdAt: projects[2].closedAt || getTimestamp(10)
+    },
+    
+    // Pledge creation history
+    ...pledges.filter(p => !p.deleted).map(pledge => ({
+      id: `history-pledge-create-${pledge.id}`,
+      type: 'create_pledge' as HistoryActionType,
+      entityId: pledge.id,
+      userId: pledge.userId,
+      data: {
+        after: {
+          projectId: pledge.projectId,
+          amount: pledge.amount,
+          description: pledge.description
+        }
+      },
+      createdAt: pledge.createdAt
+    })),
+    
+    // Pledge locking history (for closed project)
+    ...pledges.filter(p => p.locked).map(pledge => ({
+      id: `history-pledge-lock-${pledge.id}`,
+      type: 'update_pledge' as HistoryActionType,
+      entityId: pledge.id,
+      userId: users[0].id, // Admin user
+      data: {
+        before: { locked: false },
+        after: { locked: true }
+      },
+      createdAt: pledge.updatedAt
+    })),
+    
+    // Bank statement processing
+    {
+      id: 'history-statement-process-001',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-01',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-01', status: 'processed' }
+      },
+      createdAt: getTimestamp(60)
+    },
+    {
+      id: 'history-statement-process-002',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-02',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-02', status: 'processed' }
+      },
+      createdAt: getTimestamp(30)
+    },
+    {
+      id: 'history-statement-process-003',
+      type: 'process_bank_statement' as HistoryActionType,
+      entityId: 'stmt-2025-03',
+      userId: users[0].id, // Admin user
+      data: {
+        after: { id: 'stmt-2025-03', status: 'processed' }
+      },
+      createdAt: getTimestamp(1)
+    },
+    
+    // Payment split action
+    {
+      id: 'history-payment-split-001',
+      type: 'split_payment' as HistoryActionType,
+      entityId: 'pay-split-parent',
+      userId: users[0].id, // Admin user
+      data: {
+        before: { id: 'pay-split-parent', amount: 5000 },
+        after: {
+          parent: { id: 'pay-split-parent', amount: 5000 },
+          children: [
+            { id: 'pay-split-child-1', amount: 3000, targetMonth: '2025-03' },
+            { id: 'pay-split-child-2', amount: 2000, targetMonth: '2025-04' }
+          ]
+        }
+      },
+      createdAt: getTimestamp(4)
+    },
+    
+    // Credit awards
+    {
+      id: 'history-credit-award-001',
+      type: 'award_credits' as HistoryActionType,
+      entityId: 'award-special-001',
+      userId: users[0].id, // Admin user
+      data: {
+        after: {
+          userId: users[1].id,
+          amount: 2000,
+          reason: 'admin_award',
+          notes: 'Bonus for community engagement'
+        }
+      },
+      createdAt: getTimestamp(15)
+    }
+  ]
+}
+````
+
+Now, let's update the populate-emulator.ts file to use this separated data:
+
+````typescript:scripts/populate-emulator.ts
+/**
+ * Firebase Emulator Population Script
+ * 
+ * This script populates the Firebase emulators with sample data for development.
+ * Run with: npx ts-node scripts/populate-emulator.ts
+ * 
+ * Make sure emulators are running: firebase emulators:start
+ */
+
+// Configure emulator connection
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'
+
+import * as admin from 'firebase-admin'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
+import {
+  generateUsers,
+  generateProjects,
+  generateStatements,
+  generatePayments,
+  generateCreditAwards,
+  generatePledges,
+  generateHistoryActions
+} from './sample-data'
+
+// Initialize Firebase Admin SDK
+const serviceAccount = {
+  projectId: 'dev-project', // Can be any string in emulator
+  privateKey: 'fake-key',
+  clientEmail: 'fake@example.com',
+}
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as any),
+})
+
+const auth = getAuth()
+const db = getFirestore()
+
+// Clear existing data
+async function clearCollections() {
+  console.log('Clearing existing collections...')
+  
+  const collections = [
+    'users', 
+    'projects', 
+    'payments', 
+    'statements', 
+    'pledges', 
+    'creditAwards',
+    'creditAwardHistory',
+    'historyActions'
+  ]
+  
+  for (const collection of collections) {
+    try {
+      const snapshot = await db.collection(collection).get()
+      const batch = db.batch()
+      
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref)
+      })
+      
+      if (snapshot.docs.length > 0) {
+        await batch.commit()
+        console.log(`✓ Cleared ${snapshot.docs.length} documents from ${collection}`)
+      } else {
+        console.log(`✓ Collection ${collection} is already empty`)
+      }
+    } catch (error) {
+      console.error(`Error clearing collection ${collection}:`, error)
+    }
+  }
+}
+
+// Populate users
+async function populateUsers() {
+  console.log('Populating users...')
+  const { authUsers, userDocs } = generateUsers()
+  
+  // Create auth users
+  for (const user of authUsers) {
+    try {
+      await auth.createUser(user)
+      console.log(`✓ Created auth user: ${user.email}`)
+    } catch (error) {
+      console.error(`Error creating auth user ${user.email}:`, error)
+    }
+  }
+  
+  // Create firestore user documents
+  const batch = db.batch()
+  userDocs.forEach(user => {
+    const docRef = db.collection('users').doc(user.id)
+    batch.set(docRef, user)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${userDocs.length} user documents`)
+  
+  return userDocs
+}
+
+// Populate projects
+async function populateProjects(users) {
+  console.log('Populating projects...')
+  const projects = generateProjects(users)
+  
+  const batch = db.batch()
+  projects.forEach(project => {
+    const docRef = db.collection('projects').doc(project.id)
+    batch.set(docRef, project)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${projects.length} projects`)
+  
+  return projects
+}
+
+// Populate bank statements
+async function populateStatements() {
+  console.log('Populating bank statements...')
+  const statements = generateStatements()
+  
+  const batch = db.batch()
+  statements.forEach(statement => {
+    const docRef = db.collection('statements').doc(statement.id)
+    batch.set(docRef, statement)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${statements.length} bank statements`)
+  
+  return statements
+}
+
+// Populate payments
+async function populatePayments(statements, users) {
+  console.log('Populating payments...')
+  const payments = generatePayments(statements, users)
+  
+  const batchSize = 20
+  for (let i = 0; i < payments.length; i += batchSize) {
+    const currentBatch = db.batch()
+    
+    const batch = payments.slice(i, i + batchSize)
+    batch.forEach(payment => {
+      const docRef = db.collection('payments').doc(payment.id)
+      currentBatch.set(docRef, payment)
+    })
+    
+    await currentBatch.commit()
+    console.log(`✓ Created batch of payments: ${i + 1} to ${Math.min(i + batchSize, payments.length)}`)
+  }
+  
+  console.log(`✓ Created total of ${payments.length} payments`)
+  
+  return payments
+}
+
+// Populate credit awards
+async function populateCreditAwards(users) {
+  console.log('Populating credit awards...')
+  const awards = generateCreditAwards(users)
+  
+  const batch = db.batch()
+  awards.forEach(award => {
+    const docRef = db.collection('creditAwards').doc(award.id)
+    batch.set(docRef, award)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${awards.length} credit awards`)
+  
+  return awards
+}
+
+// Populate pledges
+async function populatePledges(users, projects) {
+  console.log('Populating pledges...')
+  const pledges = generatePledges(users, projects)
+  
+  const batch = db.batch()
+  pledges.forEach(pledge => {
+    const docRef = db.collection('pledges').doc(pledge.id)
+    batch.set(docRef, pledge)
+  })
+  
+  await batch.commit()
+  console.log(`✓ Created ${pledges.length} pledges`)
+  
+  return pledges
+}
+
+// Populate history actions
+async function populateHistoryActions(users, projects, pledges) {
+  console.log('Populating history actions...')
+  const historyActions = generateHistoryActions(users, projects, pledges)
+  
+  // Split into smaller batches to avoid size limits
+  const batchSize = 20
+  for (let i = 0; i < historyActions.length; i += batchSize) {
+    const currentBatch = db.batch()
+    
+    const batch = historyActions.slice(i, i + batchSize)
+    batch.forEach(action => {
+      const docRef = db.collection('historyActions').doc(action.id)
+      currentBatch.set(docRef, action)
+    })
+    
+    await currentBatch.commit()
+    console.log(`✓ Created batch of history actions: ${i + 1} to ${Math.min(i + batchSize, historyActions.length)}`)
+  }
+  
+  console.log(`✓ Created total of ${historyActions.length} history actions`)
+  
+  return historyActions
+}
+
+// Main function to initialize the entire database
+async function initializeEmulator() {
+  try {
+    console.log('Starting Firebase emulator data population...')
+    console.log('=============================================')
+    
+    await clearCollections()
+    
+    const users = await populateUsers()
+    const projects = await populateProjects(users)
+    const statements = await populateStatements()
+    const awards = await populateCreditAwards(users)
+    const pledges = await populatePledges(users, projects)
+    const payments = await populatePayments(statements, users)
+    const history = await populateHistoryActions(users, projects, pledges)
+    
+    console.log('=============================================')
+    console.log('✓ Firebase emulator data population completed successfully!')
+    console.log(`  - ${users.length} users`)
+    console.log(`  - ${projects.length} projects`)
+    console.log(`  - ${statements.length} bank statements`)
+    console.log(`  - ${payments.length} payments`)
+    console.log(`  - ${awards.length} credit awards`)
+    console.log(`  - ${pledges.length} pledges`)
+    console.log(`  - ${history.length} history actions`)
+    
+  } catch (error) {
+    console.error('Error populating emulator data:', error)
+  } finally {
+    process.exit(0)
+  }
+}
+
+// Execute the initialization
+initializeEmulator()
+````
+
+This separation of concerns has several benefits:
+
+1. The `sample-data.ts` file focuses purely on generating realistic sample data
+2. The `populate-emulator.ts` file focuses on Firebase operations
+3. It's easier to modify the sample data without touching the Firebase logic
+4. You could reuse the sample data in other contexts (like tests)
+5. The code is more maintainable and easier to understand
+
+You can run the script the same way:
+```bash
+npx ts-node scripts/populate-emulator.ts
+```
+
+---
+
+_**User**_
+
+Can you populate firebase when running dev?
+
+---
+
+_**Assistant**_
+
+<think>
+The user is asking about automatically populating the Firebase emulator when running the development server. This would be convenient because developers wouldn't need to run a separate script to populate data every time they start the emulators.
+
+We can modify the `dev` script in the package.json to include populating the emulator before or after starting the emulators and Next.js development server. Let me check their current package.json setup.
+
+From what I can see in previous conversations, there's a script:
+```
+"dev": "concurrently \"firebase emulators:start --project=kmen-fondrozvoje\" \"next dev --turbopack\"",
+```
+
+We can modify this to include our populate script. We need to:
+1. First start the emulators
+2. Then populate the emulator
+3. Then start the Next.js dev server
+
+I'll suggest an updated script using concurrency and sequence operations for this workflow.
+</think>
+
+🤖 Yes, I can modify your `package.json` scripts to automatically populate Firebase when starting your development environment. This provides a smoother development experience since you won't need to run the populate script manually each time.
+
+Here's how to update your package.json:
+
+````json:package.json
+{
+  "scripts": {
+    "dev": "npm run dev:emulator && npm run populate-emulator && npm run dev:next",
+    "dev:combined": "concurrently \"npm run dev:emulator\" \"wait-on http://localhost:9099 && npm run populate-emulator && npm run dev:next\"",
+    "dev:next": "next dev --turbopack",
+    "dev:emulator": "firebase emulators:start --project=kmen-fondrozvoje",
+    "populate-emulator": "ts-node scripts/populate-emulator.ts",
+    "dev:fresh": "firebase emulators:start --project=kmen-fondrozvoje --import=./emulator-data --export-on-exit",
+    "dev:reset": "rimraf ./.firebase-emulator-data && npm run dev"
+    // ...other scripts remain unchanged
+  }
+}
+````
+
+I've provided a few options:
+
+1. **`dev`**: Sequential approach - starts emulators, populates them, then starts Next.js.
+
+2. **`dev:combined`**: Concurrent approach - starts emulators and, once they're available, populates data and starts Next.js.
+
+3. **`populate-emulator`**: Runs just the population script.
+
+4. **`dev:fresh`**: Starts emulators with data import/export for persistence.
+
+5. **`dev:reset`**: Wipes existing emulator data and starts fresh.
+
+For option 2, you'll need to install the `wait-on` package:
+
+```bash
+npm install --save-dev wait-on
+```
+
+To use the concurrent approach effectively, you'll also need `concurrently` and `rimraf`:
+
+```bash
+npm install --save-dev concurrently rimraf
+```
+
+The main difference between the options:
+- Sequential is simpler but slower to start 
+- Concurrent is faster but more complex
+- `dev:fresh` helps maintain emulator data between runs
+
+Choose whichever approach works best for your workflow!
+
+---
+
+_**User**_
+
+ts-node:
+
+
+---
+
+_**Assistant**_
+
+<think>
+It seems we're encountering the common "Unknown file extension '.ts'" error when trying to run a TypeScript file with ts-node. This typically happens when:
+
+1. ts-node is not correctly installed
+2. There's a mismatch between TypeScript and ts-node versions
+3. The TypeScript configuration is incorrect
+4. Node.js might be in ESM mode but not configured correctly for TypeScript files
+
+Let's address each of these possibilities:
+
+First, we need to check the tsconfig.json file to ensure it's properly configured for ts-node. We might need to adjust some settings like:
+
+1. Make sure the module system is correctly specified
+2. Check if we need to enable esModuleInterop
+3. Ensure that the script files are included in the compilation
+
+Additionally, we might need to update the populate-emulator.ts command in package.json to use the correct ts-node options.
+</think>
+
+🤖 The error `Unknown file extension ".ts"` occurs because ts-node needs additional configuration to run TypeScript files properly. Let's fix this issue:
+
+### Solution 1: Create a tsconfig.scripts.json for ts-node
+
+First, create a separate TypeScript configuration for your scripts:
+
+````typescript:tsconfig.scripts.json
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "skipLibCheck": true,
+    "outDir": "./dist"
+  },
+  "include": ["scripts/**/*"],
+  "ts-node": {
+    "transpileOnly": true
+  }
+}
+````
+
+### Solution 2: Update your package.json script
+
+Update your package.json script to explicitly use this configuration:
+
+````json:package.json
+"populate-emulator": "ts-node --project tsconfig.scripts.json scripts/populate-emulator.ts",
+````
+
+### Solution 3: Alternative approach with register
+
+If you continue to have issues, you can try the following approach:
+
+````json:package.json
+"populate-emulator": "node --require ts-node/register scripts/populate-emulator.ts",
+````
+
+### Solution 4: Use package.json type field
+
+You might need to specify the module type in your package.json:
+
+````json:package.json
+{
+  "name": "kmen-fondrozvoje",
+  "version": "0.1.0",
+  "type": "commonjs",
+  // rest of your config...
+}
+````
+
+### Solution 5: Fix the import statements
+
+The error might be related to how you're importing the types from your src directory. Make sure your imports can be resolved correctly:
+
+````typescript:scripts/populate-emulator.ts
+// Update this line
+import { User, Project, BankStatement, BankPayment, CreditAward, Pledge, HistoryAction } from '../src/types'
+````
+
+I recommend trying Solution 1 and 2 together first, as they're the most comprehensive approach to resolving the ts-node extension issue.
+
+---
+
+_**User**_
+
+Help me fix this error please
+
+---
+
+_**Assistant**_
+
+<think>
+The error is regarding Firebase's service account credentials. When running the Firebase Admin SDK with emulators, you don't actually need to provide real credentials. Let's modify the initialization code to work with emulators properly.
+
+Instead of:
+```typescript
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as any),
+})
+```
+
+For emulators, we can use a simpler approach:
+```typescript
+admin.initializeApp({
+  projectId: 'dev-project'
+})
+```
+
+Or we can use a special method to initialize with emulator credentials:
+```typescript
+admin.initializeApp({
+  projectId: 'dev-project',
+  credential: admin.credential.applicationDefault()
+})
+```
+
+Let's update the code to handle both emulator and production environments better.
+</think>
+
+🤖 The error occurs because Firebase Admin is trying to parse the fake private key we provided. When using Firebase emulators, we don't need to provide real service account credentials.
+
+Let's fix the Firebase Admin initialization in your `populate-emulator.ts` file:
+
+````typescript:scripts/populate-emulator.ts
+// Initialize Firebase Admin SDK
+// For emulators, we don't need actual credential data
+try {
+  // Check if the app is already initialized
+  admin.app()
+} catch (error) {
+  admin.initializeApp({
+    projectId: 'dev-project' 
+    // No need for credentials when using emulators
+  })
+}
+
+const auth = getAuth()
+const db = getFirestore()
+````
+
+Replace the current initialization code (lines 30-38 approximately) with the code above. This simplified initialization is sufficient for the Firebase emulator.
+
+If you still encounter issues, try this alternative approach:
+
+````typescript:scripts/populate-emulator.ts
+// Initialize Firebase Admin SDK - alternative method for emulators
+const firebaseConfig = {
+  projectId: 'dev-project',
+}
+
+// Initialize without explicit credentials for emulator use
+try {
+  admin.app()
+} catch (error) {
+  admin.initializeApp(firebaseConfig)
+}
+
+// Connect to emulator explicitly to ensure connection
+const auth = getAuth()
+const db = getFirestore()
+
+// You can also add these lines to confirm emulator connection
+console.log('Using Firebase Auth Emulator at:', process.env.FIREBASE_AUTH_EMULATOR_HOST)
+console.log('Using Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST)
+````
+
+This approach works reliably with Firebase emulators by:
+1. Skipping credential validation entirely
+2. Using minimal configuration 
+3. Explicitly connecting to the emulators
+
+The key insight here is that when using Firebase emulators, you don't need real credentials - the emulators accept any project ID and don't validate credentials.
+
+---
+
+_**User**_
+
+Am i starting multiple instances of firebase emulator when running dev?
+
+---
+
+_**Assistant**_
+
+<think>
+Let's analyze your package.json scripts to see if they might cause multiple instances of the Firebase emulator to start:
+
+1. Your current "dev" script:
+```
+"dev": "concurrently \"firebase emulators:start --project=kmen-fondrozvoje\" \"next dev --turbopack\""
+```
+
+This uses concurrently to start both the Firebase emulators and the Next.js dev server in parallel.
+
+2. Your populate-emulator script also tries to connect to already running emulators.
+
+The issue could be in a few places:
+1. If you're running `npm run dev` multiple times without properly terminating the previous sessions
+2. If you have other scripts running that also start emulators
+3. If your wait logic in `waitForEmulators()` is causing issues by starting emulators when they're already running
+
+Let's check your waitForEmulators function:
+```typescript
+async function waitForEmulators() {
+  // Add check to Make sure emulators are running: firebase emulators:start
+  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIRESTORE_EMULATOR_HOST) {
+    // poll if emulators are running periodically until a timeout is reached. 
+    // Throw error if they are not running after the timeout
+    const timeout = 10000
+    const startTime = Date.now()
+    while (true) {
+      if (process.env.FIREBASE_AUTH_EMULATOR_HOST && process.env.FIRESTORE_EMULATOR_HOST) {
+        break
+      }
+      await new Promise(resolve => setTimeout(resolve, 200))
+      if (Date.now() - startTime > timeout) {
+        throw new Error('Emulators are not running. Please start them with: firebase emulators:start')
+      }
+    } 
+  }
+}
+```
+
+This function is checking for environment variables, but it's not starting the emulators itself. It's just waiting and eventually throwing an error if they don't start.
+
+The only place I see that actually starts emulators is in the `dev` script. So no, it doesn't look like you're starting multiple instances from the scripts I can see.
+
+However, there could be issues if:
+
+1. The emulator is already running when you start `npm run dev`
+2. Your firebase.json configuration has issues
+3. You have port conflicts
+
+Let me craft a response that addresses these potential issues.
+</think>
+
+🤖 Based on what I see in your scripts, you're not starting multiple instances of Firebase emulators from within a single `npm run dev` command. However, there are a few scenarios that could lead to emulator conflicts:
+
+### Potential issues:
+
+1. **Previous instances not terminating properly:**
+   If you've run `npm run dev` multiple times without properly terminating previous sessions (Ctrl+C), you might have lingering emulator processes.
+
+2. **Port conflicts:**
+   Your emulators are configured to use specific ports. If these ports are already in use, Firebase will attempt to use other ports.
+
+3. **Firebase emulator configuration:**
+   Let's check your firebase.json to make sure it's properly configured.
+
+### Solutions:
+
+1. **Kill existing emulator processes:**
+   ```bash
+   # Find and kill emulator processes
+   ps aux | grep firebase
+   kill -9 [PID]
+   ```
+
+2. **Ensure consistent port configuration:**
+   Make sure your firebase.json has explicit port configurations that match what you're expecting in your code:
+
+   ```json
+   {
+     "emulators": {
+       "auth": {
+         "port": 9099
+       },
+       "firestore": {
+         "port": 8080
+       },
+       "ui": {
+         "enabled": true,
+         "port": 4000
+       }
+     }
+   }
+   ```
+
+3. **Update your dev script to be more robust:**
+   
+   ```json
+   "dev": "npx kill-port 9099 8080 4000 && concurrently \"firebase emulators:start --project=kmen-fondrozvoje\" \"next dev --turbopack\""
+   ```
+
+   This will kill any processes on the ports before starting the emulators.
+
+4. **Check emulator status before running:**
+   You could add a simple script that checks if emulators are already running on the expected ports before starting them:
+
+   ```json
+   "predev": "node scripts/check-emulators.js"
+   ```
+
+   This script could use the `is-port-reachable` package to check if the emulator ports are already in use.
+
+With these adjustments, you should get consistent behavior when running your dev environment without unintended multiple instances of Firebase emulators.
+
+---
+
+_**User**_
+
+Where am I starting emulators in the project?
+
+---
+
+_**Assistant**_
+
+
 
 ---
 

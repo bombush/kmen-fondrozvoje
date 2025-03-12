@@ -23,24 +23,83 @@ import {
   generatePledges,
   generateHistoryActions
 } from './sample-data'
-import { User, Project, BankStatement, BankPayment, CreditAward, Pledge, HistoryAction } from '@/types'
-// Initialize Firebase Admin SDK
-const serviceAccount = {
-  projectId: 'dev-project', // Can be any string in emulator
-  privateKey: 'fake-key',
-  clientEmail: 'fake@example.com',
+import { User, Project, BankStatement, BankPayment, CreditAward, Pledge, HistoryAction } from '../src/types'
+
+// Initialize Firebase Admin SDK - alternative method for emulators
+const firebaseConfig = {
+  projectId: 'kmen-fondrozvoje',
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount as any),
-})
+function log(message: string) {
+  const yellow = '\x1b[33m'; // ANSI escape code for yellow
+  const reset = '\x1b[0m'; // ANSI escape code to reset color
+  console.log(`${yellow}[populate-emulator]${reset} ${message}`);
+}
 
+function logError(message: string, error?:any) {
+  const red = '\x1b[31m'; // ANSI escape code for red
+  const reset = '\x1b[0m'; // ANSI escape code to reset color
+  console.error(`${red}[populate-emulator]${reset} ${message}`, error);
+}
+
+async function waitForEmulators() {
+  // Add check to Make sure emulators are running: firebase emulators:start
+    // poll if emulators are running periodically until a timeout is reached. 
+    // Throw error if they are not running after the timeout
+    const timeout = 100
+    const startTime = Date.now()
+    log('Waiting for emulators to start...')
+
+    while (true) {
+
+      let authEmulator = false
+      let firestoreEmulator = false
+      
+      try {
+        const authResponse = await fetch('http://localhost:9099')
+        authEmulator = authResponse.ok
+      } catch (error) {
+        // Auth emulator not running
+      }
+
+      try {
+        const firestoreResponse = await fetch('http://localhost:8080')
+        firestoreEmulator = firestoreResponse.ok
+      } catch (error) {
+        // Firestore emulator not running
+      }
+
+      
+      if (authEmulator && firestoreEmulator) {
+        break
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (Date.now() - startTime > timeout) {
+        throw new Error('Emulators are not running. Please start them with: firebase emulators:start')
+      }
+    } 
+}
+
+waitForEmulators()
+.then(() => {
+  // Initialize without explicit credentials for emulator use
+try {
+  admin.app()
+} catch (error) {
+  admin.initializeApp(firebaseConfig)
+}
+
+// Connect to emulator explicitly to ensure connection
 const auth = getAuth()
 const db = getFirestore()
 
+// You can also add these lines to confirm emulator connection
+log('Using Firebase Auth Emulator at:', process.env.FIREBASE_AUTH_EMULATOR_HOST)
+log('Using Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST)
+
 // Clear existing data
 async function clearCollections() {
-  console.log('Clearing existing collections...')
+  log('Clearing existing collections...')
   
   const collections = [
     'users', 
@@ -64,28 +123,28 @@ async function clearCollections() {
       
       if (snapshot.docs.length > 0) {
         await batch.commit()
-        console.log(`✓ Cleared ${snapshot.docs.length} documents from ${collection}`)
+        log(`✓ Cleared ${snapshot.docs.length} documents from ${collection}`)
       } else {
-        console.log(`✓ Collection ${collection} is already empty`)
+        log(`✓ Collection ${collection} is already empty`)
       }
     } catch (error) {
-      console.error(`Error clearing collection ${collection}:`, error)
+      logError(`Error clearing collection ${collection}:`, error)
     }
   }
 }
 
 // Populate users
 async function populateUsers() {
-  console.log('Populating users...')
+  log('Populating users...')
   const { authUsers, userDocs } = generateUsers()
   
   // Create auth users
   for (const user of authUsers) {
     try {
       await auth.createUser(user)
-      console.log(`✓ Created auth user: ${user.email}`)
+      log(`✓ Created auth user: ${user.email}`)
     } catch (error) {
-      console.error(`Error creating auth user ${user.email}:`, error)
+      logError(`Error creating auth user ${user.email}:`, error)
     }
   }
   
@@ -97,14 +156,14 @@ async function populateUsers() {
   })
   
   await batch.commit()
-  console.log(`✓ Created ${userDocs.length} user documents`)
+  log(`✓ Created ${userDocs.length} user documents`)
   
   return userDocs
 }
 
 // Populate projects
 async function populateProjects(users: User[]) {
-  console.log('Populating projects...')
+  log('Populating projects...')
   const projects = generateProjects(users)
   
   const batch = db.batch()
@@ -114,14 +173,14 @@ async function populateProjects(users: User[]) {
   })
   
   await batch.commit()
-  console.log(`✓ Created ${projects.length} projects`)
+  log(`✓ Created ${projects.length} projects`)
   
   return projects
 }
 
 // Populate bank statements
 async function populateStatements() {
-  console.log('Populating bank statements...')
+  log('Populating bank statements...')
   const statements = generateStatements()
   
   const batch = db.batch()
@@ -131,14 +190,14 @@ async function populateStatements() {
   })
   
   await batch.commit()
-  console.log(`✓ Created ${statements.length} bank statements`)
+  log(`✓ Created ${statements.length} bank statements`)
   
   return statements
 }
 
 // Populate payments
 async function populatePayments(statements: BankStatement[], users: User[]) {
-  console.log('Populating payments...')
+  log('Populating payments...')
   const payments = generatePayments(statements, users)
   
   const batchSize = 20
@@ -152,17 +211,17 @@ async function populatePayments(statements: BankStatement[], users: User[]) {
     })
     
     await currentBatch.commit()
-    console.log(`✓ Created batch of payments: ${i + 1} to ${Math.min(i + batchSize, payments.length)}`)
+    log(`✓ Created batch of payments: ${i + 1} to ${Math.min(i + batchSize, payments.length)}`)
   }
   
-  console.log(`✓ Created total of ${payments.length} payments`)
+  log(`✓ Created total of ${payments.length} payments`)
   
   return payments
 }
 
 // Populate credit awards
 async function populateCreditAwards(users: User[]) {
-  console.log('Populating credit awards...')
+  log('Populating credit awards...')
   const awards = generateCreditAwards(users)
   
   const batch = db.batch()
@@ -172,14 +231,14 @@ async function populateCreditAwards(users: User[]) {
   })
   
   await batch.commit()
-  console.log(`✓ Created ${awards.length} credit awards`)
+  log(`✓ Created ${awards.length} credit awards`)
   
   return awards
 }
 
 // Populate pledges
 async function populatePledges(users: User[], projects: Project[]) {
-  console.log('Populating pledges...')
+  log('Populating pledges...')
   const pledges = generatePledges(users, projects)
   
   const batch = db.batch()
@@ -189,14 +248,14 @@ async function populatePledges(users: User[], projects: Project[]) {
   })
   
   await batch.commit()
-  console.log(`✓ Created ${pledges.length} pledges`)
+  log(`✓ Created ${pledges.length} pledges`)
   
   return pledges
 }
 
 // Populate history actions
 async function populateHistoryActions(users: User[], projects: Project[], pledges: Pledge[]) {
-  console.log('Populating history actions...')
+  log('Populating history actions...')
   const historyActions = generateHistoryActions(users, projects, pledges)
   
   // Split into smaller batches to avoid size limits
@@ -211,10 +270,10 @@ async function populateHistoryActions(users: User[], projects: Project[], pledge
     })
     
     await currentBatch.commit()
-    console.log(`✓ Created batch of history actions: ${i + 1} to ${Math.min(i + batchSize, historyActions.length)}`)
+    log(`✓ Created batch of history actions: ${i + 1} to ${Math.min(i + batchSize, historyActions.length)}`)
   }
   
-  console.log(`✓ Created total of ${historyActions.length} history actions`)
+  log(`✓ Created total of ${historyActions.length} history actions`)
   
   return historyActions
 }
@@ -222,8 +281,8 @@ async function populateHistoryActions(users: User[], projects: Project[], pledge
 // Main function to initialize the entire database
 async function initializeEmulator() {
   try {
-    console.log('Starting Firebase emulator data population...')
-    console.log('=============================================')
+    log('Starting Firebase emulator data population...')
+    log('=============================================')
     
     await clearCollections()
     
@@ -235,18 +294,18 @@ async function initializeEmulator() {
     const payments = await populatePayments(statements, users)
     const history = await populateHistoryActions(users, projects, pledges)
     
-    console.log('=============================================')
-    console.log('✓ Firebase emulator data population completed successfully!')
-    console.log(`  - ${users.length} users`)
-    console.log(`  - ${projects.length} projects`)
-    console.log(`  - ${statements.length} bank statements`)
-    console.log(`  - ${payments.length} payments`)
-    console.log(`  - ${awards.length} credit awards`)
-    console.log(`  - ${pledges.length} pledges`)
-    console.log(`  - ${history.length} history actions`)
+    log('=============================================')
+    log('✓ Firebase emulator data population completed successfully!')
+    log(`  - ${users.length} users`)
+    log(`  - ${projects.length} projects`)
+    log(`  - ${statements.length} bank statements`)
+    log(`  - ${payments.length} payments`)
+    log(`  - ${awards.length} credit awards`)
+    log(`  - ${pledges.length} pledges`)
+    log(`  - ${history.length} history actions`)
     
   } catch (error) {
-    console.error('Error populating emulator data:', error)
+    logError('Error populating emulator data:', error)
   } finally {
     process.exit(0)
   }
@@ -254,3 +313,8 @@ async function initializeEmulator() {
 
 // Execute the initialization
 initializeEmulator() 
+})
+.catch(error => {
+  logError('Error populating emulator data:', error)
+  process.exit(1)
+})

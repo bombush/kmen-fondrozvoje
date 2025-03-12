@@ -7,7 +7,6 @@ import {
   User, BankStatement, BankPayment, Project, Pledge, 
   CreditAward, HistoryAction, HistoryActionType 
 } from '../src/types'
-import { generateId } from '../src/lib/utils'
 
 // Generate timestamp for a date offset in days
 const getTimestamp = (daysOffset = 0) => {
@@ -210,8 +209,7 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
     targetMonth: targetMonth || statements.find(s => s.id === statementId)?.month,
     deleted: false,
     createdAt: getTimestamp(daysAgo),
-    updatedAt: getTimestamp(daysAgo),
-    isSplitFromId
+    updatedAt: getTimestamp(daysAgo)
   })
 
   // Create regular payments
