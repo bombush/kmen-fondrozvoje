@@ -21839,6 +21839,113 @@ The key change is removing the nested variable declaration and conditional logic
 
 ---
 
+_**User**_
+
+Why does this error happen?
+[2025-03-12T14:36:43.124Z]  @firebase/firestore: Firestore (11.4.0): Could not reach Cloud Firestore backend. Connection failed 1 times. Most recent error: FirebaseError: [code=unavailable]: The operation could not be completed
+This typically indicates that your device does not have a healthy Internet connection at the moment. The client will operate in offline mode until it is able to successfully connect to the backend. <anonymous code>:1:145535
+    overrideMethod <anonymous code>:1
+    error intercept-console-error.ts:40
+    defaultLogHandler index.esm2017.js:78
+    error index.esm2017.js:161
+    __PRIVATE_logError index.esm2017.js:121
+    k_ index.esm2017.js:14846
+    q_ index.esm2017.js:14826
+    __PRIVATE_onWatchStreamClose index.esm2017.js:15029
+    close index.esm2017.js:14512
+    m_ index.esm2017.js:14563
+    V_ index.esm2017.js:14547
+    R_ index.esm2017.js:14572
+    enqueue index.esm2017.js:18762
+    t index.esm2017.js:18795
+    (Async: promise callback)
+    vu index.esm2017.js:18795
+    enqueue index.esm2017.js:18762
+    enqueueAndForget index.esm2017.js:18740
+    R_ index.esm2017.js:14572
+    V_ index.esm2017.js:14547
+    Ko index.esm2017.js:13973
+    Wo index.esm2017.js:14130
+    __PRIVATE_unguardedEventListen index.esm2017.js:14111
+    ab webchannel_blob_es2018.js:39
+    F webchannel_blob_es2018.js:37
+    sa webchannel_blob_es2018.js:99
+    R webchannel_blob_es2018.js:92
+    Ub webchannel_blob_es2018.js:91
+    Qb webchannel_blob_es2018.js:50
+    Y webchannel_blob_es2018.js:48
+    ca webchannel_blob_es2018.js:44
+    ab webchannel_blob_es2018.js:39
+    F webchannel_blob_es2018.js:37
+    Wc webchannel_blob_es2018.js:76
+    bb webchannel_blob_es2018.js:75
+    Ea webchannel_blob_es2018.js:75
+    Lc webchannel_blob_es2018.js:71
+    Mc webchannel_blob_es2018.js:70
+    ga webchannel_blob_es2018.js:70
+    (Async: promise callback)
+    send webchannel_blob_es2018.js:66
+    ea webchannel_blob_es2018.js:74
+    Jb webchannel_blob_es2018.js:43
+    Hb webchannel_blob_es2018.js:42
+    Ga webchannel_blob_es2018.js:86
+    Da webchannel_blob_es2018.js:28
+    (Async: promise callback)
+    x webchannel_blob_es2018.js:28
+    fc webchannel_blob_es2018.js:84
+    connect webchannel_blob_es2018.js:82
+    m webchannel_blob_es2018.js:96
+    Fo index.esm2017.js:14102
+    send index.esm2017.js:13964
+    I_ index.esm2017.js:14462
+    y_ index.esm2017.js:14637
+    __PRIVATE_sendWatchRequest index.esm2017.js:14981
+    __PRIVATE_onWatchStreamOpen index.esm2017.js:15022
+    __PRIVATE_onWatchStreamOpen index.esm2017.js:15021
+    V_ index.esm2017.js:14545
+    R_ index.esm2017.js:14572
+    enqueue index.esm2017.js:18762
+    t index.esm2017.js:18795
+    (Async: promise callback)
+    vu index.esm2017.js:18795
+    enqueue index.esm2017.js:18762
+    enqueueAndForget index.esm2017.js:18740
+    R_ index.esm2017.js:14572
+    V_ index.esm2017.js:14544
+    $o index.esm2017.js:13970
+    Wo index.esm2017.js:14171
+    (Async: setTimeout handler)
+    Wo index.esm2017.js:14166
+    f_ index.esm2017.js:14590
+    V_ index.esm2017.js:14541
+    auth index.esm2017.js:14531
+    (Async: promise callback)
+    auth index.esm2017.js:14522
+    start index.esm2017.js:14427
+    __PRIVATE_startWatchStream index.esm2017.js:14997
+    __PRIVATE_remoteStoreListen index.esm2017.js:14958
+    __PRIVATE_allocateTargetAndMaybeListen index.esm2017.js:16372
+    __PRIVATE_syncEngineListen index.esm2017.js:16357
+    __PRIVATE_eventManagerListen index.esm2017.js:15657
+    __PRIVATE_executeQueryViaSnapshotListener index.esm2017.js:17977
+    __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener index.esm2017.js:17978
+    enqueue index.esm2017.js:18762
+    t index.esm2017.js:18795
+    (Async: promise callback)
+    vu index.esm2017.js:18795
+    enqueue index.esm2017.js:18762
+    enqueueAndForget index.esm2017.js:18740
+    __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener index.esm2017.js:17965
+
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
