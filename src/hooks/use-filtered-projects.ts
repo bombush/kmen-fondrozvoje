@@ -8,6 +8,9 @@ export function useFilteredProjects(
 ) {
   const { data: projects, isLoading } = useProjects(showDeleted)
 
+  console.log('projects', projects)
+  console.log('showDeleted', showDeleted)
+
   const filteredProjects = projects?.filter((project: Project) => {
     const matchesSearch = project.name.toLowerCase().includes(search.toLowerCase()) ||
       project.description.toLowerCase().includes(search.toLowerCase())

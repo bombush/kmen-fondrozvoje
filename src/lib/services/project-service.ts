@@ -12,6 +12,8 @@ export const getProjects = async (includeDeleted = false) => {
       : query(projectsRef, where("deleted", "==", false))
     
     const querySnapshot = await getDocs(q)
+    console.log('querySnapshot', querySnapshot)
+    console.log('querySnapshot docs', querySnapshot.docs)
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -23,6 +25,10 @@ export const getProjects = async (includeDeleted = false) => {
 }
 
 export const getProject = async (id: string): Promise<Project | null> => {
+  if(!id) {
+    return null
+  }
+  
   try {
     console.trace()
     console.log('id', id)
