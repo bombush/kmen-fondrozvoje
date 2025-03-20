@@ -50,5 +50,12 @@ service cloud.firestore {
       allow write: if isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
+
+    // Credit Awards
+    match /creditAwards/{creditAwardId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
   }
 }
