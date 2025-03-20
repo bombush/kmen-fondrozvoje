@@ -22876,6 +22876,18 @@ This creates a cleaner, more minimal progress bar that integrates better with th
 
 ---
 
+_**User**_
+
+Add list of pledges to project detail
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---

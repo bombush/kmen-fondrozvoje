@@ -21,6 +21,8 @@ import { Project } from "@/types"
 import { AlertTriangle } from "lucide-react"
 import { MotionFade } from "@/components/ui/motion-fade"
 import { toast } from "sonner"
+import { useProjectPledges } from "@/hooks/use-project-pledges"
+import { PledgeList } from "@/components/projects/pledge-list"
 
 /**
  * The page shows all the project details and buttons:
@@ -45,6 +47,7 @@ export default function ProjectPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editedProject, setEditedProject] = useState<Project | undefined>(undefined)
   const { data: currentAmount = 0, isLoading: isLoadingBalance } = useProjectBalance(id)
+  const { data: pledges = [], isLoading: isLoadingPledges } = useProjectPledges(id)
   
   // Calculate completion percentage
   const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
@@ -270,11 +273,12 @@ export default function ProjectPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Pledges</CardTitle>
+          <Button variant="outline" size="sm">Pledge to this project</Button>
         </CardHeader>
         <CardContent>
-          {/* Pledges table will go here */}
+          <PledgeList pledges={pledges} isLoading={isLoadingPledges} />
         </CardContent>
       </Card>
     </div>

@@ -1676,6 +1676,18 @@ By ensuring that state updates are handled correctly and using `useEffect` to ma
 
 ---
 
+_**User**_
+
+Add list of pledges to project detail
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
