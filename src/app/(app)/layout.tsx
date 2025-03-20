@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/layout/sidebar";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
+import { UserBalance } from "@/components/layout/user-balance";
 import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs";
 import { Providers } from "@/app/providers";
 import { Toaster } from "sonner";
@@ -43,7 +44,8 @@ export default function AppLayout({
                   <Separator orientation="vertical" className="mr-2 h-4" />
                   <DynamicBreadcrumbs />
                 </div>
-                <div className="px-4">
+                <div className="flex items-center gap-2 px-4">
+                  <UserBalance />
                   <ThemeSwitcher />
                 </div>
               </header>

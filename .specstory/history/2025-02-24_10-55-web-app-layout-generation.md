@@ -21942,6 +21942,77 @@ This typically indicates that your device does not have a healthy Internet conne
 
 _**Assistant**_
 
+<think>
+This error is occurring because Firebase is trying to connect to the real Firestore backend service instead of using the emulator. The message "Could not reach Cloud Firestore backend. Connection failed" is shown when:
+
+1. The app is trying to connect to the production Firebase services
+2. There's no internet connection or connectivity issues
+3. The emulator connections aren't properly set up
+
+Let's check a few things to identify the issue:
+
+1. Are the Firebase emulators properly initialized in your code?
+2. Is the connectivity to the emulators set up correctly?
+3. Are there any conditions where your code might bypass the emulator connection setup?
+
+From what I can see, this could be happening because:
+
+1. The Firestore emulator might not be running when the code is trying to connect to it
+2. The code that's supposed to connect to the emulator might not be executing
+3. The conditional check that determines whether to use emulators might not be evaluating correctly
+
+Let's propose a fix:
+</think>
+
+🤖 This error occurs because Firebase is trying to connect to the real Firestore backend instead of the local emulator. This typically happens when:
+
+1. The emulator connection setup code isn't executing
+2. The environment isn't properly recognized as development 
+3. The emulators aren't running when Firebase initializes
+
+Let's fix it by ensuring Firebase always connects to emulators in development:
+
+````typescript:src/lib/firebase/config.ts
+import { initializeApp } from 'firebase/app'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+}
+
+// Initialize Firebase
+export const app = initializeApp(firebaseConfig)
+export const db = getFirestore(app)
+export const auth = getAuth(app)
+
+// Always connect to emulators in development
+if (process.env.NODE_ENV === 'development') {
+  // Connect without window check - emulators should be used in all dev scenarios
+  connectFirestoreEmulator(db, 'localhost', 8080)
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+  console.log('Using Firebase emulators in development')
+}
+````
+
+This removes the `window` check that might be preventing emulator connections during SSR or initial hydration, ensuring your app always uses emulators in development.
+
+---
+
+_**User**_
+
+Create a component that will displaz user balance in CREDITS next to the ThemeSwitcher
+
+---
+
+_**Assistant**_
+
 
 
 ---

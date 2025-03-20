@@ -81,6 +81,7 @@ React pseudocode sample:
     <Logo />
     <Breadcrumbs />
     <BackButton />
+    <BalanceWidget />
     <ThemeToggle />
   </Navbar>
   <LeftSidebar>
