@@ -22013,7 +22013,272 @@ Create a component that will displaz user balance in CREDITS next to the ThemeSw
 
 _**Assistant**_
 
+<think>
+The user wants me to create a new component to display the user's credit balance next to the ThemeSwitcher in the app layout. Based on the code snippets provided, I can see that:
 
+1. The ThemeSwitcher is currently rendered in the `header` section of the `AppLayout` component in `src/app/(app)/layout.tsx`.
+2. The app has authentication, and user data is available through `useAuth()` hook.
+3. A user's credit balance can be calculated using the `UserCrud` service.
+
+Let me create a new component called `UserBalance` that will display the user's credit balance. I'll need to:
+
+1. Create the component file
+2. Use the `useAuth()` hook to get the current user
+3. Fetch the user's balance using a query hook (I'll create one)
+4. Display the balance in a nice UI component next to the ThemeSwitcher
+
+Here's how I'll implement this solution:
+</think>
+
+🤖 Let me create a `UserBalance` component to display the user's credit balance next to the ThemeSwitcher:
+
+First, let's create a hook to fetch the user's balance:
+
+````typescript:src/hooks/use-user-balance.ts
+import { useQuery } from '@tanstack/react-query'
+import { UserCrud } from '@/lib/services/crud/user-crud'
+
+const userCrud = new UserCrud()
+
+export function useUserBalance(userId?: string) {
+  return useQuery({
+    queryKey: ['userBalance', userId],
+    queryFn: () => userId ? userCrud.getBalance(userId) : 0,
+    enabled: !!userId
+  })
+}
+````
+
+Now, let's create the `UserBalance` component:
+
+````typescript:src/components/layout/user-balance.tsx
+"use client"
+
+import { useAuth } from "@/contexts/auth-context"
+import { useUserBalance } from "@/hooks/use-user-balance"
+import { formatMoney } from "@/lib/utils"
+import { Coins } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+export function UserBalance() {
+  const { appUser } = useAuth()
+  const { data: balance, isLoading } = useUserBalance(appUser?.id)
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-accent transition-colors cursor-default">
+          <Coins className="h-4 w-4 text-yellow-500" />
+          {isLoading ? (
+            <Skeleton className="h-4 w-14" />
+          ) : (
+            <span className="text-sm font-medium">{balance} CREDITS</span>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>Your current balance</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+````
+
+Finally, update the app layout to include this component:
+
+````typescript:src/app/(app)/layout.tsx
+import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/layout/sidebar";
+import { ThemeSwitcher } from "@/components/layout/theme-switcher";
+import { UserBalance } from "@/components/layout/user-balance";
+import { DynamicBreadcrumbs } from "@/components/navigation/dynamic-breadcrumbs";
+import { Providers } from "@/app/providers";
+import { Toaster } from "sonner";
+import { AuthGuard } from "@/components/auth/auth-guard";
+
+// ... rest of the code remains the same ...
+
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <AuthGuard>
+        <Providers>
+          <SidebarProvider defaultOpen={true}>
+            <AppSidebar />
+            <SidebarInset>
+              <header className="flex h-16 shrink-0 items-center justify-between border-b">
+                <div className="flex items-center gap-2 px-4">
+                  <SidebarTrigger className="-ml-1" />
+                  <Separator orientation="vertical" className="mr-2 h-4" />
+                  <DynamicBreadcrumbs />
+                </div>
+                <div className="flex items-center gap-2 px-4">
+                  <UserBalance />
+                  <ThemeSwitcher />
+                </div>
+              </header>
+              <main className="flex-1 p-6">
+                {children}
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+        </Providers>
+        </AuthGuard>
+        <Toaster richColors closeButton position="top-right" />
+      </ThemeProvider>
+    </div>
+  );
+}
+````
+
+This component will display the user's credit balance with a coin icon next to the theme switcher. It shows a loading skeleton while fetching the balance, and has a tooltip for additional context.
+
+---
+
+_**User**_
+
+Add actual current user info to the NavUser
+
+---
+
+_**Assistant**_
+
+<think>
+Let's look at the structure of the NavUser component and then modify it to use actual user information from the authentication context instead of hardcoded values.
+
+Currently, the NavUser component probably takes a user object as props with name, email, and avatar properties. We need to:
+
+1. Import and use the auth context
+2. Replace the hardcoded user data with actual user data from the context
+3. Make sure the avatar shows the user's initial if no avatar image is available
+
+From the structure of the components I can see, we'll need to use the useAuth hook to get the current authenticated user.
+</think>
+
+🤖 I'll update the `NavUser` component to display actual user information instead of hardcoded data:
+
+````typescript:src/components/navigation/nav-user.tsx
+"use client"
+
+import { useAuth } from "@/contexts/auth-context"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+export function NavUser() {
+  const { appUser, currentUser, logout } = useAuth()
+  
+  // Use data from auth context or fallback to placeholder
+  const name = appUser?.name || currentUser?.displayName || "User"
+  const email = appUser?.email || currentUser?.email || "guest@example.com"
+  const avatarUrl = currentUser?.photoURL || ""
+  
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Failed to log out", error)
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-4">
+          <Avatar className="h-6 w-6">
+            <AvatarImage src={avatarUrl} alt={name} />
+            <AvatarFallback>{name[0]}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col items-start text-sm">
+            <span className="font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground">{email}</span>
+          </div>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="start" side="top">
+        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>Profile</DropdownMenuItem>
+        <DropdownMenuItem>Settings</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+````
+
+
+Now we need to update the AppSidebar component to not pass static user data, since the NavUser component will get data from the auth context:
+
+````typescript:src/components/layout/app-sidebar.tsx
+"use client"
+
+import * as React from "react"
+import { NavItems } from "@/components/navigation/nav-items"
+import { NavUser } from "@/components/navigation/nav-user"
+import { TeamSwitcher } from "@/components/navigation/team-switcher"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/layout/sidebar"
+
+const data = {
+  teams: [
+    {
+      name: "Acme Inc",
+      plan: "Enterprise",
+    },
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar 
+      collapsible="icon"
+      data-collapsed={false}
+      {...props}
+    >
+      <SidebarHeader>
+        <TeamSwitcher teams={data.teams} />
+      </SidebarHeader>
+      <SidebarContent className="flex flex-col gap-4">
+        <NavItems />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+````
+
+These changes update the NavUser component to display the actual logged-in user's information from the auth context and add a functioning logout feature.
 
 ---
 

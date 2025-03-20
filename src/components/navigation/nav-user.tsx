@@ -1,5 +1,6 @@
 "use client"
 
+import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,26 +12,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-interface NavUserProps {
-  user: {
-    name: string
-    email: string
-    avatar: string
+export function NavUser() {
+  const { appUser, currentUser, logout } = useAuth()
+  
+  // Use data from auth context or fallback to placeholder
+  const name = appUser?.name || currentUser?.displayName || "User"
+  const email = appUser?.email || currentUser?.email || "guest@example.com"
+  const avatarUrl = currentUser?.photoURL || ""
+  
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Failed to log out", error)
+    }
   }
-}
 
-export function NavUser({ user }: NavUserProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-4">
           <Avatar className="h-6 w-6">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback>{user.name[0]}</AvatarFallback>
+            <AvatarImage src={avatarUrl} alt={name} />
+            <AvatarFallback>{name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col items-start text-sm">
-            <span className="font-medium">{user.name}</span>
-            <span className="text-xs text-muted-foreground">{user.email}</span>
+            <span className="font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground">{email}</span>
           </div>
         </Button>
       </DropdownMenuTrigger>
@@ -40,7 +48,7 @@ export function NavUser({ user }: NavUserProps) {
         <DropdownMenuItem>Profile</DropdownMenuItem>
         <DropdownMenuItem>Settings</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Log out</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
