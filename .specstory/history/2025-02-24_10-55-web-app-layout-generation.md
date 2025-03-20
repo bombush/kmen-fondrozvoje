@@ -22552,6 +22552,330 @@ The component now correctly shows the current amount pledged to a project along 
 
 ---
 
+_**User**_
+
+Add progress bar and amout of pledged from goal to the project detail
+
+---
+
+_**Assistant**_
+
+<think>
+I need to add a progress bar and amount of pledged vs goal to the project detail page. Let me check what the project detail page looks like or create it if it doesn't exist yet.
+
+Since I don't have access to see the current project detail page, I'll create a comprehensive project detail component that includes a progress bar and the pledged vs goal amount. This will be similar to the ProjectCard component but with more details and potentially actions for the project.
+
+Here's what I'll need to include:
+1. Project header with name, status, and description
+2. Progress bar showing pledged amount vs goal
+3. Detailed information about the project
+4. Actions like pledging, editing (for owner), etc.
+
+I'll use the same useProjectBalance hook that we created for the ProjectCard.
+</think>
+
+🤖 Let's create a project detail component with a progress bar and a clear display of the pledged amount vs goal:
+
+````typescript:src/components/projects/project-detail.tsx
+"use client"
+
+import { Project } from "@/types"
+import { useProjectBalance } from "@/hooks/use-project-balance"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
+import { CalendarClock, InfoIcon, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
+import { Separator } from "@/components/ui/separator"
+
+interface ProjectDetailProps {
+  project: Project
+  onPledge?: () => void
+  onEdit?: () => void
+}
+
+export function ProjectDetail({ project, onPledge, onEdit }: ProjectDetailProps) {
+  const { appUser } = useAuth()
+  const { data: currentAmount = 0, isLoading } = useProjectBalance(project.id)
+  
+  // Calculate completion percentage
+  const percentComplete = Math.min(Math.round((currentAmount / project.goal) * 100), 100)
+  
+  // Determine progress color based on percentage
+  const progressColorClass = percentComplete >= 100 
+    ? "bg-green-500" 
+    : percentComplete > 60 
+      ? "bg-blue-500" 
+      : "bg-primary"
+      
+  const isOwner = appUser?.id === project.ownerId
+  const isClosed = project.closed
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-2xl">{project.name}</CardTitle>
+              <CardDescription className="mt-2">{project.description}</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant={isClosed ? "default" : "secondary"} className="ml-auto">
+                {isClosed ? "Completed" : "Active"}
+              </Badge>
+              {isOwner && (
+                <Badge variant="outline" className="ml-auto">Owner</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* Progress section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Funding Progress</h3>
+            
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <div className="flex justify-between text-sm mb-2">
+                {isLoading ? (
+                  <Skeleton className="h-4 w-24" />
+                ) : (
+                  <span className="font-medium">{currentAmount} of {project.goal} CREDITS</span>
+                )}
+                <span className="font-bold">{isLoading ? "..." : `${percentComplete}%`}</span>
+              </div>
+              
+              <Progress 
+                value={isLoading ? 0 : percentComplete} 
+                className="h-3"
+                indicatorClassName={progressColorClass}
+              />
+              
+              <div className="flex justify-between mt
+
+---
+
+_**User**_
+
+Add progress bar and amount pledged similar to the one used on project-card.tsx to the project detail page (projects/[id]/page.tsx)
+
+---
+
+_**Assistant**_
+
+<think>
+I need to add a progress bar and amount pledged indicator to the project detail page, similar to what we implemented on the project card. Let's update the project detail page with:
+
+1. A progress bar showing the percentage of the goal reached
+2. The amount pledged vs. the goal
+3. A visual indicator that changes color based on progress
+4. Loading states for when the data is being fetched
+
+The changes will need to be added to the non-editing view of the project detail page. I'll use the `useProjectBalance` hook we created earlier to fetch the current pledged amount.
+</think>
+
+🤖 Let's add a progress bar and pledged amount to the project detail page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
+import { useProjectBalance } from "@/hooks/use-project-balance"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { formatMoney } from "@/lib/utils"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Project } from "@/types"
+import { AlertTriangle } from "lucide-react"
+import { MotionFade } from "@/components/ui/motion-fade"
+import { toast } from "sonner"
+
+// ... rest of imports and code
+
+export default function ProjectPage() {
+  // ... existing state and hooks
+  const { data: currentAmount = 0, isLoading: isLoadingBalance } = useProjectBalance(id)
+  
+  // Calculate completion percentage
+  const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
+  
+  // Determine progress color based on percentage
+  const progressColorClass = percentComplete >= 100 
+    ? "bg-green-500" 
+    : percentComplete > 60 
+      ? "bg-blue-500" 
+      : "bg-primary"
+      
+  // ... existing code
+
+  return (
+    <div className="space-y-6">
+      {/* ... existing header code */}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isEditing ? (
+            // ... existing editing form
+          ) : (
+            <>
+              <div>
+                <Badge variant={project.closed ? "default" : "secondary"}>
+                  {project.closed ? "Completed" : "Active"}
+                </Badge>
+              </div>
+              <p>{project.description}</p>
+
+              {/* Funding Progress Section */}
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-medium">Funding Progress</h3>
+                <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                  <div className="flex justify-between text-sm">
+                    {isLoadingBalance ? (
+                      <Skeleton className="h-4 w-24" />
+                    ) : (
+                      <span className="font-medium">{currentAmount} of {project.goal} CREDITS</span>
+                    )}
+                    <span className="font-bold">{isLoadingBalance ? "..." : `${percentComplete}%`}</span>
+                  </div>
+                  
+                  <Progress 
+                    value={isLoadingBalance ? 0 : percentComplete} 
+                    className="h-3"
+                    indicatorClassName={progressColorClass}
+                  />
+                  
+                  {percentComplete >= 100 && !project.closed && (
+                    <div className="px-3 py-2 bg-green-500/10 text-green-700 dark:text-green-400 rounded-md text-sm mt-2">
+                      This project has reached its funding goal! 🎉
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>Goal: {formatMoney(project.goal)}</div>
+              {project.url && (
+                <div>
+                  <a 
+                    href={project.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline"
+                  >
+                    Project URL
+                  </a>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ... rest of the component */}
+    </div>
+  )
+}
+````
+
+
+This update:
+
+1. Imports the `useProjectBalance` hook to fetch the current pledged amount
+2. Calculates the percentage of the goal reached
+3. Determines the progress bar color based on the percentage
+4. Adds a loading state using Skeleton UI when data is being fetched
+5. Shows a celebratory message when the project reaches its funding goal
+6. Uses the same styling as the project card for consistency
+7. Only shows this section in the non-editing view
+
+The progress bar appears in a nicely formatted card section with proper spacing and visual hierarchy, making it easy for users to understand the project's funding status.
+
+---
+
+_**User**_
+
+Remove the grey background from the progress bar, mae it thinner
+
+---
+
+_**Assistant**_
+
+<think>
+Based on the request, I need to modify the progress bar in the project detail page to:
+1. Remove the grey background (the `bg-muted/50` class)
+2. Make the progress bar thinner
+
+Looking at the code, the progress bar is inside a div with these classes:
+```
+<div className="bg-muted/50 p-4 rounded-lg space-y-3">
+```
+
+And the Progress component has:
+```
+<Progress 
+  value={isLoadingBalance ? 0 : percentComplete} 
+  className="h-3"
+  indicatorClassName={progressColorClass}
+/>
+```
+
+So I should:
+1. Remove the `bg-muted/50` class from the containing div or replace it with something less noticeable
+2. Change the `h-3` class to `h-2` or even `h-1.5` to make it thinner
+</think>
+
+🤖 Let's update the progress bar section to remove the grey background and make it thinner:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Funding Progress Section
+<div className="space-y-4 mt-6">
+  <h3 className="text-lg font-medium">Funding Progress</h3>
+  <div className="space-y-3">
+    <div className="flex justify-between text-sm">
+      {isLoadingBalance ? (
+        <Skeleton className="h-4 w-24" />
+      ) : (
+        <span className="font-medium">{currentAmount} of {project.goal} CREDITS</span>
+      )}
+      <span className="font-bold">{isLoadingBalance ? "..." : `${percentComplete}%`}</span>
+    </div>
+    
+    <Progress 
+      value={isLoadingBalance ? 0 : percentComplete} 
+      className="h-1.5"
+      indicatorClassName={progressColorClass}
+    />
+    
+    {percentComplete >= 100 && !project.closed && (
+      <div className="px-3 py-2 bg-green-500/10 text-green-700 dark:text-green-400 rounded-md text-sm mt-2">
+        This project has reached its funding goal! 🎉
+      </div>
+    )}
+  </div>
+</div>
+````
+
+
+The changes:
+
+1. Removed `bg-muted/50` and `p-4 rounded-lg` classes from the container div to eliminate the grey background
+2. Changed the Progress component's height from `h-3` to `h-1.5` to make it thinner
+3. Kept the spacing between elements with `space-y-3`
+
+This creates a cleaner, more minimal progress bar that integrates better with the rest of the UI while still clearly showing the funding progress.
+
+---
+
 
 
 ---

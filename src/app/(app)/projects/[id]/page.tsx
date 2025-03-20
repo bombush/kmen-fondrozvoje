@@ -7,12 +7,15 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects"
+import { useProjectBalance } from "@/hooks/use-project-balance"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { formatMoney } from "@/lib/utils"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Project } from "@/types"
 import { AlertTriangle } from "lucide-react"
@@ -41,7 +44,21 @@ export default function ProjectPage() {
   const deleteProject = useDeleteProject()
   const [isEditing, setIsEditing] = useState(false)
   const [editedProject, setEditedProject] = useState<Project | undefined>(undefined)
-
+  const { data: currentAmount = 0, isLoading: isLoadingBalance } = {
+      data: 0,
+      isLoading: false
+  } //useProjectBalance(id)
+  
+  // Calculate completion percentage
+  const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
+  
+  // Determine progress color based on percentage
+  const progressColorClass = percentComplete >= 100 
+    ? "bg-green-500" 
+    : percentComplete > 60 
+      ? "bg-blue-500" 
+      : "bg-primary"
+      
   useEffect(() => {
     if (project) {
       setEditedProject(project)
@@ -165,6 +182,21 @@ export default function ProjectPage() {
           )}
         </div>
       </div>
+              {/* Funding Progress Section */}
+              <div className="space-y-4 mt-6">
+                <div className="space-y-3">
+                  
+                  <Progress 
+                    value={isLoadingBalance ? 0 : percentComplete} 
+                    className="h-1.5"
+                    indicatorClassName={progressColorClass}
+                  />
+                                   <div className="flex justify-between text-sm">
+                    <span className="font-bold">{isLoadingBalance ? "..." : `${percentComplete}%`}</span>
+                  </div>
+                  
+                </div>
+              </div>
 
       <Card>
         <CardHeader>
@@ -204,19 +236,6 @@ export default function ProjectPage() {
                   })}
                 />
               </div>
-              <div className="space-y-2">
-                <label>Status</label>
-                <select
-                  value={editedProject.closed ? "completed" : "active"}
-                  onChange={e => setEditedProject({
-                    ...editedProject,
-                    closed: e.target.value === "completed"
-                  })}
-                >
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
             </>
           ) : (
             <>
@@ -226,7 +245,16 @@ export default function ProjectPage() {
                 </Badge>
               </div>
               <p>{project.description}</p>
-              <div>Goal: {formatMoney(project.goal)}</div>
+
+
+              <div>Goal: {project.goal}</div>
+              <div className="space-y-2">
+                <label>Current Amount: </label>
+                {isLoadingBalance ? (
+                  <Skeleton className="h-4 w-24" />
+                ) : <span>{currentAmount}</span>
+                }
+              </div>
               {project.url && (
                 <div>
                   <a 
