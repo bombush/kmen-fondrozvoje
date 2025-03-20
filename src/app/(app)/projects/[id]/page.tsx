@@ -44,10 +44,7 @@ export default function ProjectPage() {
   const deleteProject = useDeleteProject()
   const [isEditing, setIsEditing] = useState(false)
   const [editedProject, setEditedProject] = useState<Project | undefined>(undefined)
-  const { data: currentAmount = 0, isLoading: isLoadingBalance } = {
-      data: 0,
-      isLoading: false
-  } //useProjectBalance(id)
+  const { data: currentAmount = 0, isLoading: isLoadingBalance } = useProjectBalance(id)
   
   // Calculate completion percentage
   const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)

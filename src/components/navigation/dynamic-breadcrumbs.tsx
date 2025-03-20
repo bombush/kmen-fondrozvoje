@@ -12,8 +12,11 @@ export function DynamicBreadcrumbs() {
   const segments = pathname.split('/').filter(Boolean)
   
 
+  const projectId = false;
+  const project = false;
   //@TODO: check if in projects route? Check if projectId in segments?
-  const projectId = segments[0] === 'projects' ? segments[1] : undefined
+  //@TODO: infinite loop of rerendering here cycle
+  /*const projectId = segments[0] === 'projects' ? segments[1] : undefined
   let project: Project | null | undefined = null
     const { data, isLoading } = useProject(projectId ?? '')
     project = data
@@ -27,10 +30,11 @@ export function DynamicBreadcrumbs() {
       isLoading
     })
     */
+  
 
   const [items, setItems] = useState(getBreadcrumbItems(pathname))
 
-  //@TODO: infinite loop of rerendering here
+  
 
   // Update project title if available
   if (projectId && project) {
