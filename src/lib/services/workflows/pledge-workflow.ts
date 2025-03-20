@@ -23,7 +23,7 @@ export class PledgeWorkflow {
     description: string
   ): Promise<Pledge> {
     // check if user has enough balance
-    const balance = await this.userCrud.calculateBalance(userId)
+    const balance = await this.userCrud.getBalance(userId)
     if (balance < amount) {
       throw new Error("User does not have enough balance")
     }
@@ -97,7 +97,7 @@ export class PledgeWorkflow {
         const balanceAdjustment = newAmount - pledge.amount
 
         // check if user has enough balance
-        const balance = await this.userCrud.calculateBalance(pledge.userId)
+        const balance = await this.userCrud.getBalance(pledge.userId)
         if (balance < balanceAdjustment) {
           throw new Error("User does not have enough balance")
         }

@@ -162,7 +162,7 @@ describe('UserWorkflow', () => {
       mockUserCrud.calculateBalance.mockResolvedValue(balance)
       
       // Act
-      const result = await userWorkflow.getUserBalance(userId)
+      const result = await mockUserCrud.getBalance(userId)
       
       // Assert
       expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)

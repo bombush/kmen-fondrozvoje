@@ -50,6 +50,11 @@ export class UserCrud extends BaseCrud<User> {
     return creditAwardAmount - pledgeAmount
   }
 
+  async getBalance(userId: string): Promise<number> {
+    const balance = await this.calculateBalance(userId)
+    return balance
+  }
+
   async getActiveUsers(): Promise<User[]> {
     return this.query([{ field: "isActive", operator: "==", value: true }])
   }

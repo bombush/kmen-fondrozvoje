@@ -18,6 +18,7 @@ export function DynamicBreadcrumbs() {
     const { data, isLoading } = useProject(projectId ?? '')
     project = data
 
+    /*  
     console.log({
       pathname,
       segments,
@@ -25,6 +26,7 @@ export function DynamicBreadcrumbs() {
       project,
       isLoading
     })
+    */
 
   const [items, setItems] = useState(getBreadcrumbItems(pathname))
 
