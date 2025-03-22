@@ -1,5 +1,7 @@
 import { formatDate } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Edit } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -26,9 +28,18 @@ type PledgeWithUser = {
 interface PledgeListProps {
   pledges: PledgeWithUser[]
   isLoading: boolean
+  currentUserId?: string
+  isAdmin?: boolean
+  onEditPledge?: (pledge: PledgeWithUser) => void
 }
 
-export function PledgeList({ pledges, isLoading }: PledgeListProps) {
+export function PledgeList({ 
+  pledges, 
+  isLoading, 
+  currentUserId,
+  isAdmin,
+  onEditPledge 
+}: PledgeListProps) {
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -55,6 +66,7 @@ export function PledgeList({ pledges, isLoading }: PledgeListProps) {
           <TableHead>Amount</TableHead>
           <TableHead>Date</TableHead>
           <TableHead>Notes</TableHead>
+          {(isAdmin || currentUserId) && <TableHead className="w-16">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -73,6 +85,17 @@ export function PledgeList({ pledges, isLoading }: PledgeListProps) {
             <TableCell>
               {pledge.description ? pledge.description : <span className="text-muted-foreground italic">No description</span>}
             </TableCell>
+            {(isAdmin || currentUserId === pledge.userId) && (
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEditPledge?.(pledge)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

@@ -52,6 +52,7 @@ export default function ProjectPage() {
   const { data: pledges = [], isLoading: isLoadingPledges } = useProjectPledges(id)
   const { appUser } = useAuth()
   const [isPledgeOpen, setIsPledgeOpen] = useState(false)
+  const [selectedPledge, setSelectedPledge] = useState<any>(null)
   
   // Calculate completion percentage
   const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
@@ -109,6 +110,11 @@ export default function ProjectPage() {
     }
   }
 
+  const handleEditPledge = (pledge: any) => {
+    setSelectedPledge(pledge)
+    setIsPledgeOpen(true)
+  }
+
   if (isLoading) return <div>Loading...</div>
   
   if (!project) {
@@ -148,15 +154,6 @@ export default function ProjectPage() {
           </Button>
         </div>
         <div className="flex gap-2">
-
-          {appUser && (
-            <PledgeOverlay
-              userId={appUser.id}
-              projectId={id}
-              open={isPledgeOpen}
-              onClose={() => setIsPledgeOpen(false)}
-            />
-          )}
           <Button 
             variant="outline"
             onClick={() => setIsEditing(!isEditing)}
@@ -294,12 +291,41 @@ export default function ProjectPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Pledges</CardTitle>
-          <Button variant="outline" size="sm">Pledge to this project</Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              setSelectedPledge(null)
+              setIsPledgeOpen(true)
+            }}
+            disabled={!appUser}
+          >
+            Pledge to this project
+          </Button>
         </CardHeader>
         <CardContent>
-          <PledgeList pledges={pledges} isLoading={isLoadingPledges} />
+          <PledgeList 
+            pledges={pledges} 
+            isLoading={isLoadingPledges}
+            currentUserId={appUser?.id}
+            isAdmin={appUser?.role === 'admin'}
+            onEditPledge={handleEditPledge}
+          />
         </CardContent>
       </Card>
+
+      {appUser && isPledgeOpen && (
+        <PledgeOverlay
+          userId={selectedPledge?.userId || appUser.id}
+          projectId={id}
+          pledgeId={selectedPledge?.id}
+          open={isPledgeOpen}
+          onClose={() => {
+            setIsPledgeOpen(false)
+            setSelectedPledge(null)
+          }}
+        />
+      )}
     </div>
   )
 } 

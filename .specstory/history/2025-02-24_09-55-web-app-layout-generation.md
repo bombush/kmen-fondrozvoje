@@ -23477,6 +23477,379 @@ When updating pledge if there's an error when persisting into the database, the 
 
 _**Assistant**_
 
+<think>
+Let's analyze what's happening with error handling in the pledge overlay component. When there's an error in the database operation, it seems that the error is not bubbling up to the user interface. Let's look at the relevant code:
+
+```typescript
+// Create/update pledge mutation
+const pledgeMutation = useMutation({
+  mutationFn: async () => {
+    if (existingPledge) {
+      // Update existing pledge
+      if (amount === 0) return pledgeCrud.softDelete(existingPledge.id)
+
+      return pledgeCrud.update(existingPledge.id, {
+        amount,
+        description: "Updated pledge"
+      })
+    } else {
+      // Create new pledge
+      return pledgeCrud.create({
+        userId,
+        projectId,
+        amount,
+        description: "New pledge"
+      })
+    }
+  },
+  onSuccess: () => {
+    // Invalidate relevant queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['projectBalance', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['projectPledges', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['userPledge', userId, projectId] })
+    queryClient.invalidateQueries({ queryKey: ['userBalance', userId] })
+    
+    toast.success("Pledge saved successfully")
+    onClose()
+  },
+  onError: (error) => {
+    toast.error("Failed to save pledge", {
+      description: error.message
+    })
+  }
+})
+```
+
+The code does have an `onError` callback that should display an error toast when there's an error. So the issue is either:
+
+1. The error is being caught somewhere else before it reaches this handler
+2. The error object doesn't have a proper message property
+3. The toast isn't displaying properly
+
+Looking at how errors are handled in the CRUD layer would be useful, but I don't have the full implementation of the `pledgeCrud` methods.
+
+Here are some potential issues:
+
+1. The CRUD methods might be catching errors internally and not re-throwing them
+2. The errors might not be propagating correctly through async/await chains
+3. There could be an issue with the way Firestore errors are being handled
+
+Without seeing how `pledgeCrud.update` and `pledgeCrud.softDelete` are implemented, it's hard to determine exactly where the issue is occurring. But one common pattern is that database operations catch errors internally but don't properly re-throw them with appropriate context.
+</think>
+
+🤖 The error isn't bubbling up to the overlay because of how errors are likely being handled in the CRUD layer. There are a few possible reasons:
+
+1. The `PledgeCrud` methods might be catching errors internally without re-throwing them
+2. The error object might not have the expected structure when it reaches the mutation
+3. There could be a promise chain that's swallowing the error
+
+Here's how to fix it:
+
+````typescript:src/lib/services/crud/pledge-crud.ts
+async softDelete(id: string, transaction?: Transaction): Promise<Pledge> {
+  try {
+    return this.update(id, { deleted: true }, transaction)
+  } catch (error) {
+    console.error("Error in softDelete:", error)
+    throw error // Make sure errors are propagated
+  }
+}
+
+async update(id: string, data: Partial<Pledge>, transaction?: Transaction): Promise<Pledge> {
+  try {
+    return super.update(id, data)
+  } catch (error) {
+    console.error("Error in update:", error)
+    throw error // Make sure errors are propagated
+  }
+}
+````
+
+Also, modify the mutation to better handle errors:
+
+````typescript:src/components/projects/pledge-overlay.tsx
+onError: (error: any) => {
+  console.error("Pledge error:", error)
+  toast.error("Failed to save pledge", {
+    description: error?.message || "An unknown error occurred"
+  })
+}
+````
+
+This ensures errors are properly propagated through the promise chain and provides better error reporting.
+
+---
+
+_**User**_
+
+Add Edit pledge button to each row in PledgeList visible to admin or plege owner.
+The button will open the PledgeOverlay. The admin can modify or delete the pledge using the PledgeOverlay.
+
+---
+
+_**Assistant**_
+
+<think>
+Let's implement an edit button for each pledge in the PledgeList component. Here's the approach:
+
+1. Modify the PledgeList component to:
+   - Accept additional props for the edit functionality
+   - Add an Edit button to each row that's only visible to admins or pledge owners
+   - Handle opening the PledgeOverlay for the selected pledge
+
+2. Update the parent component to:
+   - Add state for the overlay's visibility and selected pledge
+   - Pass the needed props to both PledgeList and PledgeOverlay
+
+Let's create the implementation:
+</think>
+
+🤖 I'll add an edit button to each row in the PledgeList component that will be visible only to admins or the owner of the pledge. Here's how we'll implement it:
+
+First, let's update the PledgeList component:
+
+````typescript:src/components/projects/pledge-list.tsx
+import { formatDate } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Edit } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+type PledgeWithUser = {
+  id: string
+  userId: string
+  projectId: string
+  amount: number
+  description: string
+  createdAt: string
+  updatedAt: string
+  deleted?: boolean
+  locked?: boolean
+  userName: string
+  userEmail: string
+}
+
+interface PledgeListProps {
+  pledges: PledgeWithUser[]
+  isLoading: boolean
+  currentUserId?: string
+  isAdmin?: boolean
+  onEditPledge?: (pledge: PledgeWithUser) => void
+}
+
+export function PledgeList({ 
+  pledges, 
+  isLoading, 
+  currentUserId,
+  isAdmin,
+  onEditPledge 
+}: PledgeListProps) {
+  // ... existing loading and empty state checks
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Amount</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead>Notes</TableHead>
+          {(isAdmin || currentUserId) && <TableHead className="w-16">Actions</TableHead>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {pledges.map((pledge) => (
+          <TableRow key={pledge.id}>
+            {/* ... existing cells */}
+            
+            {/* Add action cell */}
+            {(isAdmin || currentUserId === pledge.userId) && (
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEditPledge?.(pledge)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+````
+
+Now, let's update the project detail page to handle the edit functionality:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Add these imports and state
+import { useState } from "react"
+import { PledgeOverlay } from "@/components/projects/pledge-overlay"
+import { useAuth } from "@/contexts/auth-context"
+
+// Inside the component function, add these:
+const { appUser } = useAuth()
+const [isPledgeOpen, setIsPledgeOpen] = useState(false)
+const [selectedPledge, setSelectedPledge] = useState<any>(null)
+
+// Function to handle editing a pledge
+const handleEditPledge = (pledge: any) => {
+  setSelectedPledge(pledge)
+  setIsPledgeOpen(true)
+}
+
+// In the return JSX, update the pledges card:
+<Card>
+  <CardHeader className="flex flex-row items-center justify-between">
+    <CardTitle>Pledges</CardTitle>
+    <Button 
+      variant="outline" 
+      size="sm" 
+      onClick={() => {
+        setSelectedPledge(null)
+        setIsPledgeOpen(true)
+      }}
+      disabled={!appUser}
+    >
+      Pledge to this project
+    </Button>
+  </CardHeader>
+  <CardContent>
+    <PledgeList 
+      pledges={pledges} 
+      isLoading={isLoadingPledges}
+      currentUserId={appUser?.id}
+      isAdmin={appUser?.role === 'admin'}
+      onEditPledge={handleEditPledge}
+    />
+  </CardContent>
+</Card>
+
+{/* Add overlay at the bottom of the component */}
+{appUser && isPledgeOpen && (
+  <PledgeOverlay
+    userId={selectedPledge?.userId || appUser.id}
+    projectId={id}
+    pledgeId={selectedPledge?.id}
+    open={isPledgeOpen}
+    onClose={() => {
+      setIsPledgeOpen(false)
+      setSelectedPledge(null)
+    }}
+  />
+)}
+````
+
+Finally, let's modify the PledgeOverlay to handle editing existing pledges:
+
+````typescript:src/components/projects/pledge-overlay.tsx
+// Update the props interface
+interface PledgeOverlayProps {
+  userId: string
+  projectId: string
+  pledgeId?: string
+  open: boolean
+  onClose: () => void
+}
+
+// Update the component to load the pledge directly if pledgeId is provided
+export function PledgeOverlay({ 
+  userId, 
+  projectId, 
+  pledgeId,
+  open, 
+  onClose 
+}: PledgeOverlayProps) {
+  // Existing state and hooks...
+  
+  // Alternative query to get pledge by ID if provided
+  const { data: directPledge, isLoading: isLoadingDirectPledge } = useQuery({
+    queryKey: ['pledge', pledgeId],
+    queryFn: async () => {
+      if (!pledgeId) return null
+      return pledgeCrud.getById(pledgeId)
+    },
+    enabled: !!pledgeId
+  })
+  
+  // Use either direct pledge or existing user pledge
+  const activePledge = pledgeId ? directPledge : existingPledge
+  
+  // Update mutation function
+  const pledgeMutation = useMutation({
+    mutationFn: async () => {
+      if (activePledge) {
+        // Update existing pledge
+        if (amount === 0) return pledgeCrud.softDelete(activePledge.id)
+        
+        return pledgeCrud.update(activePledge.id, {
+          amount,
+          description: "Updated pledge"
+        })
+      } else {
+        // Create new pledge
+        return pledgeCrud.create({
+          userId,
+          projectId,
+          amount,
+          description: "New pledge"
+        })
+      }
+    },
+    // Rest of the mutation remains the same...
+  })
+  
+  // Update useEffect to use activePledge
+  useEffect(() => {
+    if (project && userBalance !== undefined) {
+      // ...existing code...
+      
+      // If there's an active pledge, set that as default
+      if (activePledge) {
+        setAmount(activePledge.amount)
+      } else {
+        // ...existing code...
+      }
+    }
+  }, [project, userBalance, currentPledged, activePledge])
+  
+  // Update isLoading to include direct pledge loading
+  const isLoading = isLoadingBalance || isLoadingProject || 
+    isLoadingPledge || isLoadingDirectPledge || pledgeMutation.isPending
+    
+  // Rest of the component remains the same...
+}
+````
+
+These changes will:
+
+1. Add an edit button to each pledge row that's only visible to admins or the pledge owner
+2. Allow opening the PledgeOverlay in edit mode when a pledge is selected
+3. Let admins or pledge owners modify or delete pledges
+4. Handle all the necessary loading states and permissions
+
+The PledgeOverlay component now works for both creating new pledges and editing existing ones, with the appropriate user permissions.
+
+---
+
+_**User**_
+
+Why do you pass the isAdmin and currentUserId to the PledgeList? Can't Pladge list just load that from Auth or is that not possible in React?
+
+---
+
+_**Assistant**_
+
 
 
 ---

@@ -16,13 +16,20 @@ import { Project } from "@/types"
 interface PledgeOverlayProps {
   userId: string
   projectId: string
+  pledgeId?: string
   open: boolean
   onClose: () => void
 }
 
 const pledgeCrud = new PledgeCrud()
 
-export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverlayProps) {
+export function PledgeOverlay({ 
+  userId, 
+  projectId, 
+  pledgeId,
+  open, 
+  onClose 
+}: PledgeOverlayProps) {
   const [amount, setAmount] = useState(0)
   const [maxAmount, setMaxAmount] = useState(0)
   const queryClient = useQueryClient()
@@ -45,14 +52,27 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
     }
   })
   
+  // Alternative query to get pledge by ID if provided
+  const { data: directPledge, isLoading: isLoadingDirectPledge } = useQuery({
+    queryKey: ['pledge', pledgeId],
+    queryFn: async () => {
+      if (!pledgeId) return null
+      return pledgeCrud.getById(pledgeId)
+    },
+    enabled: !!pledgeId
+  })
+  
+  // Use either direct pledge or existing user pledge
+  const activePledge = pledgeId ? directPledge : existingPledge
+  
   // Create/update pledge mutation
   const pledgeMutation = useMutation({
     mutationFn: async () => {
-      if (existingPledge) {
+      if (activePledge) {
         // Update existing pledge
-        if (amount === 0) return pledgeCrud.softDelete(existingPledge.id)
-
-        return pledgeCrud.update(existingPledge.id, {
+        if (amount === 0) return pledgeCrud.softDelete(activePledge.id)
+        
+        return pledgeCrud.update(activePledge.id, {
           amount,
           description: "Updated pledge"
         })
@@ -88,13 +108,13 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
   useEffect(() => {
     if (project && userBalance !== undefined) {
       // Amount left to reach goal
-      const sliderMax = calculateSliderMax(existingPledge, project, currentPledged)
+      const sliderMax = calculateSliderMax(activePledge, project, currentPledged)
       
       //@TODO: what if goal is lower than current pledged?
       
       // If user already has a pledge, add it to available balance
-      const availableBalance = existingPledge 
-        ? userBalance + existingPledge.amount
+      const availableBalance = activePledge 
+        ? userBalance + activePledge.amount
         : userBalance
         
       // Max amount is the smaller of amount left or user's balance
@@ -102,22 +122,23 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
       console.log("sliderMax", sliderMax)
       setMaxAmount(max)
       
-      // If user has an existing pledge, set that as default
-      if (existingPledge) {
-        setAmount(existingPledge.amount)
+      // If there's an active pledge, set that as default
+      if (activePledge) {
+        setAmount(activePledge.amount)
       } else {
         // Otherwise set to 0 or max/2 if there's available balance
         setAmount(max > 0 ? Math.floor(max / 2) : 0)
       }
     }
-  }, [project, userBalance, currentPledged, existingPledge])
+  }, [project, userBalance, currentPledged, activePledge])
   
   const handleSliderChange = (value: number[]) => {
     setAmount(value[0])
   }
   
-  const isLoading = isLoadingBalance || isLoadingProject || isLoadingPledge || pledgeMutation.isPending
-  const remainingToGoal = project ? calculateSliderMax(existingPledge, project, currentPledged) : 0
+  const isLoading = isLoadingBalance || isLoadingProject || 
+    isLoadingPledge || isLoadingDirectPledge || pledgeMutation.isPending
+  const remainingToGoal = project ? calculateSliderMax(activePledge, project, currentPledged) : 0
   
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -146,10 +167,10 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
                   <span>Remaining to goal</span>
                   <span className="font-medium">{remainingToGoal} CREDITS</span>
                 </div>
-                {existingPledge && (
+                {activePledge && (
                   <div className="flex justify-between">
                     <span>Your current pledge</span>
-                    <span className="font-medium">{existingPledge.amount} CREDITS</span>
+                    <span className="font-medium">{activePledge.amount} CREDITS</span>
                   </div>
                 )}
               </div>
@@ -196,7 +217,7 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
               </>
-            ) : existingPledge ? "Update Pledge" : "Pledge"}
+            ) : activePledge ? "Update Pledge" : "Pledge"}
           </Button>
         </DialogFooter>
       </DialogContent>

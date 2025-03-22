@@ -5,6 +5,8 @@ import { UserCrud } from '@/lib/services/crud/user-crud'
 const pledgeCrud = new PledgeCrud()
 const userCrud = new UserCrud()
 
+
+ //@TODO: the PledgeWithUserData concept is weird. Shouldn't I return the pledge with user object?, or pledge|user touple<. Or maybe just load pledge with user data directly from the DB
 export function useProjectPledges(projectId?: string) {
   return useQuery({
     queryKey: ['projectPledges', projectId],
