@@ -89,7 +89,7 @@ import { UpdateUserInput } from "@/lib/services/workflows/user-workflow"
 import { toast } from "sonner"
 
 function UsersPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, appUser } = useAuth()
   const { data: users = [], isLoading } = useUsers(true)
   const updateUserMutation = useUpdateUser()
   const deleteUserMutation = useDeleteUser()
@@ -172,14 +172,6 @@ function UsersPage() {
       })
   }, [users, searchTerm])
   
-  if (!isAdmin) {
-    return (
-      <div className="text-center py-8">
-        You do not have permission to view this page.
-      </div>
-    )
-  }
-  
   return (
     <div className="container py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -238,35 +230,39 @@ function UsersPage() {
                     <UserBalance userId={user.id} />
                   </TableCell>
                   <TableCell>{user.specificSymbol || "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation()
-                          startEditing(user)
-                        }}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        {user.isActive !== false && (
+                  <TableCell className="w-10">
+                    {(isAdmin || appUser?.id === user.id) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem 
-                            className="text-destructive"
                             onClick={(e) => {
                               e.stopPropagation()
-                              setUserToDelete(user)
-                              setDeleteDialogOpen(true)
-                            }}
-                          >
-                            Deactivate
+                              startEditing(user)
+                            }}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {user.isActive !== false && isAdmin && (
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setUserToDelete(user)
+                                setDeleteDialogOpen(true)
+                              }}
+                            >
+                              Deactivate
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
                 
@@ -311,13 +307,15 @@ function UsersPage() {
                             </div>
                           </CardContent>
                           <CardFooter>
-                            <Button variant="outline" onClick={(e) => {
-                              e.stopPropagation();
-                              startEditing(user);
-                            }}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit User
-                            </Button>
+                            {(isAdmin || appUser?.id === user.id) && (
+                              <Button variant="outline" onClick={(e) => {
+                                e.stopPropagation();
+                                startEditing(user);
+                              }}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit User
+                              </Button>
+                            )}
                           </CardFooter>
                         </Card>
                       </div>
@@ -350,15 +348,6 @@ function UsersPage() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={editedUserData.email || ''} 
-                onChange={(e) => setEditedUserData({...editedUserData, email: e.target.value})}
-              />
-            </div>
             
             <div className="space-y-2">
               <Label htmlFor="specificSymbol">Specific Symbol</Label>
