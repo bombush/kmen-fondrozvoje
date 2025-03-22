@@ -34,7 +34,7 @@ export function useUpdateUser() {
   
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserInput }) => 
-      userWorkflow.updateUser(id, data),
+      userCrud.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
     }
