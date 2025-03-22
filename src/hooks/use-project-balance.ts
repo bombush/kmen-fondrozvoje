@@ -13,6 +13,7 @@ export function useProjectBalance(projectId?: string) {
       return pledges
         .filter(pledge => !pledge.deleted)
         .reduce((sum, pledge) => sum + pledge.amount, 0)
+        //@TODO: move soft deletion to the crud layer
     },
     enabled: !!projectId
   })
