@@ -23,6 +23,8 @@ import { MotionFade } from "@/components/ui/motion-fade"
 import { toast } from "sonner"
 import { useProjectPledges } from "@/hooks/use-project-pledges"
 import { PledgeList } from "@/components/projects/pledge-list"
+import { PledgeOverlay } from "@/components/projects/pledge-overlay"
+import { useAuth } from "@/contexts/auth-context"
 
 /**
  * The page shows all the project details and buttons:
@@ -48,6 +50,8 @@ export default function ProjectPage() {
   const [editedProject, setEditedProject] = useState<Project | undefined>(undefined)
   const { data: currentAmount = 0, isLoading: isLoadingBalance } = useProjectBalance(id)
   const { data: pledges = [], isLoading: isLoadingPledges } = useProjectPledges(id)
+  const { appUser } = useAuth()
+  const [isPledgeOpen, setIsPledgeOpen] = useState(false)
   
   // Calculate completion percentage
   const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
@@ -136,8 +140,23 @@ export default function ProjectPage() {
         <div>
           <h1 className="text-2xl font-bold">{project.name}</h1>
           <p className="text-muted-foreground">Created by {project.ownerId}</p>
+          <Button
+          className="bg-green-800 text-white hover:bg-green-600"
+          onClick={()=>setIsPledgeOpen(true)}
+          >
+            Pledge
+          </Button>
         </div>
         <div className="flex gap-2">
+
+          {appUser && (
+            <PledgeOverlay
+              userId={appUser.id}
+              projectId={id}
+              open={isPledgeOpen}
+              onClose={() => setIsPledgeOpen(false)}
+            />
+          )}
           <Button 
             variant="outline"
             onClick={() => setIsEditing(!isEditing)}
