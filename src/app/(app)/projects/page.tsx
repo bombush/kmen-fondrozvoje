@@ -22,6 +22,7 @@ export default function ProjectsPage() {
   const { projects, isLoading } = useFilteredProjects(search, statusFilter, showDeleted)
   const { mutateAsync: undoDelete } = useUndoDeleteProject()
 
+  //@TODO: undo delete pledges. Or maybe  remove the feature completely
   const handleUndoDelete = async (project: Project) => {
     try {
       await undoDelete(project.id)

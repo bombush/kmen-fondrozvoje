@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getProjects, getProject, createProject, updateProject, deleteProject, undoDeleteProject } from "@/lib/services/project-service"
+// @TODO: use either crud or workflow but not service
+import { getProjects, getProject, createProject, updateProject, undoDeleteProject } from "@/lib/services/project-service"
+import { ProjectWorkflow } from "@/lib/services/workflows/project-workflow"
 import { Project } from "@/types"
 import { useRouter } from "next/navigation"
+
+async function deleteProjectFn(id: string) {
+  const projectWorkflow = new ProjectWorkflow()
+  return projectWorkflow.deleteProject(id)
+}
 
 export function useProjects(includeDeleted = false) {
   return useQuery({
@@ -47,9 +54,11 @@ export function useDeleteProject() {
   const router = useRouter()
   
   return useMutation({
-    mutationFn: deleteProject,
+    mutationFn: deleteProjectFn,
     onSuccess: (deletedProject) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
+      queryClient.invalidateQueries({ queryKey: ["pledges"] })
+      queryClient.invalidateQueries({ queryKey: ["userBalance"] })
       // Only navigate away if we're on the project detail page
       if (window.location.pathname.includes(`/projects/${deletedProject.id}`)) {
         router.push("/projects")
@@ -65,6 +74,8 @@ export function useUndoDeleteProject() {
     mutationFn: undoDeleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
+      queryClient.invalidateQueries({ queryKey: ["pledges"] })
+      queryClient.invalidateQueries({ queryKey: ["userBalance"] })
     }
   })
 }

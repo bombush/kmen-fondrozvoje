@@ -107,6 +107,8 @@ export class ProjectWorkflow {
         const pledges = await this.pledgeCrud.getByProjectId(projectId)
 
         // Soft delete all pledges
+
+        //@TODO: check permissions on this: pledge should be possible to be deleted by project owner when deleting project
         const deletePromises = pledges.map(pledge => 
           this.pledgeCrud.softDelete(pledge.id)
         )

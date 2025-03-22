@@ -51,11 +51,21 @@ export class PledgeCrud extends BaseCrud<Pledge> {
     return super.getById(id)
   }
 
-  async getByUserId(userId: string): Promise<Pledge[]> {
+  async getByUserId(userId: string, includeDeleted : boolean = false): Promise<Pledge[]> {
+    if(false == includeDeleted) {
+      return this.query([{ field: "userId", operator: "==", value: userId }, 
+        { field: "deleted", operator: "==", value: false }])
+    }
     return this.query([{ field: "userId", operator: "==", value: userId }])
   }
 
-  async getByProjectId(projectId: string): Promise<Pledge[]> {
+  async getByProjectId(projectId: string, includeDeleted : boolean = false): Promise<Pledge[]> {
+    if(false == includeDeleted ) {
+      return this.query([
+        { field: "projectId", operator: "==", value: projectId },
+        { field: "deleted", operator: "==", value: false }
+      ])
+    }
     return this.query([{ field: "projectId", operator: "==", value: projectId }])
   }
 }

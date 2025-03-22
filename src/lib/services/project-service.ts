@@ -100,6 +100,7 @@ export const updateProject = async (id: string, data: Partial<Project>) => {
   }
 }
 
+// @TODO: rename to softDeleteProject
 export const deleteProject = async (id: string) => {
   try {
     const docRef = doc(db, COLLECTION_NAME, id)
