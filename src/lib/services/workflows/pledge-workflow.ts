@@ -2,14 +2,15 @@ import { Pledge } from "@/types"
 import { Transaction } from "firebase/firestore"
 import { PledgeCrud } from "../crud/pledge-crud"
 import { UserCrud } from "../crud/user-crud"
-
+import { ProjectCrud } from "../crud/project-crud"
 export class PledgeWorkflow {
   private pledgeCrud: PledgeCrud
   private userCrud: UserCrud
-
+  private projectCrud: ProjectCrud  
   constructor() {
     this.pledgeCrud = new PledgeCrud()
     this.userCrud = new UserCrud()
+    this.projectCrud = new ProjectCrud()
   }
 
   /**
@@ -30,6 +31,14 @@ export class PledgeWorkflow {
 
     try {
       return await this.pledgeCrud.runTransaction(async (transaction: Transaction) => {
+        const project = await this.projectCrud.getById(projectId)
+        if (!project) {
+          throw new Error("Project not found")
+        }
+
+        if(project.closed) {
+          throw new Error("Cannot pledge to a closed project")
+        }
         
         // Create pledge
         const pledge = await this.pledgeCrud.create({
@@ -60,6 +69,16 @@ export class PledgeWorkflow {
           throw new Error(`Pledge ${pledgeId} not found`)
         }
 
+        const project = await this.projectCrud.getById(pledge.projectId)
+        if(!project) {
+          throw new Error("Project not found")
+        }
+
+        if(project.closed) {
+          throw new Error("Cannot pledge to a closed project")
+        }
+        
+
         if (pledge.locked) {
           throw new Error("Cannot cancel a locked pledge")
         }
@@ -89,9 +108,12 @@ export class PledgeWorkflow {
           throw new Error(`Pledge ${pledgeId} not found`)
         }
 
-        if (pledge.locked) {
-          throw new Error("Cannot update a locked pledge")
-        }
+        // @TODO: move all project checks to the crud layer
+        const project = await this.projectCrud.getById(pledge.projectId)
+        if(!project) throw new Error("Project not found")
+        if(project.closed) throw new Error("Cannot pledge to a closed project")
+
+        if (pledge.locked) throw new Error("Cannot update a locked pledge")
 
         // Calculate balance adjustment
         const balanceAdjustment = newAmount - pledge.amount
