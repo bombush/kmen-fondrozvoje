@@ -19,7 +19,7 @@ export function UserBalance() {
           {isLoading ? (
             <Skeleton className="h-4 w-14" />
           ) : (
-            <span className="text-sm font-medium">{balance} CREDITS</span>
+            <span className="text-sm font-medium">{balance}</span>
           )}
         </div>
       </TooltipTrigger>

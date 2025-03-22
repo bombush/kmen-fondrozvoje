@@ -33,10 +33,15 @@
 
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { mockUsers } from './mockUsers'
-import { User } from '../../../types'
-import { toast } from "sonner"
+import React, { useState, useMemo } from "react"
+import { useUsers, useUpdateUser, useDeleteUser } from "@/hooks/use-users"
+import { useAuth } from "@/contexts/auth-context"
+import { useUserBalance } from "@/hooks/use-user-balance"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Edit, MoreHorizontal, Search, User as UserIcon, ChevronDown, ChevronRight } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -44,337 +49,266 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Edit, 
-  Save, 
-  X, 
-  Search,
-  User as UserIcon,
-  Mail,
-  Banknote,
-  Hash,
-  BarChart 
-} from 'lucide-react'
+} from "@/components/ui/table"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { User } from "@/types"
+import { UpdateUserInput } from "@/lib/services/workflows/user-workflow"
+import { toast } from "sonner"
 
-const UsersPage = () => {
-  const [users, setUsers] = useState<User[]>([])
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-  const [editingUser, setEditingUser] = useState<string | null>(null)
-  const [editedUser, setEditedUser] = useState<User | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
-    // On component mount, sort the users
-    sortUsers(mockUsers)
-  }, [])
-
-  const sortUsers = (userList: User[]) => {
-    // Sort first by active/inactive, then alphabetically by name
-    const sortedUsers = [...userList].sort((a, b) => {
-      // Active users come first
-      if (a.isActive !== b.isActive) {
-        return a.isActive ? -1 : 1
-      }
-      // Then alphabetically by name
-      return a.name.localeCompare(b.name)
-    })
-    setUsers(sortedUsers)
+function UsersPage() {
+  const { isAdmin } = useAuth()
+  const { data: users = [], isLoading } = useUsers(true)
+  const updateUserMutation = useUpdateUser()
+  const deleteUserMutation = useDeleteUser()
+  
+  // State
+  const [searchTerm, setSearchTerm] = useState("")
+  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({})
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [userToEdit, setUserToEdit] = useState<User | null>(null)
+  const [editedUserData, setEditedUserData] = useState<UpdateUserInput>({})
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  
+  // Toggle row expansion
+  const toggleExpand = (userId: string) => {
+    setExpandedUsers(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }))
   }
-
-  const filterUsers = () => {
-    if (!searchQuery.trim()) {
-      return users
-    }
+  
+  // Start editing a user
+  const startEditing = (user: User) => {
+    setUserToEdit(user)
+    setEditedUserData({
+      name: user.name,
+      email: user.email,
+      specificSymbol: user.specificSymbol,
+      variableSymbol: user.variableSymbol,
+      constantSymbol: user.constantSymbol,
+      isActive: user.isActive !== false
+    })
+    setEditDialogOpen(true)
+  }
+  
+  // Save edited user
+  const saveUserChanges = async () => {
+    if (!userToEdit) return
     
-    const query = searchQuery.toLowerCase()
-    return users.filter(user => 
-      user.name.toLowerCase().includes(query) || 
-      (user.email && user.email.toLowerCase().includes(query))
+    try {
+      await updateUserMutation.mutateAsync({
+        id: userToEdit.id,
+        data: editedUserData
+      })
+      setEditDialogOpen(false)
+      toast.success("User updated successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to update user")
+    }
+  }
+  
+  // Delete (deactivate) a user
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return
+    
+    try {
+      await deleteUserMutation.mutateAsync(userToDelete.id)
+      setDeleteDialogOpen(false)
+      toast.success("User deactivated successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to deactivate user")
+    }
+  }
+  
+  // Filter users by search term
+  const filteredUsers = useMemo(() => {
+    return users
+      .filter(user => 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        // First sort by active/inactive
+        if ((a.isActive !== false) && (b.isActive === false)) return -1
+        if ((a.isActive === false) && (b.isActive !== false)) return 1
+        // Then sort alphabetically
+        return a.name.localeCompare(b.name)
+      })
+  }, [users, searchTerm])
+  
+  if (!isAdmin) {
+    return (
+      <div className="text-center py-8">
+        You do not have permission to view this page.
+      </div>
     )
   }
-
-  const toggleRow = (userId: string) => {
-    setExpandedRows(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(userId)) {
-        newSet.delete(userId)
-      } else {
-        newSet.add(userId)
-      }
-      return newSet
-    })
-  }
-
-  const startEditing = (user: User) => {
-    setEditingUser(user.id)
-    setEditedUser({...user})
-  }
-
-  const cancelEditing = () => {
-    setEditingUser(null)
-    setEditedUser(null)
-  }
-
-  const handleEditChange = (field: keyof User, value: any) => {
-    if (editedUser) {
-      setEditedUser({
-        ...editedUser,
-        [field]: value
-      })
-    }
-  }
-
-  const saveUserChanges = () => {
-    if (editedUser) {
-      // In a real app, this would be an API call
-      setUsers(prev => prev.map(user => 
-        user.id === editedUser.id ? editedUser : user
-      ))
-      
-      toast.success("User information updated successfully")
-      setEditingUser(null)
-      setEditedUser(null)
-    }
-  }
-
+  
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Users</h1>
-      
-      <div className="relative mb-4">
-        <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-        <Input
-          placeholder="Search by name or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8"
-        />
+    <div className="container py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Users</h1>
+        <div className="relative w-72">
+          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input 
+            placeholder="Search users..." 
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
       
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[30px]"></TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Balance</TableHead>
-            <TableHead>Specific Symbol</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filterUsers().map(user => (
-            <React.Fragment key={user.id}>
-              <TableRow 
-                className={`cursor-pointer hover:bg-muted ${!user.isActive ? 'text-gray-500 dark:text-gray-400' : ''}`}
-                onClick={() => toggleRow(user.id)}
-              >
-                                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className={`rounded-full h-3 w-3 ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`} 
-                    />
-                  </div>
-                </TableCell>
-                <TableCell>{user.name}</TableCell>
-                <TableCell>0 Kč</TableCell>
-                <TableCell>{user.specificSymbol || "-"}</TableCell>
-
-              </TableRow>
-              {expandedRows.has(user.id) && (
-                <TableRow>
-                  <TableCell colSpan={5} className="p-0">
-                    <div className="py-4 px-6 bg-muted">
-                      {editingUser === user.id && editedUser ? (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Edit User Information</CardTitle>
-                            <CardDescription>Make changes to user profile and settings</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <Tabs defaultValue="basic" className="w-full">
-                              <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                                <TabsTrigger value="billing">Billing Info</TabsTrigger>
-                              </TabsList>
-                              <TabsContent value="basic" className="space-y-4 mt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="name">Name</Label>
-                                    <Input 
-                                      id="name" 
-                                      value={editedUser.name} 
-                                      onChange={(e) => handleEditChange('name', e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input 
-                                      id="email" 
-                                      value={editedUser.email} 
-                                      onChange={(e) => handleEditChange('email', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Label htmlFor="isActive">Active</Label>
-                                  <Switch 
-                                    id="isActive" 
-                                    checked={editedUser.isActive}
-                                    onCheckedChange={(checked) => handleEditChange('isActive', checked)}
-                                  />
-                                  <span className={`ml-2 text-sm font-medium ${editedUser.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                                    {editedUser.isActive ? 'Active' : 'Inactive'}
-                                  </span>
-                                </div>
-                              </TabsContent>
-                              <TabsContent value="billing" className="space-y-4 mt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="balance">Balance (Kč)</Label>
-                                    <Input 
-                                      id="balance" 
-                                      type="number"
-                                      value="0"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="specificSymbol">Specific Symbol</Label>
-                                    <Input 
-                                      id="specificSymbol" 
-                                      value={editedUser.specificSymbol || ''} 
-                                      onChange={(e) => handleEditChange('specificSymbol', e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="variableSymbol">Variable Symbol</Label>
-                                    <Input 
-                                      id="variableSymbol" 
-                                      value={editedUser.variableSymbol || ''} 
-                                      onChange={(e) => handleEditChange('variableSymbol', e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="constantSymbol">Constant Symbol</Label>
-                                    <Input 
-                                      id="constantSymbol" 
-                                      value={editedUser.constantSymbol || ''} 
-                                      onChange={(e) => handleEditChange('constantSymbol', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-                              </TabsContent>
-                            </Tabs>
-                          </CardContent>
-                          <CardFooter className="flex justify-between">
-                            <Button variant="outline" onClick={cancelEditing}>
-                              <X className="mr-2 h-4 w-4" />
-                              Cancel
-                            </Button>
-                            <Button onClick={saveUserChanges}>
-                              <Save className="mr-2 h-4 w-4" />
-                              Save Changes
-                            </Button>
-                          </CardFooter>
-                        </Card>
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[300px]">Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Balance</TableHead>
+              <TableHead>Specific Symbol</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.map(user => (
+              <React.Fragment key={user.id}>
+                <TableRow 
+                  className={`cursor-pointer ${user.isActive === false ? 'text-muted-foreground' : ''}`}
+                  onClick={() => toggleExpand(user.id)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {expandedUsers[user.id] ? (
+                        <ChevronDown className="h-4 w-4" />
                       ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <Badge 
+                        variant={user.isActive !== false ? "ok" : "destructive"}
+                        className="w-3 h-3 rounded-full p-0"
+                      />
+                      {user.name}
+                    </div>
+                  </TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <UserBalance userId={user.id} />
+                  </TableCell>
+                  <TableCell>{user.specificSymbol || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          startEditing(user)
+                        }}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {user.isActive !== false && (
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setUserToDelete(user)
+                              setDeleteDialogOpen(true)
+                            }}
+                          >
+                            Deactivate
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+                
+                {expandedUsers[user.id] && (
+                  <TableRow 
+                    className={user.isActive === false ? "text-muted-foreground" : ""}
+                  >
+                    <TableCell colSpan={7} className="p-0">
+                      <div className="p-4 bg-muted/50">
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                              <UserIcon className="h-5 w-5" />
+                              <UserIcon className="h-4 w-4" />
                               {user.name}
+                              
                             </CardTitle>
-                            <CardDescription>
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                {user.email}
-                              </div>
-                            </CardDescription>
                           </CardHeader>
-                          <CardContent>
-                            <ScrollArea className="h-full rounded-md">
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-3">
-                                  <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                      <Banknote className="h-4 w-4" />
-                                      Balance
-                                    </div>
-                                    <div className="font-semibold text-lg">0 Kč</div>
-                                  </div>
-                                  <Separator />
-                                  <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                      <Hash className="h-4 w-4" />
-                                      Payment Symbols
-                                    </div>
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between">
-                                        <span className="text-sm">Specific Symbol:</span>
-                                        <span className="font-medium">{user.specificSymbol || "-"}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm">Variable Symbol:</span>
-                                        <span className="font-medium">{user.variableSymbol || "-"}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm">Constant Symbol:</span>
-                                        <span className="font-medium">{user.constantSymbol || "-"}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="space-y-3">
-                                  <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                      <BarChart className="h-4 w-4" />
-                                      Status
-                                    </div>
-                                    <div className={`flex items-center gap-2 font-medium ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                                      <div className={`rounded-full h-3 w-3 ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                                      {user.isActive ? 'Active' : 'Inactive'}
-                                    </div>
-                                  </div>
-                                  <Separator />
-                                  <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1">
-                                      Account Details
-                                    </div>
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between">
-                                        <span className="text-sm">Created:</span>
-                                        <span className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm">Last Update:</span>
-                                        <span className="font-medium">{new Date(user.updatedAt).toLocaleDateString()}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </ScrollArea>
+                          <CardContent className="grid grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-sm font-medium">Status</div>
+                              <div>{user.isActive !== false ? "Active" : "Inactive"}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Email</div>
+                              <div>{user.email}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Balance</div>
+                              <div><UserBalance userId={user.id} /></div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Specific Symbol</div>
+                              <div>{user.specificSymbol || "—"}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Variable Symbol</div>
+                              <div>{user.variableSymbol || "—"}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Constant Symbol</div>
+                              <div>{user.constantSymbol || "—"}</div>
+                            </div>
                           </CardContent>
                           <CardFooter>
                             <Button variant="outline" onClick={(e) => {
@@ -386,17 +320,127 @@ const UsersPage = () => {
                             </Button>
                           </CardFooter>
                         </Card>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </React.Fragment>
-          ))}
-        </TableBody>
-      </Table>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      
+      {/* Edit User Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Make changes to the user account.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input 
+                id="name" 
+                value={editedUserData.name || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, name: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                value={editedUserData.email || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, email: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="specificSymbol">Specific Symbol</Label>
+              <Input 
+                id="specificSymbol" 
+                value={editedUserData.specificSymbol || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, specificSymbol: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="variableSymbol">Variable Symbol</Label>
+              <Input 
+                id="variableSymbol" 
+                value={editedUserData.variableSymbol || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, variableSymbol: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="constantSymbol">Constant Symbol</Label>
+              <Input 
+                id="constantSymbol" 
+                value={editedUserData.constantSymbol || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, constantSymbol: e.target.value})}
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="isActive" 
+                checked={editedUserData.isActive} 
+                onCheckedChange={(checked) => 
+                  setEditedUserData({...editedUserData, isActive: checked as boolean})
+                }
+              />
+              <Label htmlFor="isActive">Active</Label>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveUserChanges} disabled={updateUserMutation.isPending}>
+              {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will deactivate the user account. All their data will be preserved, but they
+              will no longer be able to log in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteUserMutation.isPending ? "Deactivating..." : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
     </div>
   )
+}
+
+function UserBalance({ userId }: { userId: string }) {
+  const { data: balance = 0, isLoading } = useUserBalance(userId)
+  
+  if (isLoading) return <Skeleton className="h-4 w-16" />
+  return <span>{balance}</span>
 }
 
 export default UsersPage

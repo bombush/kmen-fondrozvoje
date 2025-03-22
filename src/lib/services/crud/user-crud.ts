@@ -69,4 +69,8 @@ export class UserCrud extends BaseCrud<User> {
     // soft delete user
     await this.update(id, { isActive: false })
   }
+
+  async getAll(): Promise<User[]> {
+    return this.query([])
+  }
 }

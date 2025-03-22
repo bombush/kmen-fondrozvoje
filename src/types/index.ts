@@ -122,3 +122,12 @@ export type Pledge = {
   originatingUserId?: string
   description: string
 }
+
+export interface UpdateUserInput {
+  name?: string
+  email?: string
+  specificSymbol?: string
+  variableSymbol?: string
+  constantSymbol?: string
+  isActive?: boolean
+}
