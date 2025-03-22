@@ -76,9 +76,10 @@ export function PledgeOverlay({ userId, projectId, open, onClose }: PledgeOverla
       toast.success("Pledge saved successfully")
       onClose()
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Pledge error:", error)
       toast.error("Failed to save pledge", {
-        description: error.message
+        description: error?.message || "An unknown error occurred"
       })
     }
   })

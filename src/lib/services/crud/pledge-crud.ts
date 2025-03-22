@@ -30,11 +30,21 @@ export class PledgeCrud extends BaseCrud<Pledge> {
     data: Partial<Pledge>, 
     transaction?: Transaction
   ): Promise<Pledge> {
-    return super.update(id, data)
+    try {
+      return super.update(id, data)
+    } catch (error) {
+      console.error("Error in update:", error)
+      throw error
+    }
   }
 
   async softDelete(id: string, transaction?: Transaction): Promise<Pledge> {
-    return this.update(id, { deleted: true }, transaction)
+    try {
+      return this.update(id, { deleted: true }, transaction)
+    } catch (error) {
+      console.error("Error in softDelete:", error)
+      throw error
+    }
   }
 
   async getById(id: string, transaction?: Transaction): Promise<Pledge | null> {

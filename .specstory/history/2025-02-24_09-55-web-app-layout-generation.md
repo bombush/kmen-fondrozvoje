@@ -23469,6 +23469,18 @@ This changes the method call from `delete` to `softDelete`, which is the proper 
 
 ---
 
+_**User**_
+
+When updating pledge if there's an error when persisting into the database, the error does not bubble up to the ovelay. Why is that so?
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
