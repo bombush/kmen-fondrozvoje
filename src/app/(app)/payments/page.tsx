@@ -29,7 +29,7 @@
 import React, { useState, useMemo } from "react"
 import { BankPayment } from "@/types"
 import { toast } from "sonner"
-import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye, ArrowUpDown } from "lucide-react"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye, ArrowUpDown, CornerUpRight } from "lucide-react"
 import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
 import {
   Table,
@@ -297,16 +297,47 @@ export default function PaymentsPage() {
                         <TableRow className="bg-muted/50">
                           <TableCell colSpan={7} className="p-0">
                             <div className="p-4 space-y-4">
-                              <div className="grid grid-cols-1 gap-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Counterparty</h3>
+                                  <p>{payment.counterpartyName || 'Not provided'}</p>
+                                  <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
+                                </div>
                                 <div>
                                   <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
                                   <p>{payment.message || 'No message'}</p>
                                 </div>
-                                <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
-                                  <p>{payment.comment || 'No comment'}</p>
-                                </div>
                               </div>
+                              
+                              {/* Parent payment section - show when this is a child payment */}
+                              {payment.isSplitFromId && (
+                                <div className="mt-4 border-t pt-4">
+                                  <h3 className="text-sm font-medium mb-3">Is child payment of</h3>
+                                  {allPayments && (() => {
+                                    const parentPayment = allPayments.find(p => p.id === payment.isSplitFromId);
+                                    if (!parentPayment) return <p className="text-sm text-muted-foreground">Parent payment not found</p>;
+                                    
+                                    return (
+                                      <div className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                        <CornerUpRight size={16} className="text-muted-foreground" />
+                                        <div className="font-semibold">{formatMoney(parentPayment.amount)}</div>
+                                        <div className="text-muted-foreground ml-4">
+                                          Received: <span className="font-medium">{formatDate(parentPayment.receivedAt)}</span>
+                                        </div>
+                                        <button 
+                                          className="ml-auto text-xs text-primary hover:underline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedPaymentId(parentPayment.id);
+                                          }}
+                                        >
+                                          View parent
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                               
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>

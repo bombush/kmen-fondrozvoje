@@ -30642,6 +30642,101 @@ Default sort should sort by target month.
 
 ---
 
+_**Assistant**_
+
+<think>
+The user wants to change the default sort order to sort by target month rather than the current default which sorts by receivedAt with target month as a secondary sort.
+
+I need to modify the sorting logic in the `getFiltered` method of the `BankPaymentCrud` class to make targetMonth the primary sort criteria instead of receivedAt.
+
+Currently, the default sort (when no sortConfig is provided) is:
+1. Sort by receivedAt in descending order (newest first)
+2. If receivedAt is equal, use targetMonth as a secondary sort
+
+The requested change is to make targetMonth the primary sort. I think the user wants to sort by targetMonth in ascending order (earliest month first) since that would be the most logical for reviewing payments.
+</think>
+
+🤖 I'll update the default sorting logic to use target month as the primary sort criterion:
+
+````typescript:src/lib/services/crud/bank-crud.ts
+// If no sorting specified, default to sorting by targetMonth
+return filteredPayments.sort((a, b) => {
+  // Primary sort by target month (ascending)
+  if (a.targetMonth && b.targetMonth) {
+    const monthComparison = a.targetMonth.localeCompare(b.targetMonth);
+    if (monthComparison !== 0) {
+      return monthComparison;
+    }
+  } else if (a.targetMonth) {
+    return -1; // Items with target month come first
+  } else if (b.targetMonth) {
+    return 1;
+  }
+  
+  // Secondary sort by received date (newest first)
+  return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
+});
+````
+
+This change will:
+
+1. Sort primarily by targetMonth in ascending order (e.g., "2023-01", "2023-02", etc.)
+2. For payments with the same target month, sort by receivedAt (newest first)
+3. Place payments with a defined targetMonth before those without one
+
+The sort logic handles cases where targetMonth might be undefined for some payments, ensuring a consistent and predictable sort order. This ordering will make it easier to review payments by month while still keeping the most recent payments at the top within each month.
+
+---
+
+_**User**_
+
+For child payments add a subsestion "Is child payment of" which will display the parent info in the same way as the child info is displayed in the parent.
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants me to add a section in the payment detail view that shows information about the parent payment when viewing a child payment. This would be symmetrical to how child payment information is currently displayed when viewing parent payments.
+
+Looking at the existing code in `src/app/(app)/payments/page.tsx`, I can see there's a section for child payments that shows up when a payment is a parent payment (has children). I need to add a similar section for when a payment is a child payment.
+
+Currently, when a payment is expanded, the code checks if it has child payments with:
+```typescript
+const childPayments = getChildPayments(payment.id);
+const hasSplits = childPayments.length > 0;
+```
+
+Then it conditionally renders a section if `hasSplits` is true:
+```typescript
+{/* Child payments section */}
+{hasSplits && (
+  <div className="mt-4 border-t pt-4">
+    <h3 className="text-sm font-medium mb-3">Split Payments</h3>
+    <div className="space-y-2">
+      {childPayments.map(child => (
+        <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+          <CornerDownRight size={16} className="text-muted-foreground" />
+          <div className="font-semibold">{formatMoney(child.amount)}</div>
+          <div className="text-muted-foreground ml-4">
+            Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+```
+
+I need to add a similar section that checks if the payment is a child payment (has `isSplitFromId`), and if so, displays information about the parent payment.
+
+I'll need to:
+1. Check if the payment has a `isSplitFromId`
+2. If it does, find the parent payment from the `allPayments` array
+3. Display information about the parent payment in a similar format to how child payments
+
+---
+
 
 
 ---
