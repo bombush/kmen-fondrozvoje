@@ -31,14 +31,14 @@ service cloud.firestore {
     }
 
     // Bank Statements
-    match /bank_statements/{statementId} {
+    match /bankStatements/{statementId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Bank Payments
-    match /bank_payments/{paymentId} {
+    match /bankPayments/{paymentId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
