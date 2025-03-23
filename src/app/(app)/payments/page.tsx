@@ -26,10 +26,10 @@
  */
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useMemo } from "react"
 import { BankPayment } from "@/types"
 import { toast } from "sonner"
-import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch } from "lucide-react"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight } from "lucide-react"
 import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
 import {
   Table,
@@ -41,205 +41,281 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { usePayments } from "@/hooks/use-payments"
+import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function PaymentsPage() {
   // State for filtering and UI
   const [search, setSearch] = useState("")
+  const [monthFilter, setMonthFilter] = useState("all")
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<BankPayment | null>(null)
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
   
   // Fetch all payments and filter on client
-  const { data: allPayments, isLoading, error } = usePayments({})
+  const { data: allPayments, isLoading, error, refetch } = usePayments({})
+  
+  // Get child payments for a specific parent payment
+  const getChildPayments = (parentId: string) => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === parentId && !p.deleted);
+  };
   
   // Helper function to check if a payment is a parent payment
   const isParentPayment = (payment: BankPayment) => {
-    if (!allPayments) return false
-    return allPayments.some(p => p.isSplitFromId === payment.id)
-  }
+    if (!allPayments) return false;
+    return allPayments.some(p => p.isSplitFromId === payment.id && !p.deleted);
+  };
   
   // Handle payment splitting
   const handleSplitPayment = (payment: BankPayment) => {
-    toast.info("Split payment functionality coming soon")
-  }
+    setSelectedPayment(payment);
+    setSplitDialogOpen(true);
+  };
+  
+  // Filter out child payments from the main list (we'll show them nested)
+  const filteredPayments = useMemo(() => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => !p.isSplitFromId && !p.deleted);
+  }, [allPayments]);
   
   // Filter and sort payments in the frontend
-  const filteredAndSortedPayments = React.useMemo(() => {
-    if (!allPayments) return []
+  const filteredAndSortedPayments = useMemo(() => {
+    if (!filteredPayments) return [];
     
-    // Apply filters
-    let result = [...allPayments]
+    // First filter by month if a month filter is set
+    let filtered = filteredPayments;
+    if (monthFilter && monthFilter !== "all") {
+      filtered = filtered.filter(payment => {
+        // Check if the parent payment's month matches
+        if (payment.targetMonth === monthFilter) return true;
+        
+        // Check if any child payment's month matches
+        const childPayments = getChildPayments(payment.id);
+        return childPayments.some(child => child.targetMonth === monthFilter);
+      });
+    }
     
-    // Apply search filter (case insensitive)
-    if (search.trim()) {
-      const searchLower = search.toLowerCase()
-      result = result.filter(payment => 
+    // Then filter by search term
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(payment => 
         payment.counterpartyName?.toLowerCase().includes(searchLower) ||
         payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
         payment.message?.toLowerCase().includes(searchLower) ||
-        payment.comment?.toLowerCase().includes(searchLower) ||
         payment.variableSymbol?.toLowerCase().includes(searchLower) ||
-        payment.specificSymbol?.toLowerCase().includes(searchLower) ||
-        payment.constantSymbol?.toLowerCase().includes(searchLower) ||
-        payment.targetMonth?.toLowerCase().includes(searchLower) ||
-        formatDateSql(payment.receivedAt)?.toLowerCase().includes(searchLower)
-      )
+        payment.specificSymbol?.toLowerCase().includes(searchLower)
+      );
     }
     
-    // Sort by received date (newest first)
-    return result.sort(
-      (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
-    )
-  }, [allPayments, search])
-
+    // Sort by date (newest first)
+    return [...filtered].sort((a, b) => 
+      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+    );
+  }, [filteredPayments, search, monthFilter, getChildPayments]);
+  
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
-      </div>
-
-      {/* Search and filters */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="search" className="text-sm font-medium block mb-1">Search</label>
-          <input 
-            id="search"
-            type="text"
+    <div className="container py-10 max-w-6xl">
+      <h1 className="text-2xl font-bold mb-6">Payments</h1>
+      
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row gap-3">
+          <Input
+            placeholder="Search payments..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, account number, message..."
-            className="w-full px-4 py-2 border border-input bg-background rounded-md"
+            className="w-full md:w-80"
           />
+          
+          <div className="w-full md:w-48">
+            <Select
+              value={monthFilter}
+              onValueChange={setMonthFilter}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by month" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {/* Generate last 12 months */}
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const date = new Date();
+                  date.setMonth(date.getMonth() - i);
+                  const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+                  const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  return (
+                    <SelectItem key={monthValue} value={monthValue}>
+                      {monthLabel}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
-
-      {/* Loading state */}
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map(i => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
+      
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
         </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div className="p-6 text-center text-destructive border rounded-md bg-card">
-          Error loading payments. Please try again.
+      ) : error ? (
+        <div className="text-red-500">Error loading payments: {error.message}</div>
+      ) : filteredAndSortedPayments.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No payments found</p>
         </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && filteredAndSortedPayments.length === 0 && (
-        <div className="p-6 text-center text-muted-foreground border rounded-md bg-card">
-          No payments found matching your filters
-        </div>
-      )}
-
-      {/* Payments table */}
-      {!isLoading && filteredAndSortedPayments.length > 0 && (
-        <div className="rounded-md border bg-card">
+      ) : (
+        <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[16%]">Amount</TableHead>
-                <TableHead className="w-[22%]">Counterparty Name</TableHead>
-                <TableHead className="w-[22%]">Account Number</TableHead>
-                <TableHead className="w-[16%]">Target Month</TableHead>
-                <TableHead className="w-[16%]">Received At</TableHead>
-                <TableHead className="w-[8%]"></TableHead>
+                <TableHead className="w-[150px]">Amount</TableHead>
+                <TableHead>Counterparty</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Month</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAndSortedPayments.map((payment) => (
-                <React.Fragment key={payment.id}>
-                  {/* Payment row (collapsible header) */}
-                  <TableRow 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                  >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {payment.isSplitFromId && (
-                          <GitBranch size={16} className="text-blue-500" aria-label="Split from another payment" />
-                        )}
-                        {isParentPayment(payment) && (
-                          <GitMerge size={16} className="text-purple-500" aria-label="Parent to split payments" />
-                        )}
-                        {payment.amount > 0 ? (
-                          <span className="text-green-600 dark:text-green-400">+{formatMoney(payment.amount)}</span>
-                        ) : (
-                          <span className="text-red-600 dark:text-red-400">{formatMoney(payment.amount)}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="truncate">{payment.counterpartyName}</TableCell>
-                    <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
-                    <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
-                    <TableCell className="text-right">
-                      {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Expanded content row */}
-                  {expandedPaymentId === payment.id && (
-                    <TableRow className="bg-muted/50">
-                      <TableCell colSpan={6} className="p-0">
-                        <div className="p-4 space-y-4">
-                          <div className="grid grid-cols-1 gap-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
-                              <p>{payment.message || 'No message'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
-                              <p>{payment.comment || 'No comment'}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
-                              <p>{payment.variableSymbol || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
-                              <p>{payment.specificSymbol || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
-                              <p>{payment.constantSymbol || 'Not provided'}</p>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
-                            <p>{payment.bankTransactionId}</p>
-                          </div>
-                          
-                          <div className="pt-3 flex justify-end">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSplitPayment(payment);
-                              }}
-                              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
-                            >
-                              <Split size={16} />
-                              Split Payment
-                            </button>
-                          </div>
+              {filteredAndSortedPayments.map((payment) => {
+                const childPayments = getChildPayments(payment.id);
+                const hasSplits = childPayments.length > 0;
+                
+                return (
+                  <React.Fragment key={payment.id}>
+                    {/* Parent payment row */}
+                    <TableRow 
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/50",
+                        expandedPaymentId === payment.id && "bg-muted/50"
+                      )}
+                      onClick={() => setExpandedPaymentId(
+                        expandedPaymentId === payment.id ? null : payment.id
+                      )}
+                    >
+                      <TableCell className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          {formatMoney(payment.amount)}
+                          {hasSplits && (
+                            <Badge variant="outline" className="ml-2">
+                              Split
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
+                      <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                      <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
+                      <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
+                      <TableCell className="text-right">
+                        {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </TableCell>
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {/* Expanded content row */}
+                    {expandedPaymentId === payment.id && (
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                                <p>{payment.message || 'No message'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
+                                <p>{payment.comment || 'No comment'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                                <p>{payment.variableSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                                <p>{payment.specificSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                                <p>{payment.constantSymbol || 'Not provided'}</p>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                              <p>{payment.bankTransactionId}</p>
+                            </div>
+                            
+                            {/* Child payments section */}
+                            {hasSplits && (
+                              <div className="mt-4 border-t pt-4">
+                                <h3 className="text-sm font-medium mb-3">Split Payments</h3>
+                                <div className="space-y-2">
+                                  {childPayments.map(child => (
+                                    <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                      <CornerDownRight size={16} className="text-muted-foreground" />
+                                      <div className="font-semibold">{formatMoney(child.amount)}</div>
+                                      <div className="text-muted-foreground ml-4">
+                                        Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="pt-3 flex justify-end">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSplitPayment(payment);
+                                }}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
+                                  hasSplits 
+                                    ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
+                                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                                )}
+                              >
+                                {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
+                                {hasSplits ? "Edit Split" : "Split Payment"}
+                              </button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       )}
+      
+      {/* Split Payment Dialog */}
+      {selectedPayment && (
+        <PaymentSplitDialog 
+          payment={selectedPayment}
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          onSplitComplete={() => {
+            refetch();
+            setSelectedPayment(null);
+          }}
+        />
+      )}
     </div>
-  )
+  );
 }

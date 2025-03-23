@@ -26010,7 +26010,3434 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell className="truncate">{payment.counterpartyName}</TableCell>
                     <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
-                    <TableCell>{payment
+                    <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(payment.receivedAt)}</TableCell>
+                    <TableCell className="text-right">
+                      {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Expanded content row */}
+                  {expandedPaymentId === payment.id && (
+                    <TableRow className="bg-muted/50">
+                      <TableCell colSpan={6} className="p-0">
+                        <div className="p-4 space-y-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                              <p>{payment.message || 'No message'}</p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
+                              <p>{payment.comment || 'No comment'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                              <p>{payment.variableSymbol || 'Not provided'}</p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                              <p>{payment.specificSymbol || 'Not provided'}</p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                              <p>{payment.constantSymbol || 'Not provided'}</p>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                            <p>{payment.bankTransactionId}</p>
+                          </div>
+                          
+                          <div className="pt-3 flex justify-end">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSplitPayment(payment);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                            >
+                              <Split size={16} />
+                              Split Payment
+                            </button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  )
+}
+````
+
+Key changes:
+1. Fetch all payments without filtering parameters (`usePayments({})`)
+2. Implement filtering logic in a useMemo hook on the frontend:
+   - Filter by month if a month filter is set
+   - Search across multiple fields (counterpartyName, counterpartyAccountNumber, message, etc.)
+3. Renamed the variable from `sortedPayments` to `filteredAndSortedPayments` to better reflect what it does
+4. Updated the UI to use the filtered and sorted payments list
+
+This approach keeps all the filtering logic on the frontend while still displaying the data in the same layout.
+
+---
+
+_**User**_
+
+Implement the split payment functionality as per Ai-README.md
+
+---
+
+_**Assistant**_
+
+<think>
+Looking at the requirements in the Ai-README.md file, I need to implement the split payment functionality. From what I can see, splitting payments is a key part of the bank payment system. Let me identify what I need to do:
+
+1. When a user clicks the "Split Payment" button in the payments page, they should be able to split the payment over multiple months.
+2. The original payment amount must be updated, and new virtual child payments must be created.
+3. The sum of the original payment and all its virtual children should equal the original payment amount.
+4. Each split payment should be marked with `isSplitFromId` that points to the original payment ID.
+5. The target month should be updated for each split.
+
+I need to create:
+1. A dialog/modal for splitting payments
+2. The functionality to handle splitting (create new payments, update existing one)
+3. UI for selecting how to split the payment and which months to apply them to
+
+I'll implement this based on the existing bank-payment-split-dialog.tsx and enhance it, and then wire it up to the payments page.
+</think>
+
+🤖 I'll implement the payment splitting functionality as described in the README. First, let's create a dialog to handle payment splitting:
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { BankPaymentCrud } from "@/lib/services/crud/bank-crud"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+interface SplitItem {
+  id: string
+  amount: number
+  targetMonth: string
+}
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplitComplete: () => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const [splits, setSplits] = useState<SplitItem[]>([])
+  const [remaining, setRemaining] = useState(payment.amount)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setSplits([{
+        id: generateId(),
+        amount: 0,
+        targetMonth: ""
+      }])
+      setRemaining(payment.amount)
+      setError("")
+    }
+  }, [open, payment])
+  
+  // Calculate remaining amount
+  useEffect(() => {
+    const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
+    setRemaining(payment.amount - totalSplit)
+  }, [splits, payment.amount])
+
+  const handleSplit = async () => {
+    try {
+      // Validate inputs
+      if (remaining !== 0) {
+        setError("The split amounts must equal the original payment amount")
+        return
+      }
+      
+      if (splits.some(split => !split.targetMonth)) {
+        setError("All splits must have a target month")
+        return
+      }
+      
+      setIsSubmitting(true)
+      setError("")
+      
+      const bankPaymentCrud = new BankPaymentCrud()
+      
+      // Create child payments
+      const childPayments = splits.map(split => ({
+        id: split.id,
+        statementId: payment.statementId,
+        userId: payment.userId,
+        amount: split.amount,
+        variableSymbol: payment.variableSymbol,
+        specificSymbol: payment.specificSymbol,
+        constantSymbol: payment.constantSymbol,
+        bankTransactionId: payment.bankTransactionId,
+        counterpartyAccountNumber: payment.counterpartyAccountNumber,
+        counterpartyName: payment.counterpartyName,
+        receivedAt: payment.receivedAt,
+        message: payment.message,
+        comment: `Split from payment ${payment.id}`,
+        isSplitFromId: payment.id,
+        targetMonth: split.targetMonth,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+      
+      // Update original payment to have 0 amount
+      const updatedPayment = {
+        ...payment,
+        amount: 0,
+        comment: `${payment.comment || ''}\nSplit into ${childPayments.length} payments`
+      }
+      
+      // Update original payment
+      await bankPaymentCrud.update(payment.id, updatedPayment)
+      
+      // Create child payments
+      for (const childPayment of childPayments) {
+        await bankPaymentCrud.create(childPayment)
+      }
+      
+      toast.success("Payment split successfully")
+      onOpenChange(false)
+      onSplitComplete()
+    } catch (error) {
+      console.error("Error splitting payment:", error)
+      setError("An error occurred while splitting the payment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+  
+  const addSplit = () => {
+    setSplits([
+      ...splits, 
+      {
+        id: generateId(),
+        amount: 0, 
+        targetMonth: ""
+      }
+    ])
+  }
+  
+  const removeSplit = (index: number) => {
+    if (splits.length > 1) {
+      setSplits(splits.filter((_, i) => i !== index))
+    }
+  }
+  
+  const updateSplitAmount = (index: number, amount: number) => {
+    const newSplits = [...splits]
+    newSplits[index].amount = amount
+    setSplits(newSplits)
+  }
+  
+  const updateSplitMonth = (index: number, month: string) => {
+    const newSplits = [...splits]
+    newSplits[index].targetMonth = month
+    setSplits(newSplits)
+  }
+  
+  const autoDistributeAmounts = () => {
+    const splitCount = splits.length
+    if (splitCount === 0) return
+    
+    const baseAmount = Math.floor(payment.amount / splitCount)
+    const remainder = payment.amount - (baseAmount * splitCount)
+    
+    const newSplits = splits.map((split, index) => ({
+      ...split,
+      amount: baseAmount + (index === 0 ? remainder : 0)
+    }))
+    
+    setSplits(newSplits)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Split Payment</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="flex justify-between text-sm">
+            <div>Total Amount: <span className="font-medium">{payment.amount}</span></div>
+            <div>Remaining: <span className={`font-medium ${remaining !== 0 ? 'text-red-500' : 'text-green-500'}`}>{remaining}</span></div>
+          </div>
+          
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-2">
+            {splits.map((split, index) => (
+              <div key={split.id} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label htmlFor={`amount-${index}`}>Amount</Label>
+                  <Input 
+                    id={`amount-${index}`}
+                    type="number"
+                    value={split.amount}
+                    onChange={(e) => updateSplitAmount(index, Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`month-${index}`}>Month</Label>
+                  <Input 
+                    id={`month-${index}`}
+                    type="month"
+                    value={split.targetMonth}
+                    onChange={(e) => updateSplitMonth(index, e.target.value)}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSplit(index)}
+                  disabled={splits.length === 1}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Split
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={autoDistributeAmounts}
+            >
+              Auto Distribute
+            </Button>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSplit}
+            disabled={remaining !== 0 || isSubmitting}
+          >
+            Split Payment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+Now let's update the payments page to use the split dialog:
+
+````typescript:src/app/(app)/payments/page.tsx
+/**
+ * Payment list page
+ * Shows all payments with search and filters
+ */
+"use client"
+
+import React, { useState } from "react"
+import { BankPayment } from "@/types"
+import { toast } from "sonner"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch } from "lucide-react"
+import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
+import { usePayments } from "@/hooks/use-payments"
+import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+export default function PaymentsPage() {
+  // State for filtering and UI
+  const [search, setSearch] = useState("")
+  const [monthFilter, setMonthFilter] = useState("")
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<BankPayment | null>(null)
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
+  
+  // Fetch all payments and filter on client
+  const { data: allPayments, isLoading, error, refetch } = usePayments({})
+  
+  // Helper function to check if a payment is a parent payment
+  const isParentPayment = (payment: BankPayment) => {
+    if (!allPayments) return false
+    return allPayments.some(p => p.isSplitFromId === payment.id)
+  }
+  
+  // Handle payment splitting
+  const handleSplitPayment = (payment: BankPayment) => {
+    setSelectedPayment(payment)
+    setSplitDialogOpen(true)
+  }
+  
+  // Get available months from payments
+  const availableMonths = React.useMemo(() => {
+    if (!allPayments) return []
+    
+    const months = new Set<string>()
+    allPayments.forEach(payment => {
+      if (payment.targetMonth) {
+        months.add(payment.targetMonth)
+      }
+    })
+    
+    return Array.from(months).sort()
+  }, [allPayments])
+  
+  // Filter and sort payments in the frontend
+  const filteredAndSortedPayments = React.useMemo(() => {
+    if (!allPayments) return []
+    
+    // Apply filters
+    let result = [...allPayments]
+    
+    // Apply month filter
+    if (monthFilter) {
+      result = result.filter(payment => payment.targetMonth === monthFilter)
+    }
+    
+    // Apply search filter (case insensitive)
+    if (search.trim()) {
+      const searchLower = search.toLowerCase()
+      result = result.filter(payment => 
+        payment.counterpartyName?.toLowerCase().includes(searchLower) ||
+        payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
+        payment.message?.toLowerCase().includes(searchLower) ||
+        payment.comment?.toLowerCase().includes(searchLower) ||
+        payment.variableSymbol?.toLowerCase().includes(searchLower) ||
+        payment.specificSymbol?.toLowerCase().includes(searchLower) ||
+        payment.constantSymbol?.toLowerCase().includes(searchLower) ||
+        payment.targetMonth?.toLowerCase().includes(searchLower) ||
+        formatDateSql(payment.receivedAt)?.toLowerCase().includes(searchLower)
+      )
+    }
+    
+    // Sort by received date (newest first)
+    return result.sort(
+      (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+    )
+  }, [allPayments, search, monthFilter])
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <h1 className="text-2xl font-bold">Payments</h1>
+      
+      {/* Filter controls */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Search payments..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+        </div>
+        
+        <div className="w-full md:w-48">
+          <Select value={monthFilter} onValueChange={setMonthFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All months</SelectItem>
+              {availableMonths.map(month => (
+                <SelectItem key={month} value={month}>{month}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      {error && (
+        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-400">
+          Error loading payments. Please try again.
+        </div>
+      )}
+      
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="border rounded-md p-4">
+              <Skeleton className="h-6 w-32 mb-2" />
+              <Skeleton className="h-4 w-full mb-1" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[15%]">Amount</TableHead>
+                <TableHead className="w-[25%]">Counterparty</TableHead>
+                <TableHead className="w-[25%]">Account</TableHead>
+                <TableHead className="w-[15%]">Month</TableHead>
+                <TableHead className="w-[12%]">Date</TableHead>
+                <TableHead className="w-[8%]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedPayments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No payments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAndSortedPayments.map((payment) => (
+                  <React.Fragment key={payment.id}>
+                    {/* Payment row (collapsible header) */}
+                    <TableRow 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {payment.isSplitFromId && (
+                            <GitBranch size={16} className="text-blue-500" aria-label="Split from another payment" />
+                          )}
+                          {isParentPayment(payment) && (
+                            <GitMerge size={16} className="text-purple-500" aria-label="Parent to split payments" />
+                          )}
+                          {payment.amount > 0 ? (
+                            <span className="text-green-600 dark:text-green-400">+{formatMoney(payment.amount)}</span>
+                          ) : (
+                            <span className="text-red-600 dark:text-red-400">{formatMoney(payment.amount)}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                      <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
+                      <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
+                      <TableCell className="text-right">
+                        {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Expanded content row */}
+                    {expandedPaymentId === payment.id && (
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                                <p>{payment.message || 'No message'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
+                                <p>{payment.comment || 'No comment'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                                <p>{payment.variableSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                                <p>{payment.specificSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                                <p>{payment.constantSymbol || 'Not provided'}</p>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                              <p>{payment.bankTransactionId}</p>
+                            </div>
+                            
+                            <div className="pt-3 flex justify-end">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSplitPayment(payment);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                                disabled={payment.amount === 0 || payment.isSplitFromId !== undefined}
+                              >
+                                <Split size={16} />
+                                Split Payment
+                              </button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      
+      {/* Split Payment Dialog */}
+      {selectedPayment && (
+        <PaymentSplitDialog 
+          payment={selectedPayment}
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          onSplitComplete={() => {
+            refetch()
+            setSelectedPayment(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+````
+
+Now let's create an alert component that we reference in the split dialog:
+
+````typescript:src/components/ui/alert.tsx
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+
+const alertVariants = cva(
+  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
+  {
+    variants: {
+      variant: {
+        default: "bg-background text-foreground",
+        destructive:
+          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+const Alert = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
+>(({ className, variant, ...props }, ref) => (
+  <div
+    ref={ref}
+    role="alert"
+    className={cn(alertVariants({ variant }), className)}
+    {...props}
+  />
+))
+Alert.displayName = "Alert"
+
+const AlertTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h5
+    ref={ref}
+    className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+    {...props}
+  />
+))
+AlertTitle.displayName = "AlertTitle"
+
+const AlertDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("text-sm [&_p]:leading-relaxed", className)}
+    {...props}
+  />
+))
+AlertDescription.displayName = "AlertDescription"
+
+export { Alert, AlertTitle, AlertDescription }
+````
+
+These components implement payment splitting functionality as described in the README:
+
+1. The payment-split-dialog allows users to split payments into multiple parts with different month allocations
+2. The original payment's amount is set to 0 (to preserve payment history)
+3. New virtual payments are created with the `isSplitFromId` field pointing to the original payment
+4. The sum of all splits equals the original payment amount (enforced by validation)
+5. Each split has its own target month
+
+Users can add multiple splits, distribute amounts automatically, and the UI prevents invalid splits where the amounts don't equal the original payment amount.
+
+---
+
+_**User**_
+
+Implement the splitting steps (create new and update old) as part of a single transaction in BankWorkflow.
+
+---
+
+_**Assistant**_
+
+<think>
+I need to implement a payment splitting functionality that uses transactions to ensure data consistency. This should be part of the BankWorkflow class, which seems to be responsible for bank-related operations.
+
+First, let's look at the README to understand the requirements for payment splitting:
+
+From the README:
+> ##### Splitting payments
+> Payments can be split by a user over previous months. The virtual payments thus created are marked with the `isSplitFromId` field indicating the original payment id. Target month should be updated to the month of the new payment.
+> The amount in the original payment must be updated so that the sum of the original payment and all its virtual children equals the original payment amount.
+> The rationale for this is that a user can fail to pay in a month and then pay for retroactively in the following months.
+
+For this functionality, I need to:
+
+1. Add a method to the BankWorkflow class that handles payment splitting
+2. The method should use a transaction to ensure all operations succeed or fail together
+3. The original payment should be updated (amount set to 0 based on the dialog implementation)
+4. New payments ("virtual children") should be created with the `isSplitFromId` field set to the original payment's ID
+5. The sum of all new payment amounts should equal the original payment amount
+
+Let's modify the BankWorkflow class to add this functionality.
+</think>
+
+🤖 Let's implement the split payment functionality as a transaction in the BankWorkflow class:
+
+````typescript:src/lib/services/workflows/bank-workflow.ts
+import { BankPayment, BankStatement, HistoryAction } from "@/types"
+import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
+import { db } from "@/lib/firebase/config"
+import { runTransaction } from "firebase/firestore"
+import { HistoryCrud } from "../crud/history-crud"
+
+export type CreateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
+
+export type UpdateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
+
+export type CreateBankPaymentInput = Omit<BankPayment, 'id' | 'createdAt' | 'updatedAt'>
+
+export type UpdateBankPaymentInput = Partial<Omit<BankPayment, 'id' | 'createdAt' | 'updatedAt'>>
+
+export interface SplitPaymentItem {
+  id: string
+  amount: number
+  targetMonth: string
+}
+
+export class BankWorkflow {
+  constructor(
+    private bankStatementCrud: BankStatementCrud = new BankStatementCrud(),
+    private bankPaymentCrud: BankPaymentCrud = new BankPaymentCrud(),
+    private historyCrud: HistoryCrud = new HistoryCrud()
+  ) {}
+
+  // Existing methods...
+  async createStatement(data: CreateBankStatementInput): Promise<BankStatement> {
+    return this.bankStatementCrud.create({
+      ...data,
+      status: 'pending'
+    })
+  }
+
+  async createPayment(data: CreateBankPaymentInput): Promise<BankPayment> {
+    return this.bankPaymentCrud.create({
+      ...data
+    })
+  }
+
+  async updateStatement(id: string, data: UpdateBankStatementInput): Promise<BankStatement> {
+    return this.bankStatementCrud.update(id, data)
+  }
+
+  async updatePayment(id: string, data: UpdateBankPaymentInput): Promise<BankPayment> {
+    return this.bankPaymentCrud.update(id, data)
+  }
+
+  async getStatementById(id: string): Promise<BankStatement | null> {
+    return this.bankStatementCrud.getById(id)
+  }
+
+  async getPaymentById(id: string): Promise<BankPayment | null> {
+    return this.bankPaymentCrud.getById(id)
+  }
+
+  async getPaymentsByMonth(month: string): Promise<BankPayment[]> {
+    return this.bankPaymentCrud.getByMonth(month)
+  }
+
+  async processStatement(id: string): Promise<BankStatement> {
+    const statement = await this.bankStatementCrud.getById(id)
+    if (!statement) {
+      throw new Error(`Statement ${id} not found`)
+    }
+
+    return this.bankStatementCrud.update(id, {
+      processedAt: new Date().toISOString(),
+      status: 'processed'
+    })
+  }
+
+  /**
+   * Split a payment into multiple payments with different target months
+   * This operation is wrapped in a transaction for data consistency
+   * 
+   * @param originalPaymentId The ID of the payment to split
+   * @param splits An array of split items with amount and target month
+   * @param userId The ID of the user performing the split
+   * @returns The updated original payment and the newly created splits
+   */
+  async splitPayment(
+    originalPaymentId: string, 
+    splits: SplitPaymentItem[],
+    userId: string
+  ): Promise<{
+    originalPayment: BankPayment,
+    childPayments: BankPayment[]
+  }> {
+    // Validate that we have at least one split
+    if (!splits.length) {
+      throw new Error("At least one split is required")
+    }
+    
+    // Fetch the original payment
+    const originalPayment = await this.bankPaymentCrud.getById(originalPaymentId)
+    if (!originalPayment) {
+      throw new Error(`Payment ${originalPaymentId} not found`)
+    }
+    
+    // Calculate total split amount
+    const totalSplitAmount = splits.reduce((sum, split) => sum + split.amount, 0)
+    
+    // Validate the total split amount equals the original payment amount
+    if (totalSplitAmount !== originalPayment.amount) {
+      throw new Error(`Total split amount (${totalSplitAmount}) does not match original payment amount (${originalPayment.amount})`)
+    }
+    
+    // Run the entire operation as a transaction
+    return runTransaction(db, async (transaction) => {
+      // Update the original payment to have 0 amount (since all is split)
+      const updatedOriginalPayment = {
+        ...originalPayment,
+        amount: 0,
+        comment: `${originalPayment.comment || ''}\nSplit into ${splits.length} payments`,
+        updatedAt: new Date().toISOString()
+      }
+      
+      await this.bankPaymentCrud.update(originalPaymentId, updatedOriginalPayment, transaction)
+      
+      // Create child payments
+      const childPayments: BankPayment[] = []
+      
+      for (const split of splits) {
+        const childPayment: CreateBankPaymentInput = {
+          statementId: originalPayment.statementId,
+          userId: originalPayment.userId,
+          amount: split.amount,
+          variableSymbol: originalPayment.variableSymbol,
+          specificSymbol: originalPayment.specificSymbol,
+          constantSymbol: originalPayment.constantSymbol,
+          bankTransactionId: originalPayment.bankTransactionId,
+          counterpartyAccountNumber: originalPayment.counterpartyAccountNumber,
+          counterpartyName: originalPayment.counterpartyName,
+          receivedAt: originalPayment.receivedAt,
+          message: originalPayment.message,
+          comment: `Split from payment ${originalPaymentId}`,
+          isSplitFromId: originalPaymentId,
+          targetMonth: split.targetMonth,
+          deleted: false
+        }
+        
+        const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
+        childPayments.push(createdPayment)
+      }
+      
+      // Record this action in history
+      await this.historyCrud.create({
+        type: 'split_payment',
+        entityId: originalPaymentId,
+        userId,
+        data: {
+          before: { id: originalPaymentId, amount: originalPayment.amount },
+          after: {
+            parent: { id: originalPaymentId, amount: 0 },
+            children: childPayments.map(p => ({ 
+              id: p.id, 
+              amount: p.amount, 
+              targetMonth: p.targetMonth 
+            }))
+          }
+        }
+      }, transaction)
+      
+      return {
+        originalPayment: updatedOriginalPayment,
+        childPayments
+      }
+    })
+  }
+}
+````
+
+Now let's update the payment-split-dialog.tsx to use this transaction-based method:
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BankWorkflow, SplitPaymentItem } from "@/lib/services/workflows/bank-workflow"
+import { useAuth } from "@/contexts/auth-context"
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplitComplete: () => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const { currentUser } = useAuth()
+  const [splits, setSplits] = useState<SplitPaymentItem[]>([])
+  const [remaining, setRemaining] = useState(payment.amount)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setSplits([{
+        id: generateId(),
+        amount: 0,
+        targetMonth: ""
+      }])
+      setRemaining(payment.amount)
+      setError("")
+    }
+  }, [open, payment])
+  
+  // Calculate remaining amount
+  useEffect(() => {
+    const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
+    setRemaining(payment.amount - totalSplit)
+  }, [splits, payment.amount])
+
+  const handleSplit = async () => {
+    try {
+      // Validate inputs
+      if (remaining !== 0) {
+        setError("The split amounts must equal the original payment amount")
+        return
+      }
+      
+      if (splits.some(split => !split.targetMonth)) {
+        setError("All splits must have a target month")
+        return
+      }
+      
+      setIsSubmitting(true)
+      setError("")
+      
+      const bankWorkflow = new BankWorkflow()
+      
+      // Use the transaction-based split payment workflow
+      await bankWorkflow.splitPayment(
+        payment.id,
+        splits,
+        currentUser?.uid || 'unknown'
+      )
+      
+      toast.success("Payment split successfully")
+      onOpenChange(false)
+      onSplitComplete()
+    } catch (error) {
+      console.error("Error splitting payment:", error)
+      setError(error instanceof Error ? error.message : "An error occurred while splitting the payment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+  
+  const addSplit = () => {
+    setSplits([
+      ...splits, 
+      {
+        id: generateId(),
+        amount: 0, 
+        targetMonth: ""
+      }
+    ])
+  }
+  
+  const removeSplit = (index: number) => {
+    if (splits.length > 1) {
+      setSplits(splits.filter((_, i) => i !== index))
+    }
+  }
+  
+  const updateSplitAmount = (index: number, amount: number) => {
+    const newSplits = [...splits]
+    newSplits[index].amount = amount
+    setSplits(newSplits)
+  }
+  
+  const updateSplitMonth = (index: number, month: string) => {
+    const newSplits = [...splits]
+    newSplits[index].targetMonth = month
+    setSplits(newSplits)
+  }
+  
+  const autoDistributeAmounts = () => {
+    const splitCount = splits.length
+    if (splitCount === 0) return
+    
+    const baseAmount = Math.floor(payment.amount / splitCount)
+    const remainder = payment.amount - (baseAmount * splitCount)
+    
+    const newSplits = splits.map((split, index) => ({
+      ...split,
+      amount: baseAmount + (index === 0 ? remainder : 0)
+    }))
+    
+    setSplits(newSplits)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Split Payment</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="flex justify-between text-sm">
+            <div>Total Amount: <span className="font-medium">{payment.amount}</span></div>
+            <div>Remaining: <span className={`font-medium ${remaining !== 0 ? 'text-red-500' : 'text-green-500'}`}>{remaining}</span></div>
+          </div>
+          
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-2">
+            {splits.map((split, index) => (
+              <div key={split.id} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label htmlFor={`amount-${index}`}>Amount</Label>
+                  <Input 
+                    id={`amount-${index}`}
+                    type="number"
+                    value={split.amount}
+                    onChange={(e) => updateSplitAmount(index, Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`month-${index}`}>Month</Label>
+                  <Input 
+                    id={`month-${index}`}
+                    type="month"
+                    value={split.targetMonth}
+                    onChange={(e) => updateSplitMonth(index, e.target.value)}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSplit(index)}
+                  disabled={splits.length === 1}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Split
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={autoDistributeAmounts}
+            >
+              Auto Distribute
+            </Button>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSplit}
+            disabled={remaining !== 0 || isSubmitting}
+          >
+            Split Payment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+Let's also add the necessary HistoryCrud class to track the payment splitting actions:
+
+````typescript:src/lib/services/crud/history-crud.ts
+import { HistoryAction } from "@/types"
+import { FirebaseAdapter } from "../database/firebase-adapter"
+import { BaseCrud } from "./base-crud"
+import { Transaction } from "firebase/firestore"
+
+export class HistoryCrud extends BaseCrud<HistoryAction> {
+  constructor() {
+    super(new FirebaseAdapter<HistoryAction>("history"))
+  }
+
+  async create(
+    data: Omit<HistoryAction, "id" | "createdAt">,
+    transaction?: Transaction
+  ): Promise<HistoryAction> {
+    return this.db.create({
+      ...data,
+      createdAt: new Date().toISOString()
+    }, transaction)
+  }
+
+  async getByEntityId(entityId: string): Promise<HistoryAction[]> {
+    return this.query([
+      {
+        field: "entityId",
+        operator: "==",
+        value: entityId
+      }
+    ])
+  }
+
+  async getByType(type: string): Promise<HistoryAction[]> {
+    return this.query([
+      {
+        field: "type",
+        operator: "==",
+        value: type
+      }
+    ])
+  }
+
+  async getByUserId(userId: string): Promise<HistoryAction[]> {
+    return this.query([
+      {
+        field: "userId",
+        operator: "==",
+        value: userId
+      }
+    ])
+  }
+}
+````
+
+These changes implement payment splitting as described in the README:
+
+1. The BankWorkflow class now has a `splitPayment` method that handles the entire process within a transaction
+2. The original payment is set to amount 0 but preserved for tracking purposes
+3. New child payments are created with the proper `isSplitFromId` reference
+4. The transaction ensures that either all operations succeed or all fail
+5. We track this action in the history for auditing purposes
+6. The UI dialog uses this new workflow method instead of directly manipulating the database
+
+---
+
+_**User**_
+
+There 's no guarantee that the original payment will be 0.
+Example:
+The user forgot to send a payment of 200 in January and sent a single payment of 400 in February to cover both January and February.
+This means there will be a parent payment of 400 (target: February), from which a 200 payment with target January will be split. In other words, two payments will exist: ID:1 for February with amount:200 and ID:2 with amount 200 and split from ID:1
+
+
+---
+
+_**Assistant**_
+
+<think>
+I need to update the `splitPayment` function in `BankWorkflow` to handle this scenario where we want to split only a portion of the original payment, not set it to 0.
+
+The requirements from the Ai-README state:
+> Payments can be split by a user over previous months. The virtual payments thus created are marked with the `isSplitFromId` field indicating the original payment id. Target month should be updated to the month of the new payment.
+> The amount in the original payment must be updated so that the sum of the original payment and all its virtual children equals the original payment amount.
+> The rationale for this is that a user can fail to pay in a month and then pay for retroactively in the following months.
+
+So we need to:
+1. Keep track of the total amount of all splits
+2. Update the original payment to have the (original amount - total split amount)
+3. Create child payments for each split
+
+This differs from my implementation where I'm setting the original payment to 0 amount, which is not correct for this use case.
+</think>
+
+🤖 You're right about the payment splitting logic. Let me update the `BankWorkflow` class to handle the correct scenario where the original payment might not be reduced to zero:
+
+````typescript:src/lib/services/workflows/bank-workflow.ts
+import { BankPayment, BankStatement, HistoryAction } from "@/types"
+import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
+import { db } from "@/lib/firebase/config"
+import { runTransaction } from "firebase/firestore"
+import { HistoryCrud } from "../crud/history-crud"
+
+// ... (existing code remains the same)
+
+/**
+ * Split a payment into multiple payments with different target months
+ * This operation is wrapped in a transaction for data consistency
+ * 
+ * @param originalPaymentId The ID of the payment to split
+ * @param splits An array of split items with amount and target month
+ * @param userId The ID of the user performing the split
+ * @returns The updated original payment and the newly created splits
+ */
+async splitPayment(
+  originalPaymentId: string, 
+  splits: SplitPaymentItem[],
+  userId: string
+): Promise<{
+  originalPayment: BankPayment,
+  childPayments: BankPayment[]
+}> {
+  // Validate that we have at least one split
+  if (!splits.length) {
+    throw new Error("At least one split is required")
+  }
+  
+  // Fetch the original payment
+  const originalPayment = await this.bankPaymentCrud.getById(originalPaymentId)
+  if (!originalPayment) {
+    throw new Error(`Payment ${originalPaymentId} not found`)
+  }
+  
+  // Calculate total split amount
+  const totalSplitAmount = splits.reduce((sum, split) => sum + split.amount, 0)
+  
+  // Validate the total split amount doesn't exceed the original payment amount
+  if (totalSplitAmount > originalPayment.amount) {
+    throw new Error(`Total split amount (${totalSplitAmount}) exceeds original payment amount (${originalPayment.amount})`)
+  }
+  
+  // Run the entire operation as a transaction
+  return runTransaction(db, async (transaction) => {
+    // Calculate remaining amount for the original payment
+    const remainingAmount = originalPayment.amount - totalSplitAmount
+    
+    // Update the original payment with the remaining amount
+    const updatedOriginalPayment = {
+      ...originalPayment,
+      amount: remainingAmount,
+      comment: `${originalPayment.comment || ''}\nSplit ${totalSplitAmount} into ${splits.length} payments`,
+      updatedAt: new Date().toISOString()
+    }
+    
+    await this.bankPaymentCrud.update(originalPaymentId, updatedOriginalPayment, transaction)
+    
+    // Create child payments
+    const childPayments: BankPayment[] = []
+    
+    for (const split of splits) {
+      const childPayment: CreateBankPaymentInput = {
+        statementId: originalPayment.statementId,
+        userId: originalPayment.userId,
+        amount: split.amount,
+        variableSymbol: originalPayment.variableSymbol,
+        specificSymbol: originalPayment.specificSymbol,
+        constantSymbol: originalPayment.constantSymbol,
+        bankTransactionId: originalPayment.bankTransactionId,
+        counterpartyAccountNumber: originalPayment.counterpartyAccountNumber,
+        counterpartyName: originalPayment.counterpartyName,
+        receivedAt: originalPayment.receivedAt,
+        message: originalPayment.message,
+        comment: `Split from payment ${originalPaymentId}`,
+        isSplitFromId: originalPaymentId,
+        targetMonth: split.targetMonth,
+        deleted: false
+      }
+      
+      const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
+      childPayments.push(createdPayment)
+    }
+    
+    // Record this action in history
+    await this.historyCrud.create({
+      type: 'split_payment',
+      entityId: originalPaymentId,
+      userId,
+      data: {
+        before: { id: originalPaymentId, amount: originalPayment.amount },
+        after: {
+          parent: { id: originalPaymentId, amount: remainingAmount },
+          children: childPayments.map(p => ({ 
+            id: p.id, 
+            amount: p.amount, 
+            targetMonth: p.targetMonth 
+          }))
+        }
+      }
+    }, transaction)
+    
+    return {
+      originalPayment: updatedOriginalPayment,
+      childPayments
+    }
+  })
+}
+````
+
+The key changes are:
+
+1. Changed validation to check that total split amount doesn't **exceed** (rather than equal) the original payment amount
+2. Calculate remaining amount as `originalPayment.amount - totalSplitAmount`
+3. Update the original payment with this remaining amount instead of setting it to 0
+4. Updated the comment to reflect that only a portion of the payment was split
+5. Updated the history action to record the correct remaining amount
+
+This allows for the scenario you described where someone might pay 400 in February, then split 200 to retroactively cover January, leaving 200 for February in the original payment.
+
+---
+
+_**User**_
+
+Fix this error please:
+Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+
+---
+
+_**Assistant**_
+
+<think>
+The error message is about a `<Select.Item />` component that's missing a value prop or has an empty string as a value. This is not allowed in the Select component because an empty string value is reserved for clearing the selection.
+
+Looking at our code, we need to find where we're using `<SelectItem>` components. This is likely in the payment-split-dialog.tsx or in the payments page. Let's check if there's any place where we might be creating select items with empty values.
+
+The most likely place is in the month selection for the payment splitting. We might need to ensure that all SelectItem components have a non-empty value.
+</think>
+
+🤖 I'll fix the Select.Item error. This is coming from the month selection dropdown in the payments page:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Inside the SelectContent component in the month filter
+<SelectContent>
+  <SelectItem value="">All Months</SelectItem>
+  {/* Other month options */}
+</SelectContent>
+````
+
+We need to change the empty string value since that's not allowed. Let's update that:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Update only the month filter section
+<div className="flex gap-2 mb-4">
+  <Input
+    placeholder="Search payments..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="max-w-xs"
+  />
+  
+  <Select
+    value={monthFilter}
+    onValueChange={setMonthFilter}
+  >
+    <SelectTrigger className="w-[180px]">
+      <SelectValue placeholder="Filter by month" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">All Months</SelectItem>
+      {/* Generate last 12 months */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+        const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        return (
+          <SelectItem key={monthValue} value={monthValue}>
+            {monthLabel}
+          </SelectItem>
+        );
+      })}
+    </SelectContent>
+  </Select>
+</div>
+````
+
+Then update the filtering logic to use "all" instead of an empty string:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Update the filterAndSortPayments logic
+const filteredAndSortedPayments = React.useMemo(() => {
+  if (!allPayments) return [];
+  
+  // First filter by month if a month filter is set
+  let filtered = allPayments;
+  if (monthFilter && monthFilter !== "all") {
+    filtered = filtered.filter(payment => payment.targetMonth === monthFilter);
+  }
+  
+  // Then filter by search term
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filtered = filtered.filter(payment => 
+      payment.counterpartyName?.toLowerCase().includes(searchLower) ||
+      payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
+      payment.message?.toLowerCase().includes(searchLower) ||
+      payment.variableSymbol?.toLowerCase().includes(searchLower) ||
+      payment.specificSymbol?.toLowerCase().includes(searchLower)
+    );
+  }
+  
+  // Sort by date (newest first)
+  return [...filtered].sort((a, b) => 
+    new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+  );
+}, [allPayments, search, monthFilter]);
+````
+
+These changes use "all" instead of an empty string for the "All Months" option, which resolves the error while maintaining the same functionality.
+
+---
+
+_**User**_
+
+I'd like to have some user friendly way of selecting previous months in PaymentSplitDialog. Instead of a free text input a selectbox with month going a year back and forward,
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants to make the month selection in the payment split dialog more user-friendly by replacing the free text input with a select box containing months going a year back and a year forward from the current date.
+
+Currently in the PaymentSplitDialog, we have a simple input field with type="month" for selecting the target month. Let's replace this with a more friendly dropdown selector.
+
+I'll create a helper function to generate an array of months (both past and future), then use a Select component to allow the user to choose from them.
+</think>
+
+🤖 I'll improve the month selection in the PaymentSplitDialog by replacing the free text input with a user-friendly select box showing months from a year back to a year forward:
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BankWorkflow, SplitPaymentItem } from "@/lib/services/workflows/bank-workflow"
+import { useAuth } from "@/contexts/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+// Helper function to generate month options for the dropdown
+const generateMonthOptions = () => {
+  const options = [];
+  const today = new Date();
+  
+  // Add months from 12 months ago to 12 months in the future
+  for (let i = -12; i <= 12; i++) {
+    const date = new Date(today);
+    date.setMonth(today.getMonth() + i);
+    
+    const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+    const monthLabel = date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long'
+    });
+    
+    options.push({ value: monthValue, label: monthLabel });
+  }
+  
+  return options;
+};
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplitComplete: () => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const { currentUser } = useAuth()
+  const [splits, setSplits] = useState<SplitPaymentItem[]>([])
+  const [remaining, setRemaining] = useState(payment.amount)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  
+  // Generate month options once
+  const monthOptions = useMemo(() => generateMonthOptions(), []);
+  
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setSplits([{
+        id: generateId(),
+        amount: 0,
+        targetMonth: ""
+      }])
+      setRemaining(payment.amount)
+      setError("")
+    }
+  }, [open, payment])
+  
+  // Calculate remaining amount
+  useEffect(() => {
+    const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0)
+    setRemaining(payment.amount - totalSplit)
+  }, [splits, payment.amount])
+
+  const handleSplit = async () => {
+    try {
+      // Validate inputs
+      if (remaining !== 0) {
+        setError("The split amounts must equal the original payment amount")
+        return
+      }
+      
+      // Validate that all splits have a target month
+      if (splits.some(split => !split.targetMonth)) {
+        setError("All splits must have a target month")
+        return
+      }
+      
+      setIsSubmitting(true)
+      setError("")
+      
+      const bankWorkflow = new BankWorkflow()
+      
+      // Use the transaction-based split payment workflow
+      await bankWorkflow.splitPayment(
+        payment.id,
+        splits,
+        currentUser?.uid || 'unknown'
+      )
+      
+      toast.success("Payment split successfully")
+      onOpenChange(false)
+      onSplitComplete()
+    } catch (error) {
+      console.error("Error splitting payment:", error)
+      setError(error instanceof Error ? error.message : "An error occurred while splitting the payment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const addSplit = () => {
+    setSplits([...splits, {
+      id: generateId(),
+      amount: 0,
+      targetMonth: ""
+    }])
+  }
+
+  const removeSplit = (index: number) => {
+    setSplits(splits.filter((_, i) => i !== index))
+  }
+
+  const updateSplitAmount = (index: number, amount: number) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, amount } : split
+    ))
+  }
+
+  const updateSplitMonth = (index: number, targetMonth: string) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, targetMonth } : split
+    ))
+  }
+
+  const autoDistributeAmounts = () => {
+    if (splits.length === 0) return
+    
+    const amountPerSplit = Math.floor(payment.amount / splits.length)
+    const remainder = payment.amount - (amountPerSplit * splits.length)
+    
+    const newSplits = splits.map((split, index) => ({
+      ...split,
+      amount: amountPerSplit + (index === 0 ? remainder : 0)
+    }))
+    
+    setSplits(newSplits)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Split Payment</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Original Amount</p>
+              <p className="text-lg font-semibold">{payment.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground">Remaining</p>
+              <p className={`text-lg font-semibold ${remaining !== 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {remaining.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+              </p>
+            </div>
+          </div>
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-3">
+            {splits.map((split, index) => (
+              <div key={split.id} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Label htmlFor={`amount-${index}`}>Amount</Label>
+                  <Input 
+                    id={`amount-${index}`}
+                    type="number"
+                    value={split.amount}
+                    onChange={(e) => updateSplitAmount(index, Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`month-${index}`}>Month</Label>
+                  <Select
+                    value={split.targetMonth}
+                    onValueChange={(value) => updateSplitMonth(index, value)}
+                  >
+                    <SelectTrigger id={`month-${index}`}>
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSplit(index)}
+                  disabled={splits.length === 1}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Split
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={autoDistributeAmounts}
+            >
+              Auto Distribute
+            </Button>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSplit}
+            disabled={remaining !== 0 || isSubmitting}
+          >
+            Split Payment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+
+Key improvements to the month selection UI:
+
+1. Added a `generateMonthOptions()` function that creates an array of months from 12 months in the past to 12 months in the future
+2. Used a memoized value to generate these options once
+3. Replaced the free-text input with a Select dropdown component for easier month selection
+4. Each option shows the month and year in a readable format (e.g., "January 2023") but stores the value as "YYYY-MM" format
+5. Added a default placeholder text "Select month" to guide the user
+
+This provides a much more user-friendly experience for selecting the target month when splitting payments, showing a nice dropdown of past and future months instead of requiring the user to type in a date.
+
+---
+
+_**User**_
+
+The default value for the split in the month selectbox must be the previous month if we're creating a new split.
+If there are already some child payments they must be displayed and editable in the dialog.
+
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants two improvements to the payment split dialog:
+
+1. Set the default month for a new split to the previous month (instead of an empty string).
+2. When a payment has already been split (has child payments), show those existing splits in the dialog and make them editable.
+
+For the first improvement, I need to modify the code that creates a new split to set a default month value to the previous month instead of an empty string.
+
+For the second improvement, I need to:
+1. Check if the payment has already been split (has child payments)
+2. Fetch those child payments
+3. Initialize the splits state with these existing splits instead of a new empty split
+4. Make those editable in the dialog
+
+Let's start with the implementation:
+</think>
+
+🤖 I'll implement the requested improvements to the payment split dialog:
+
+1. Set the default month for new splits to the previous month
+2. Show existing child payments when editing a previously split payment
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BankWorkflow, SplitPaymentItem } from "@/lib/services/workflows/bank-workflow"
+import { useAuth } from "@/contexts/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { usePayments } from "@/hooks/use-payments"
+
+// Helper function to get previous month in YYYY-MM format
+const getPreviousMonth = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 1);
+  return date.toISOString().substring(0, 7);
+};
+
+// Helper function to generate month options for the dropdown
+const generateMonthOptions = () => {
+  const options = [];
+  const today = new Date();
+  
+  // Add months from 12 months ago to 12 months in the future
+  for (let i = -12; i <= 12; i++) {
+    const date = new Date(today);
+    date.setMonth(today.getMonth() + i);
+    
+    const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+    const monthLabel = date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long'
+    });
+    
+    options.push({ value: monthValue, label: monthLabel });
+  }
+  
+  return options;
+};
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplitComplete: () => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const { currentUser } = useAuth()
+  const [splits, setSplits] = useState<SplitPaymentItem[]>([])
+  const [remaining, setRemaining] = useState(payment.amount)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Get all payments to find child payments
+  const { data: allPayments } = usePayments({})
+  
+  // Generate month options once
+  const monthOptions = useMemo(() => generateMonthOptions(), []);
+  
+  // Default month for new splits (previous month)
+  const defaultMonth = useMemo(() => getPreviousMonth(), []);
+  
+  // Find existing child payments
+  const childPayments = useMemo(() => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === payment.id);
+  }, [allPayments, payment.id]);
+  
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true);
+      
+      // If there are existing child payments, use those
+      if (childPayments.length > 0) {
+        const existingSplits = childPayments.map(child => ({
+          id: child.id,
+          amount: child.amount,
+          targetMonth: child.targetMonth || defaultMonth
+        }));
+        
+        setSplits(existingSplits);
+        
+        // Remaining should be 0 if this payment was already fully split
+        if (payment.amount === 0) {
+          setRemaining(0);
+        } else {
+          // Calculate remaining from original payment minus sum of child payments
+          const childTotal = childPayments.reduce((sum, child) => sum + child.amount, 0);
+          setRemaining(payment.amount - childTotal);
+        }
+      } else {
+        // No existing splits, create a default one with previous month
+        setSplits([{
+          id: generateId(),
+          amount: 0,
+          targetMonth: defaultMonth
+        }]);
+        setRemaining(payment.amount);
+      }
+      
+      setError("");
+      setIsLoading(false);
+    }
+  }, [open, payment, childPayments, defaultMonth]);
+  
+  // Calculate remaining amount whenever splits change
+  useEffect(() => {
+    const totalSplit = splits.reduce((sum, split) => sum + split.amount, 0);
+    setRemaining(payment.amount - totalSplit);
+  }, [splits, payment.amount]);
+
+  const handleSplit = async () => {
+    try {
+      // Validate inputs
+      if (remaining !== 0) {
+        setError("The split amounts must equal the original payment amount");
+        return;
+      }
+      
+      // Validate that all splits have a target month
+      if (splits.some(split => !split.targetMonth)) {
+        setError("All splits must have a target month");
+        return;
+      }
+      
+      setIsSubmitting(true);
+      setError("");
+      
+      const bankWorkflow = new BankWorkflow();
+      
+      // Use the transaction-based split payment workflow
+      await bankWorkflow.splitPayment(
+        payment.id,
+        splits,
+        currentUser?.uid || 'unknown'
+      );
+      
+      toast.success("Payment split successfully");
+      onOpenChange(false);
+      onSplitComplete();
+    } catch (error) {
+      console.error("Error splitting payment:", error);
+      setError(error instanceof Error ? error.message : "An error occurred while splitting the payment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const addSplit = () => {
+    setSplits([...splits, {
+      id: generateId(),
+      amount: 0,
+      targetMonth: defaultMonth
+    }]);
+  };
+
+  const removeSplit = (index: number) => {
+    setSplits(splits.filter((_, i) => i !== index));
+  };
+
+  const updateSplitAmount = (index: number, amount: number) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, amount } : split
+    ));
+  };
+
+  const updateSplitMonth = (index: number, targetMonth: string) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, targetMonth } : split
+    ));
+  };
+
+  const autoDistributeAmounts = () => {
+    if (splits.length === 0) return;
+    
+    const amountPerSplit = Math.floor(payment.amount / splits.length);
+    const remainder = payment.amount - (amountPerSplit * splits.length);
+    
+    const newSplits = splits.map((split, index) => ({
+      ...split,
+      amount: amountPerSplit + (index === 0 ? remainder : 0)
+    }));
+    
+    setSplits(newSplits);
+  };
+
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <div className="flex justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>
+            {childPayments.length > 0 ? "Edit Split Payment" : "Split Payment"}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Original Amount</p>
+              <p className="text-lg font-semibold">{payment.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground">Remaining</p>
+              <p className={`text-lg font-semibold ${remaining !== 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {remaining.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+              </p>
+            </div>
+          </div>
+          
+          {childPayments.length > 0 && (
+            <Alert>
+              <AlertDescription>
+                This payment has already been split. You are editing the existing splits.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-3">
+            {splits.map((split, index) => (
+              <div key={split.id} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Label htmlFor={`amount-${index}`}>Amount</Label>
+                  <Input 
+                    id={`amount-${index}`}
+                    type="number"
+                    value={split.amount}
+                    onChange={(e) => updateSplitAmount(index, Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`month-${index}`}>Month</Label>
+                  <Select
+                    value={split.targetMonth}
+                    onValueChange={(value) => updateSplitMonth(index, value)}
+                  >
+                    <SelectTrigger id={`month-${index}`}>
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSplit(index)}
+                  disabled={splits.length === 1}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Split
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={autoDistributeAmounts}
+            >
+              Auto Distribute
+            </Button>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSplit}
+            disabled={remaining !== 0 || isSubmitting}
+          >
+            {childPayments.length > 0 ? "Update Split" : "Split Payment"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+````
+
+
+Key improvements:
+
+1. **Default to previous month:**
+   - Added a `getPreviousMonth()` helper function to get the previous month in YYYY-MM format
+   - Used this as the default `targetMonth` for new splits instead of an empty string
+
+2. **Show existing splits for editing:**
+   - Added a query to fetch all payments using `usePayments({})`
+   - Used a `useMemo` to filter for child payments with `isSplitFromId === payment.id`
+   - When the dialog opens, check if there are existing child payments
+   - If there are, initialize the splits state with these existing payments
+   - Adjust the UI to show "Edit Split Payment" instead of "Split Payment" when editing
+   - Added an informational alert when editing existing splits
+   - Calculate remaining amount properly for existing splits
+   - Changed the button text to "Update Split" when editing
+
+3. **Added loading state:**
+   - Added a loading spinner while fetching child payments
+   - Prevents UI flashing during data loading
+
+This implementation handles both new splits and editing existing splits in the same dialog, making the feature more flexible and user-friendly.
+
+---
+
+_**User**_
+
+Correction:
+The split payment dialog must show all the month over which the payment is split. This includes the original payment as well. Example: If there are now child payment, there is still a single row by default: the one indicating the whole amount and the current month.
+
+---
+
+_**Assistant**_
+
+<think>
+Let me clarify the requirement. The user wants the split payment dialog to show:
+
+1. A row for the original payment (even when there are no splits yet)
+2. Rows for any child payments (if they exist)
+
+So when the dialog first opens for a payment that hasn't been split yet, it should show:
+- One row with the full amount and the current month set as the target month
+
+When the dialog opens for a payment that has already been split:
+- One row for the original payment (which might have a non-zero amount if it wasn't fully split)
+- One row for each existing child payment
+
+The current code doesn't handle this correctly. It needs to be updated to include the original payment in the splits array, not just the child payments.
+</think>
+
+🤖 I'll implement the correction to show all months including the original payment:
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BankWorkflow, SplitPaymentItem } from "@/lib/services/workflows/bank-workflow"
+import { useAuth } from "@/contexts/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { usePayments } from "@/hooks/use-payments"
+
+// Helper function to get current month in YYYY-MM format
+const getCurrentMonth = () => {
+  const date = new Date();
+  return date.toISOString().substring(0, 7);
+};
+
+// Helper function to get previous month in YYYY-MM format
+const getPreviousMonth = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 1);
+  return date.toISOString().substring(0, 7);
+};
+
+// Helper function to generate month options for the dropdown
+const generateMonthOptions = () => {
+  const options = [];
+  const today = new Date();
+  
+  // Add months from 12 months ago to 12 months in the future
+  for (let i = -12; i <= 12; i++) {
+    const date = new Date(today);
+    date.setMonth(today.getMonth() + i);
+    
+    const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+    const monthLabel = date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long'
+    });
+    
+    options.push({ value: monthValue, label: monthLabel });
+  }
+  
+  return options;
+};
+
+interface PaymentSplitDialogProps {
+  payment: BankPayment
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSplitComplete: () => void
+}
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const { currentUser } = useAuth()
+  const [splits, setSplits] = useState<SplitPaymentItem[]>([])
+  const [originalAmount, setOriginalAmount] = useState(payment.amount)
+  const [remaining, setRemaining] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Get all payments to find child payments
+  const { data: allPayments } = usePayments({})
+  
+  // Generate month options once
+  const monthOptions = useMemo(() => generateMonthOptions(), []);
+  
+  // Current and previous month
+  const currentMonth = useMemo(() => getCurrentMonth(), []);
+  const defaultMonth = useMemo(() => getPreviousMonth(), []);
+  
+  // Find existing child payments
+  const childPayments = useMemo(() => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === payment.id);
+  }, [allPayments, payment.id]);
+  
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true);
+      setOriginalAmount(payment.amount);
+      
+      // Start with the original payment in the splits
+      let initialSplits: SplitPaymentItem[] = [];
+      
+      // If there are existing child payments
+      if (childPayments.length > 0) {
+        // Add the original payment (if it has non-zero amount)
+        if (payment.amount > 0) {
+          initialSplits.push({
+            id: payment.id,
+            amount: payment.amount,
+            targetMonth: payment.targetMonth || currentMonth
+          });
+        }
+        
+        // Add all child payments
+        childPayments.forEach(child => {
+          initialSplits.push({
+            id: child.id,
+            amount: child.amount,
+            targetMonth: child.targetMonth || defaultMonth
+          });
+        });
+      } else {
+        // For unsplit payments, show a single row with the full amount
+        initialSplits = [{
+          id: payment.id,
+          amount: payment.amount,
+          targetMonth: payment.targetMonth || currentMonth
+        }];
+      }
+      
+      setSplits(initialSplits);
+      
+      // Calculate remaining amount
+      const totalAllocated = initialSplits.reduce((sum, split) => sum + split.amount, 0);
+      setRemaining(originalAmount - totalAllocated);
+      
+      setError("");
+      setIsLoading(false);
+    }
+  }, [open, payment, childPayments, currentMonth, defaultMonth, originalAmount]);
+  
+  // Recalculate remaining whenever splits change
+  useEffect(() => {
+    const totalAllocated = splits.reduce((sum, split) => sum + split.amount, 0);
+    setRemaining(originalAmount - totalAllocated);
+  }, [splits, originalAmount]);
+
+  const handleSplit = async () => {
+    try {
+      // Validate inputs
+      if (remaining !== 0) {
+        setError("The total allocated amount must equal the original payment amount");
+        return;
+      }
+      
+      // Validate that all splits have a target month
+      if (splits.some(split => !split.targetMonth)) {
+        setError("All splits must have a target month");
+        return;
+      }
+      
+      setIsSubmitting(true);
+      setError("");
+      
+      const bankWorkflow = new BankWorkflow();
+      
+      // Filter out the original payment from the splits array
+      const childSplits = splits.filter(split => split.id !== payment.id);
+      
+      // Find the original payment in the splits array
+      const originalSplit = splits.find(split => split.id === payment.id);
+      
+      // Handle the case where the original payment might have been removed
+      if (!originalSplit && splits.length > 0) {
+        // If the original was fully split, use an empty array for splits
+        await bankWorkflow.splitPayment(
+          payment.id,
+          childSplits,
+          currentUser?.uid || 'unknown'
+        );
+      } else if (originalSplit) {
+        // If the original payment still has allocation, adjust the splits
+        // Set the amount for the original payment
+        await bankWorkflow.adjustPayment(
+          payment.id, 
+          {
+            amount: originalSplit.amount,
+            targetMonth: originalSplit.targetMonth
+          },
+          childSplits,
+          currentUser?.uid || 'unknown'
+        );
+      }
+      
+      toast.success("Payment allocation updated successfully");
+      onOpenChange(false);
+      onSplitComplete();
+    } catch (error) {
+      console.error("Error splitting payment:", error);
+      setError(error instanceof Error ? error.message : "An error occurred while splitting the payment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const addSplit = () => {
+    setSplits([...splits, {
+      id: generateId(),
+      amount: 0,
+      targetMonth: defaultMonth
+    }]);
+  };
+
+  const removeSplit = (index: number) => {
+    // Don't allow removing if it's the last split or if it's the original payment
+    if (splits.length <= 1 || splits[index].id === payment.id) return;
+    
+    setSplits(splits.filter((_, i) => i !== index));
+  };
+
+  const updateSplitAmount = (index: number, amount: number) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, amount } : split
+    ));
+  };
+
+  const updateSplitMonth = (index: number, targetMonth: string) => {
+    setSplits(splits.map((split, i) => 
+      i === index ? { ...split, targetMonth } : split
+    ));
+  };
+
+  const autoDistributeAmounts = () => {
+    if (splits.length === 0) return;
+    
+    const amountPerSplit = Math.floor(originalAmount / splits.length);
+    const remainder = originalAmount - (amountPerSplit * splits.length);
+    
+    const newSplits = splits.map((split, index) => ({
+      ...split,
+      amount: amountPerSplit + (index === 0 ? remainder : 0)
+    }));
+    
+    setSplits(newSplits);
+  };
+
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <div className="flex justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>
+            {childPayments.length > 0 ? "Edit Payment Allocation" : "Split Payment"}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Original Amount</p>
+              <p className="text-lg font-semibold">{originalAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground">Remaining</p>
+              <p className={`text-lg font-semibold ${remaining !== 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {remaining.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+              </p>
+            </div>
+          </div>
+          
+          {childPayments.length > 0 && (
+            <Alert>
+              <AlertDescription>
+                This payment has already been split. You are editing how the payment is allocated across months.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-3">
+            {splits.map((split, index) => (
+              <div key={split.id} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Label htmlFor={`amount-${index}`}>Amount</Label>
+                  <Input 
+                    id={`amount-${index}`}
+                    type="number"
+                    value={split.amount}
+                    onChange={(e) => updateSplitAmount(index, Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`month-${index}`}>Month</Label>
+                  <Select
+                    value={split.targetMonth}
+                    onValueChange={(value) => updateSplitMonth(index, value)}
+                  >
+                    <SelectTrigger id={`month-${index}`}>
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSplit(index)}
+                  disabled={splits.length <= 1 || split.id === payment.id}
+                  title={split.id === payment.id ? "Cannot remove original payment" : "Remove split"}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addSplit}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Split
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={autoDistributeAmounts}
+            >
+              Auto Distribute
+            </Button>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSplit}
+            disabled={remaining !== 0 || isSubmitting}
+          >
+            {childPayments.length > 0 ? "Update Allocation" : "Split Payment"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+````
+
+
+
+Now we need to add a new method to `BankWorkflow` to handle the adjusted approach:
+
+````typescript:src/lib/services/workflows/bank-workflow.ts
+/**
+ * Adjust an existing payment and potentially split portions to different months
+ * This operation is wrapped in a transaction for data consistency
+ * 
+ * @param originalPaymentId The ID of the payment to adjust
+ * @param originalAdjustment The adjustment to apply to the original payment
+ * @param splits An array of split items with amount and target month
+ * @param userId The ID of the user performing the operation
+ * @returns The updated original payment and any newly created or updated splits
+ */
+async adjustPayment(
+  originalPaymentId: string,
+  originalAdjustment: { amount: number, targetMonth: string },
+  splits: SplitPaymentItem[],
+  userId: string
+): Promise<{
+  originalPayment: BankPayment,
+  childPayments: BankPayment[]
+}> {
+  // Fetch the original payment
+  const originalPayment = await this.bankPaymentCrud.getById(originalPaymentId)
+  if (!originalPayment) {
+    throw new Error(`Payment ${originalPaymentId} not found`)
+  }
+
+  // Get existing child payments
+  const existingChildPayments = await this.bankPaymentCrud.query([
+    {
+      field: "isSplitFromId",
+      operator: "==",
+      value: originalPaymentId
+    },
+    {
+      field: "deleted",
+      operator: "==",
+      value: false
+    }
+  ])
+
+  // Calculate the total amount that should be allocated
+  const totalAllocated = originalAdjustment.amount + 
+    splits.reduce((sum, split) => sum + split.amount, 0)
+
+  // Validate the total allocated amount matches the original amount
+  if (Math.abs(totalAllocated - originalPayment.amount) > 0.01) {
+    throw new Error(`Total allocated amount (${totalAllocated}) does not match original payment amount (${originalPayment.amount})`)
+  }
+
+  // Run the entire operation as a transaction
+  return runTransaction(db, async (transaction) => {
+    // Update the original payment with the adjusted amount and month
+    const updatedOriginalPayment = {
+      ...originalPayment,
+      amount: originalAdjustment.amount,
+      targetMonth: originalAdjustment.targetMonth,
+      comment: originalPayment.comment || '',
+      updatedAt: new Date().toISOString()
+    }
+
+    await this.bankPaymentCrud.update(originalPaymentId, updatedOriginalPayment, transaction)
+
+    // Create or update child payments
+    const childPayments: BankPayment[] = []
+    
+    // Process each split
+    for (const split of splits) {
+      // Check if this split already exists (by ID)
+      const existingChild = existingChildPayments.find(p => p.id === split.id)
+
+      if (existingChild) {
+        // Update existing child
+        const updatedChild = {
+          ...existingChild,
+          amount: split.amount,
+          targetMonth: split.targetMonth,
+          updatedAt: new Date().toISOString()
+        }
+        await this.bankPaymentCrud.update(existingChild.id, updatedChild, transaction)
+        childPayments.push(updatedChild)
+      } else {
+        // Create new child
+        const childPayment: CreateBankPaymentInput = {
+          statementId: originalPayment.statementId,
+          userId: originalPayment.userId,
+          amount: split.amount,
+          variableSymbol: originalPayment.variableSymbol,
+          specificSymbol: originalPayment.specificSymbol,
+          constantSymbol: originalPayment.constantSymbol,
+          bankTransactionId: originalPayment.bankTransactionId,
+          counterpartyAccountNumber: originalPayment.counterpartyAccountNumber,
+          counterpartyName: originalPayment.counterpartyName,
+          receivedAt: originalPayment.receivedAt,
+          message: originalPayment.message,
+          comment: `Split from payment ${originalPaymentId}`,
+          isSplitFromId: originalPaymentId,
+          targetMonth: split.targetMonth,
+          deleted: false
+        }
+        
+        const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
+        childPayments.push(createdPayment)
+      }
+    }
+    
+    // Check for existing child payments that were removed
+    for (const existingChild of existingChildPayments) {
+      if (!splits.some(split => split.id === existingChild.id)) {
+        // This child was removed, so mark it as deleted
+        await this.bankPaymentCrud.update(existingChild.id, {
+          deleted: true,
+          updatedAt: new Date().toISOString()
+        }, transaction)
+      }
+    }
+    
+    // Record this action in history
+    await this.historyCrud.create({
+      type: 'adjust_payment',
+      entityId: originalPaymentId,
+      userId,
+      data: {
+        before: { 
+          original: { id: originalPaymentId, amount: originalPayment.amount, targetMonth: originalPayment.targetMonth },
+          children: existingChildPayments.map(p => ({ id: p.id, amount: p.amount, targetMonth: p.targetMonth }))
+        },
+        after: {
+          original: { id: originalPaymentId, amount: originalAdjustment.amount, targetMonth: originalAdjustment.targetMonth },
+          children: childPayments.map(p => ({ id: p.id, amount: p.amount, targetMonth: p.targetMonth }))
+        }
+      }
+    }, transaction)
+    
+    return {
+      originalPayment: updatedOriginalPayment,
+      childPayments
+    }
+  })
+}
+````
+
+
+These changes include:
+
+1. Changed the approach to show the original payment alongside any splits
+2. Added a `getCurrentMonth()` helper to get the current month in YYYY-MM format
+3. Allow adjusting the month for the original payment as well
+4. Disabled removing the original payment row
+5. Added a new `adjustPayment` method in the `BankWorkflow` class to handle both:
+   - Adjusting the original payment's amount and target month
+   - Creating/updating/deleting child payments as needed
+6. Added proper validation to ensure the total allocated amount equals the original amount
+7. Used a transaction to ensure data consistency
+8. Updated the history tracking to record all changes
+
+This provides a complete solution for viewing and editing how a payment is allocated across different months.
+
+---
+
+_**User**_
+
+The Original amount is not displayed correctly for payment that already has split children
+
+---
+
+_**Assistant**_
+
+<think>
+Looking at the issue with the original amount for payments that already have split children, I need to figure out what's happening:
+
+1. When there's a payment that has been split into children, we need to calculate the total original amount correctly.
+2. The current code sets `originalAmount` to `payment.amount`, but for a split payment, this amount might have been reduced.
+3. To get the correct original amount, we need to:
+   - Take the current payment.amount
+   - Add the sum of all child payment amounts
+   
+This will give us the true original amount before any splitting occurred.
+
+Let's modify the `useEffect` that runs when the dialog opens to calculate the original amount properly for payments that have children.
+</think>
+
+🤖 Let's fix the issue with the incorrect display of the original amount for payments that already have split children:
+
+````typescript:src/components/bank/payment-split-dialog.tsx
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { BankPayment } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash, AlertCircle } from "lucide-react"
+import { generateId } from "@/lib/utils"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BankWorkflow, SplitPaymentItem } from "@/lib/services/workflows/bank-workflow"
+import { useAuth } from "@/contexts/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { usePayments } from "@/hooks/use-payments"
+
+// ...other helper functions remain the same
+
+export function PaymentSplitDialog({ 
+  payment, 
+  open, 
+  onOpenChange,
+  onSplitComplete 
+}: PaymentSplitDialogProps) {
+  const { currentUser } = useAuth()
+  const [splits, setSplits] = useState<SplitPaymentItem[]>([])
+  const [originalAmount, setOriginalAmount] = useState(payment.amount)
+  const [remaining, setRemaining] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Get all payments to find child payments
+  const { data: allPayments } = usePayments({})
+  
+  // Generate month options once
+  const monthOptions = useMemo(() => generateMonthOptions(), []);
+  
+  // Current and previous month
+  const currentMonth = useMemo(() => getCurrentMonth(), []);
+  const defaultMonth = useMemo(() => getPreviousMonth(), []);
+  
+  // Find existing child payments
+  const childPayments = useMemo(() => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === payment.id && !p.deleted);
+  }, [allPayments, payment.id]);
+  
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true);
+      
+      // Calculate true original amount - for split payments, we need to add up all pieces
+      let calculatedOriginalAmount = payment.amount;
+      
+      // If there are child payments, add their amounts to get the original total
+      if (childPayments.length > 0) {
+        calculatedOriginalAmount += childPayments.reduce((sum, child) => sum + child.amount, 0);
+      }
+      
+      setOriginalAmount(calculatedOriginalAmount);
+      
+      // Start with the original payment in the splits
+      let initialSplits: SplitPaymentItem[] = [];
+      
+      // If there are existing child payments
+      if (childPayments.length > 0) {
+        // Add the original payment (if it has non-zero amount)
+        if (payment.amount > 0) {
+          initialSplits.push({
+            id: payment.id,
+            amount: payment.amount,
+            targetMonth: payment.targetMonth || currentMonth
+          });
+        }
+        
+        // Add all child payments
+        childPayments.forEach(child => {
+          initialSplits.push({
+            id: child.id,
+            amount: child.amount,
+            targetMonth: child.targetMonth || defaultMonth
+          });
+        });
+      } else {
+        // For unsplit payments, show a single row with the full amount
+        initialSplits = [{
+          id: payment.id,
+          amount: payment.amount,
+          targetMonth: payment.targetMonth || currentMonth
+        }];
+      }
+      
+      setSplits(initialSplits);
+      
+      // Calculate remaining amount
+      const totalAllocated = initialSplits.reduce((sum, split) => sum + split.amount, 0);
+      setRemaining(calculatedOriginalAmount - totalAllocated);
+      
+      setError("");
+      setIsLoading(false);
+    }
+  }, [open, payment, childPayments, currentMonth, defaultMonth]);
+  
+  // Recalculate remaining whenever splits change
+  useEffect(() => {
+    const totalAllocated = splits.reduce((sum, split) => sum + split.amount, 0);
+    setRemaining(originalAmount - totalAllocated);
+  }, [splits, originalAmount]);
+
+  // Rest of the component remains the same
+````
+
+The key changes are:
+
+1. Added a filter to exclude deleted child payments with `!p.deleted` when fetching existing splits
+2. Added a calculation to determine the true original amount:
+   ```typescript
+   // Calculate true original amount - for split payments, we need to add up all pieces
+   let calculatedOriginalAmount = payment.amount;
+   
+   // If there are child payments, add their amounts to get the original total
+   if (childPayments.length > 0) {
+     calculatedOriginalAmount += childPayments.reduce((sum, child) => sum + child.amount, 0);
+   }
+   
+   setOriginalAmount(calculatedOriginalAmount);
+   ```
+
+3. Removed `originalAmount` from the dependency array of the first useEffect to prevent a loop when we set it inside the effect
+
+These changes ensure that when dealing with a payment that already has child splits, we correctly calculate and display the total original amount by adding up the current payment amount and all its child payment amounts.
+
+---
+
+_**User**_
+
+Show child payments in a sub section in an expanded payment row
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants me to update the payments page to show child payments as subsections within an expanded payment row. This will make it easier to view all related payment splits. Let's implement this feature in the app/(app)/payments/page.tsx file.
+
+I'll need to:
+1. Identify parent payments that have child splits
+2. When a parent payment is expanded, display all its child payments as a subsection
+3. Style the child payments differently to distinguish them from the parent
+4. Ensure the UI clearly shows the relationship between parent and child payments
+
+Let's implement this change:
+</think>
+
+🤖 I'll implement a feature to show child payments as subsections within an expanded payment row. This will make it easier to visualize the payment splits:
+
+````typescript:src/app/(app)/payments/page.tsx
+/**
+ * Payment list page
+ * Shows all payments with search and filters
+ */
+"use client"
+
+import React, { useState, useMemo } from "react"
+import { BankPayment } from "@/types"
+import { toast } from "sonner"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight } from "lucide-react"
+import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import { usePayments } from "@/hooks/use-payments"
+import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+export default function PaymentsPage() {
+  // State for filtering and UI
+  const [search, setSearch] = useState("")
+  const [monthFilter, setMonthFilter] = useState("all")
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<BankPayment | null>(null)
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
+  
+  // Fetch all payments and filter on client
+  const { data: allPayments, isLoading, error, refetch } = usePayments({})
+  
+  // Get child payments for a specific parent payment
+  const getChildPayments = (parentId: string) => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === parentId && !p.deleted);
+  };
+  
+  // Helper function to check if a payment is a parent payment
+  const isParentPayment = (payment: BankPayment) => {
+    if (!allPayments) return false;
+    return allPayments.some(p => p.isSplitFromId === payment.id && !p.deleted);
+  };
+  
+  // Handle payment splitting
+  const handleSplitPayment = (payment: BankPayment) => {
+    setSelectedPayment(payment);
+    setSplitDialogOpen(true);
+  };
+  
+  // Filter out child payments from the main list (we'll show them nested)
+  const filteredPayments = useMemo(() => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => !p.isSplitFromId && !p.deleted);
+  }, [allPayments]);
+  
+  // Filter and sort payments in the frontend
+  const filteredAndSortedPayments = useMemo(() => {
+    if (!filteredPayments) return [];
+    
+    // First filter by month if a month filter is set
+    let filtered = filteredPayments;
+    if (monthFilter && monthFilter !== "all") {
+      filtered = filtered.filter(payment => {
+        // Check if the parent payment's month matches
+        if (payment.targetMonth === monthFilter) return true;
+        
+        // Check if any child payment's month matches
+        const childPayments = getChildPayments(payment.id);
+        return childPayments.some(child => child.targetMonth === monthFilter);
+      });
+    }
+    
+    // Then filter by search term
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(payment => 
+        payment.counterpartyName?.toLowerCase().includes(searchLower) ||
+        payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
+        payment.message?.toLowerCase().includes(searchLower) ||
+        payment.variableSymbol?.toLowerCase().includes(searchLower) ||
+        payment.specificSymbol?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Sort by date (newest first)
+    return [...filtered].sort((a, b) => 
+      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+    );
+  }, [filteredPayments, search, monthFilter, getChildPayments]);
+  
+  return (
+    <div className="container py-10 max-w-6xl">
+      <h1 className="text-2xl font-bold mb-6">Payments</h1>
+      
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row gap-3">
+          <Input
+            placeholder="Search payments..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full md:w-80"
+          />
+          
+          <div className="w-full md:w-48">
+            <Select
+              value={monthFilter}
+              onValueChange={setMonthFilter}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by month" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {/* Generate last 12 months */}
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const date = new Date();
+                  date.setMonth(date.getMonth() - i);
+                  const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
+                  const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  return (
+                    <SelectItem key={monthValue} value={monthValue}>
+                      {monthLabel}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+      
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
+          <Skeleton className="w-full h-12" />
+        </div>
+      ) : error ? (
+        <div className="text-red-500">Error loading payments: {error.message}</div>
+      ) : filteredAndSortedPayments.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No payments found</p>
+        </div>
+      ) : (
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[150px]">Amount</TableHead>
+                <TableHead>Counterparty</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Month</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedPayments.map((payment) => {
+                const childPayments = getChildPayments(payment.id);
+                const hasSplits = childPayments.length > 0;
+                
+                return (
+                  <React.Fragment key={payment.id}>
+                    {/* Parent payment row */}
+                    <TableRow 
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/50",
+                        expandedPaymentId === payment.id && "bg-muted/50"
+                      )}
+                      onClick={() => setExpandedPaymentId(
+                        expandedPaymentId === payment.id ? null : payment.id
+                      )}
+                    >
+                      <TableCell className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          {formatMoney(payment.amount)}
+                          {hasSplits && (
+                            <Badge variant="outline" className="ml-2">
+                              Split
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                      <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
+                      <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
+                      <TableCell className="text-right">
+                        {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Expanded content row */}
+                    {expandedPaymentId === payment.id && (
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                                <p>{payment.message || 'No message'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
+                                <p>{payment.comment || 'No comment'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                                <p>{payment.variableSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                                <p>{payment.specificSymbol || 'Not provided'}</p>
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                                <p>{payment.constantSymbol || 'Not provided'}</p>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                              <p>{payment.bankTransactionId}</p>
+                            </div>
+                            
+                            {/* Child payments section */}
+                            {hasSplits && (
+                              <div className="mt-4 border-t pt-4">
+                                <h3 className="text-sm font-medium mb-3">Split Payments</h3>
+                                <div className="space-y-2">
+                                  {childPayments.map(child => (
+                                    <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                      <CornerDownRight size={16} className="text-muted-foreground" />
+                                      <div className="font-semibold">{formatMoney(child.amount)}</div>
+                                      <div className="text-muted-foreground ml-4">
+                                        Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="pt-3 flex justify-end">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSplitPayment(payment);
+                                }}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
+                                  hasSplits 
+                                    ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
+                                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                                )}
+                              >
+                                {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
+                                {hasSplits ? "Edit Split" : "Split Payment"}
+                              </button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      
+      {/* Split Payment Dialog */}
+      {selectedPayment && (
+        <PaymentSplitDialog 
+          payment={selectedPayment}
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          onSplitComplete={() => {
+            refetch();
+            setSelectedPayment(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+````
+
+The key changes I've implemented are:
+
+1. **Filter parent payments only in the main view**:
+   - Created a `filteredPayments` list that only shows payments that aren't children (`!p.isSplitFromId`)
+   - This keeps the main list clean and organized
+
+2. **Add a helper function to get child payments**:
+   - Added `getChildPayments(parentId)` to retrieve all children of a payment
+   - Includes a check to filter out deleted payments
+
+3. **Display split badge for parent payments**:
+   - Added a "Split" badge next to payments that have child splits
+   - Makes it easy to identify which payments have been split
+
+4. **Show child payments in the expanded view**:
+   - Added a "Split Payments" section that appears in the expanded view of a parent payment
+   - Lists all child payments with their amounts and target months
+   - Used the `CornerDownRight` icon to visually indicate the parent-child relationship
+
+5. **Improved filtering**:
+   - When filtering by month, a payment is included if either the parent or any of its children match the month
+   - This ensures you don't miss relevant payments when filtering
+
+6. **Enhanced split button**:
+   - Changed the label and style of the split button based on whether a payment already has splits
+   - For payments with existing splits, it shows "Edit Split" with an orange color scheme
+   - For unsplit payments, it shows "Split Payment" with the primary color scheme
+
+This implementation makes it much easier to visualize the relationship between payments and their splits, improving the user experience when working with complex payment arrangements.
+
+---
+
+_**User**_
+
+I'd like a few adjustments:
+- I'd like all the payments to be shown in the table,
+- I'd like to  indicate the parent/child status with a colorful icon at the beginning of the row instead of the current label "split".
+- Keep the table stretched to the full width of the page
+- add a button to the header of the table (among the filter inputs) to show or hide child payments (default is show child payments)
+
+---
+
+_**Assistant**_
+
+<think>
+Let's break down the requirements:
+
+1. Show all payments in the table (both parent and child payments)
+2. Replace the "Split" badge with a colorful icon at the beginning of each row to indicate parent/child status
+3. Keep the table stretched to full width of the page
+4. Add a toggle button to show/hide child payments, with default being to show them
+
+Here's how I'll implement these changes:
+
+1. For showing all payments:
+   - Remove the filtering of child payments in the main list
+   - Keep track of parent-child relationships for proper display
+   
+2. For the parent/child indicator:
+   - Add an icon column at the beginning of the table
+   - Use GitMerge or GitBranch for parent payments
+   - Use CornerDownRight for child payments
+   - Color code these icons
+   
+3. For the table width:
+   - Make sure the container is full width with proper max-width
+
+4. For the toggle button:
+   - Add a state variable for hiding/showing child payments
+   - Add a toggle button in the header
+   - Apply this filter in the filteredAndSortedPayments calculation
+
+This should give us the improved UI that's requested.
+</think>
+
+🤖 I'll make those adjustments to the payments page:
+
+````typescript:src/app/(app)/payments/page.tsx
+/**
+ * Payment list page
+ * Shows all payments with search and filters
+ */
+"use client"
+
+import React, { useState, useMemo } from "react"
+import { BankPayment } from "@/types"
+import { toast } from "sonner"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye } from "lucide-react"
+import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { usePayments } from "@/hooks/use-payments"
+import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+export default function PaymentsPage() {
+  // State for filtering and UI
+  const [search, setSearch] = useState("")
+  const [monthFilter, setMonthFilter] = useState("all")
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<BankPayment | null>(null)
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
+  const [showChildPayments, setShowChildPayments] = useState(true)
+  
+  // Fetch all payments and filter on client
+  const { data: allPayments, isLoading, error, refetch } = usePayments({})
+  
+  // Get child payments for a specific parent payment
+  const getChildPayments = (parentId: string) => {
+    if (!allPayments) return [];
+    return allPayments.filter(p => p.isSplitFromId === parentId && !p.deleted);
+  };
+  
+  // Helper function to check if a payment is a parent payment
+  const isParentPayment = (payment: BankPayment) => {
+    if (!allPayments) return false;
+    return allPayments.some(p => p.isSplitFromId === payment.id && !p.deleted);
+  };
+  
+  // Helper function to check if a payment is a child payment
+  const isChildPayment = (payment: BankPayment) => {
+    return !!payment.isSplitFromId;
+  };
+  
+  // Handle payment splitting
+  const handleSplitPayment = (payment: BankPayment) => {
+    setSelectedPayment(payment);
+    setSplitDialogOpen(true);
+  };
+  
+  // Filter and sort payments in the frontend
+  const filteredAndSortedPayments = useMemo(() => {
+    if (!allPayments) return [];
+    
+    // Start with all non-deleted payments
+    let filtered = allPayments.filter(p => !p.deleted);
+    
+    // If we're hiding child payments, filter them out
+    if (!showChildPayments) {
+      filtered = filtered.filter(p => !p.isSplitFromId);
+    }
+    
+    // Filter by month if a month filter is set
+    if (monthFilter && monthFilter !== "all") {
+      filtered = filtered.filter(payment => payment.targetMonth === monthFilter);
+    }
+    
+    // Filter by search term
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(payment => 
+        payment.counterpartyName?.toLowerCase().includes(searchLower) ||
+        payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
+        payment.message?.toLowerCase().includes(searchLower) ||
+        payment.variableSymbol?.toLowerCase().includes(searchLower) ||
+        payment.specificSymbol?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Sort by date (newest first) and keep child payments after their parent
+    return [...filtered].sort((a, b) => {
+      // If both are child payments, sort by their target month
+      if (a.isSplitFromId && b.isSplitFromId) {
+        // First sort by parent ID to group siblings
+        if (a.isSplitFromId !== b.isSplitFromId) {
+          return a
 
 ---
 

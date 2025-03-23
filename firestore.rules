@@ -59,5 +59,12 @@ service cloud.firestore {
       allow write: if isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
+    match /historyActions/{historyActionId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
   }
 }
