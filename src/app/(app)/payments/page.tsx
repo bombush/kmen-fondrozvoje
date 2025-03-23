@@ -29,7 +29,7 @@
 import React, { useState, useMemo } from "react"
 import { BankPayment } from "@/types"
 import { toast } from "sonner"
-import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight } from "lucide-react"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye, ArrowUpDown } from "lucide-react"
 import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
 import {
   Table,
@@ -41,9 +41,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { usePayments } from "@/hooks/use-payments"
+import { usePayments, PaymentsQueryConfig } from "@/hooks/use-payments"
+import { SortConfig } from "@/lib/services/crud/bank-crud"
 import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -55,9 +56,28 @@ export default function PaymentsPage() {
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
   const [selectedPayment, setSelectedPayment] = useState<BankPayment | null>(null)
   const [splitDialogOpen, setSplitDialogOpen] = useState(false)
+  const [showChildPayments, setShowChildPayments] = useState(true)
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: 'receivedAt',
+    direction: 'desc'
+  })
   
-  // Fetch all payments and filter on client
-  const { data: allPayments, isLoading, error, refetch } = usePayments({})
+  // Create query config
+  const queryConfig: PaymentsQueryConfig = useMemo(() => ({
+    month: monthFilter !== 'all' ? monthFilter : undefined,
+    sort: sortConfig
+  }), [monthFilter, sortConfig])
+  
+  // Fetch all payments with sorting
+  const { data: allPayments, isLoading, error, refetch } = usePayments(queryConfig)
+  
+  // Function to handle sorting
+  const handleSort = (field: keyof BankPayment) => {
+    setSortConfig(current => ({
+      field,
+      direction: current.field === field && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
   
   // Get child payments for a specific parent payment
   const getChildPayments = (parentId: string) => {
@@ -77,228 +97,282 @@ export default function PaymentsPage() {
     setSplitDialogOpen(true);
   };
   
-  // Filter out child payments from the main list (we'll show them nested)
+  // Filter payments based on search and child payment visibility
   const filteredPayments = useMemo(() => {
     if (!allPayments) return [];
-    return allPayments.filter(p => !p.isSplitFromId && !p.deleted);
-  }, [allPayments]);
-  
-  // Filter and sort payments in the frontend
-  const filteredAndSortedPayments = useMemo(() => {
-    if (!filteredPayments) return [];
     
-    // First filter by month if a month filter is set
-    let filtered = filteredPayments;
-    if (monthFilter && monthFilter !== "all") {
-      filtered = filtered.filter(payment => {
-        // Check if the parent payment's month matches
-        if (payment.targetMonth === monthFilter) return true;
+    return allPayments
+      .filter(payment => {
+        // Filter out deleted payments (though our API should already handle this)
+        if (payment.deleted) return false;
         
-        // Check if any child payment's month matches
-        const childPayments = getChildPayments(payment.id);
-        return childPayments.some(child => child.targetMonth === monthFilter);
+        // Filter out child payments if toggle is off
+        if (!showChildPayments && payment.isSplitFromId) return false;
+        
+        // Filter by search term
+        if (search) {
+          const searchLower = search.toLowerCase();
+          return (
+            payment.counterpartyName?.toLowerCase().includes(searchLower) ||
+            payment.message?.toLowerCase().includes(searchLower) ||
+            payment.comment?.toLowerCase().includes(searchLower) ||
+            payment.specificSymbol?.toLowerCase().includes(searchLower) ||
+            payment.variableSymbol?.toLowerCase().includes(searchLower) ||
+            payment.constantSymbol?.toLowerCase().includes(searchLower) ||
+            formatMoney(payment.amount).toLowerCase().includes(searchLower)
+          );
+        }
+        
+        return true;
       });
-    }
-    
-    // Then filter by search term
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(payment => 
-        payment.counterpartyName?.toLowerCase().includes(searchLower) ||
-        payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
-        payment.message?.toLowerCase().includes(searchLower) ||
-        payment.variableSymbol?.toLowerCase().includes(searchLower) ||
-        payment.specificSymbol?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    // Sort by date (newest first)
-    return [...filtered].sort((a, b) => 
-      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
-    );
-  }, [filteredPayments, search, monthFilter, getChildPayments]);
+  }, [allPayments, search, showChildPayments]);
+
+  // Sort indicator component
+  const SortIndicator = ({ field }: { field: keyof BankPayment }) => {
+    if (sortConfig.field !== field) return <ArrowUpDown size={14} className="ml-1 opacity-50" />;
+    return sortConfig.direction === 'asc' 
+      ? <ChevronUp size={14} className="ml-1" />
+      : <ChevronDown size={14} className="ml-1" />;
+  };
   
   return (
-    <div className="container py-10 max-w-6xl">
-      <h1 className="text-2xl font-bold mb-6">Payments</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Payment List</h1>
       
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex flex-col md:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-4 items-end">
+        <div className="w-full sm:w-64">
+          <label className="text-sm font-medium block mb-2">Search</label>
           <Input
             placeholder="Search payments..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-80"
           />
-          
-          <div className="w-full md:w-48">
-            <Select
-              value={monthFilter}
-              onValueChange={setMonthFilter}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by month" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Months</SelectItem>
-                {/* Generate last 12 months */}
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const date = new Date();
-                  date.setMonth(date.getMonth() - i);
-                  const monthValue = date.toISOString().substring(0, 7); // YYYY-MM format
-                  const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                  return (
-                    <SelectItem key={monthValue} value={monthValue}>
-                      {monthLabel}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
+        
+        <div className="w-full sm:w-48">
+          <label className="text-sm font-medium block mb-2">Month</label>
+          <Select
+            value={monthFilter}
+            onValueChange={setMonthFilter}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              <SelectItem value="2025-01">January 2025</SelectItem>
+              <SelectItem value="2025-02">February 2025</SelectItem>
+              <SelectItem value="2025-03">March 2025</SelectItem>
+              <SelectItem value="2025-04">April 2025</SelectItem>
+              <SelectItem value="2025-05">May 2025</SelectItem>
+              <SelectItem value="2025-06">June 2025</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <Button
+          variant="outline"
+          className="flex items-center gap-2"
+          onClick={() => setShowChildPayments(!showChildPayments)}
+        >
+          {showChildPayments ? (
+            <>
+              <EyeOff size={16} />
+              Hide Split Payments
+            </>
+          ) : (
+            <>
+              <Eye size={16} />
+              Show Split Payments
+            </>
+          )}
+        </Button>
       </div>
       
       {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="w-full h-12" />
-          <Skeleton className="w-full h-12" />
-          <Skeleton className="w-full h-12" />
-          <Skeleton className="w-full h-12" />
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
         </div>
       ) : error ? (
-        <div className="text-red-500">Error loading payments: {error.message}</div>
-      ) : filteredAndSortedPayments.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-muted-foreground">No payments found</p>
+        <div className="p-4 border rounded-md bg-red-50 text-red-700">
+          Error loading payments. Please try again.
         </div>
       ) : (
-        <div className="border rounded-md">
-          <Table>
+        <div className="w-full overflow-auto">
+          <Table className="w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">Amount</TableHead>
-                <TableHead>Counterparty</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Month</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>
+                  <button 
+                    className="flex items-center hover:underline font-medium"
+                    onClick={() => handleSort('amount')}
+                  >
+                    Amount
+                    <SortIndicator field="amount" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button 
+                    className="flex items-center hover:underline font-medium"
+                    onClick={() => handleSort('counterpartyName')}
+                  >
+                    Counterparty
+                    <SortIndicator field="counterpartyName" />
+                  </button>
+                </TableHead>
+                <TableHead>Account Number</TableHead>
+                <TableHead>
+                  <button 
+                    className="flex items-center hover:underline font-medium"
+                    onClick={() => handleSort('targetMonth')}
+                  >
+                    Month
+                    <SortIndicator field="targetMonth" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button 
+                    className="flex items-center hover:underline font-medium"
+                    onClick={() => handleSort('receivedAt')}
+                  >
+                    Received
+                    <SortIndicator field="receivedAt" />
+                  </button>
+                </TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAndSortedPayments.map((payment) => {
-                const childPayments = getChildPayments(payment.id);
-                const hasSplits = childPayments.length > 0;
-                
-                return (
-                  <React.Fragment key={payment.id}>
-                    {/* Parent payment row */}
-                    <TableRow 
-                      className={cn(
-                        "cursor-pointer hover:bg-muted/50",
-                        expandedPaymentId === payment.id && "bg-muted/50"
-                      )}
-                      onClick={() => setExpandedPaymentId(
-                        expandedPaymentId === payment.id ? null : payment.id
-                      )}
-                    >
-                      <TableCell className="font-semibold">
-                        <div className="flex items-center gap-2">
-                          {formatMoney(payment.amount)}
-                          {hasSplits && (
-                            <Badge variant="outline" className="ml-2">
-                              Split
-                            </Badge>
+              {filteredPayments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No payments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPayments.map((payment) => {
+                  const isParent = isParentPayment(payment);
+                  const isChild = !!payment.isSplitFromId;
+                  const childPayments = isParent ? getChildPayments(payment.id) : [];
+                  const hasSplits = childPayments.length > 0;
+                  
+                  return (
+                    <React.Fragment key={payment.id}>
+                      <TableRow 
+                        className={cn(
+                          "cursor-pointer group",
+                          isChild && "bg-slate-50 dark:bg-slate-950/30",
+                          expandedPaymentId === payment.id && "bg-muted/50"
+                        )}
+                        onClick={() => {
+                          setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
+                        }}
+                      >
+                        <TableCell className="text-center">
+                          {isParent ? (
+                            <GitBranch size={18} className="text-green-600" />
+                          ) : isChild ? (
+                            <CornerDownRight size={18} className="text-blue-500" />
+                          ) : (
+                            <div className="w-[18px] h-[18px]" />
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="truncate">{payment.counterpartyName}</TableCell>
-                      <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
-                      <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
-                      <TableCell className="text-right">
-                        {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Expanded content row */}
-                    {expandedPaymentId === payment.id && (
-                      <TableRow className="bg-muted/50">
-                        <TableCell colSpan={6} className="p-0">
-                          <div className="p-4 space-y-4">
-                            <div className="grid grid-cols-1 gap-4">
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
-                                <p>{payment.message || 'No message'}</p>
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
-                                <p>{payment.comment || 'No comment'}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
-                                <p>{payment.variableSymbol || 'Not provided'}</p>
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
-                                <p>{payment.specificSymbol || 'Not provided'}</p>
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
-                                <p>{payment.constantSymbol || 'Not provided'}</p>
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
-                              <p>{payment.bankTransactionId}</p>
-                            </div>
-                            
-                            {/* Child payments section */}
-                            {hasSplits && (
-                              <div className="mt-4 border-t pt-4">
-                                <h3 className="text-sm font-medium mb-3">Split Payments</h3>
-                                <div className="space-y-2">
-                                  {childPayments.map(child => (
-                                    <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
-                                      <CornerDownRight size={16} className="text-muted-foreground" />
-                                      <div className="font-semibold">{formatMoney(child.amount)}</div>
-                                      <div className="text-muted-foreground ml-4">
-                                        Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            <div className="pt-3 flex justify-end">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSplitPayment(payment);
-                                }}
-                                className={cn(
-                                  "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
-                                  hasSplits 
-                                    ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
-                                    : "bg-primary/10 text-primary hover:bg-primary/20"
-                                )}
-                              >
-                                {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
-                                {hasSplits ? "Edit Split" : "Split Payment"}
-                              </button>
-                            </div>
-                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatMoney(payment.amount)}
+                        </TableCell>
+                        <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                        <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
+                        <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
+                        <TableCell className="text-right">
+                          {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+
+                      {/* Expanded content row */}
+                      {expandedPaymentId === payment.id && (
+                        <TableRow className="bg-muted/50">
+                          <TableCell colSpan={7} className="p-0">
+                            <div className="p-4 space-y-4">
+                              <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                                  <p>{payment.message || 'No message'}</p>
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Comment</h3>
+                                  <p>{payment.comment || 'No comment'}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                                  <p>{payment.variableSymbol || 'Not provided'}</p>
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                                  <p>{payment.specificSymbol || 'Not provided'}</p>
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                                  <p>{payment.constantSymbol || 'Not provided'}</p>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                                <p>{payment.bankTransactionId}</p>
+                              </div>
+                              
+                              {/* Child payments section */}
+                              {hasSplits && (
+                                <div className="mt-4 border-t pt-4">
+                                  <h3 className="text-sm font-medium mb-3">Split Payments</h3>
+                                  <div className="space-y-2">
+                                    {childPayments.map(child => (
+                                      <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                        <CornerDownRight size={16} className="text-muted-foreground" />
+                                        <div className="font-semibold">{formatMoney(child.amount)}</div>
+                                        <div className="text-muted-foreground ml-4">
+                                          Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {!payment.isSplitFromId && (
+                              <div className="pt-3 flex justify-end">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSplitPayment(payment);
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
+                                    hasSplits 
+                                      ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
+                                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                                  )}
+                                >
+                                  {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
+                                  {hasSplits ? "Edit Split" : "Split Payment"}
+                                </button>
+                              </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </div>

@@ -31,6 +31,11 @@ export class BankStatementCrud extends BaseCrud<BankStatement> {
   }
 }
 
+export type SortConfig = {
+  field: keyof BankPayment;
+  direction: 'asc' | 'desc';
+}
+
 export class BankPaymentCrud extends BaseCrud<BankPayment> {
   constructor() {
     super(new FirebaseAdapter<BankPayment>("bankPayments"))
@@ -100,16 +105,21 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     ])
   }
 
-  async getFiltered(params: BankPaymentsFilterParams, includeDeleted = false) {
+  async getFiltered(
+    params: BankPaymentsFilterParams, 
+    includeDeleted = false,
+    sortConfig?: SortConfig
+  ): Promise<BankPayment[]> {
     // Create an empty array of query constraints
     const queryConstraints: QueryConstraint[] = []
     
-    Object.keys(params).forEach(key => {
-      if (params[key as keyof BankPaymentsFilterParams] !== null) {
+    // Only add constraints for properties that have defined values
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
         queryConstraints.push({
           field: key, 
           operator: "==",
-          value: params[key as keyof BankPaymentsFilterParams]
+          value: value
         })
       }
     })
@@ -122,7 +132,54 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
       })
     }
     
-    return this.query(queryConstraints)
+    const filteredPayments = await this.query(queryConstraints)
+    
+    // Apply sorting if provided
+    if (sortConfig) {
+      return filteredPayments.sort((a, b) => {
+        const valueA = a[sortConfig.field];
+        const valueB = b[sortConfig.field];
+        
+        // Compare primary sort field values
+        let result = 0;
+        
+        // Handle different data types appropriately
+        if (typeof valueA === 'string' && typeof valueB === 'string') {
+          result = sortConfig.direction === 'asc' 
+            ? valueA.localeCompare(valueB)
+            : valueB.localeCompare(valueA);
+        } else {
+          // For numeric values or dates
+          if (valueA! < valueB!) result = sortConfig.direction === 'asc' ? -1 : 1;
+          if (valueA! > valueB!) result = sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        
+        // If primary values are equal, use target month as secondary sort
+        if (result === 0 && a.targetMonth && b.targetMonth) {
+          return b.targetMonth.localeCompare(a.targetMonth);
+        }
+        
+        return result;
+      });
+    }
+    
+    // If no sorting specified, default to sorting by targetMonth
+    return filteredPayments.sort((a, b) => {
+      // Primary sort by target month (ascending)
+      if (a.targetMonth && b.targetMonth) {
+        const monthComparison = b.targetMonth.localeCompare(a.targetMonth);
+        if (monthComparison !== 0) {
+          return monthComparison;
+        }
+      } else if (a.targetMonth) {
+        return -1; // Items with target month come first
+      } else if (b.targetMonth) {
+        return 1;
+      }
+      
+      // Secondary sort by received date (newest first)
+      return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
+    });
   }
 }
 // define a type PaymentQueryParams which is a subset of Bank Payment where the explicitly mentioned fields are omited and the rest of fields are optional

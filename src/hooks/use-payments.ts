@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getPaymentsForMonth, updatePayment } from '@/lib/services/payment-service'
-import { BankPaymentCrud } from '@/lib/services/crud/bank-crud'
+import { BankPaymentCrud, SortConfig } from '@/lib/services/crud/bank-crud'
 import { BankPayment } from '@/types'
 
 export function useMonthlyPayments(month: string) {
@@ -22,19 +22,27 @@ export function useUpdatePayment() {
   })
 } 
 
-// Hook for loading payments. Possible to filter by assigned to month, month received, user and search query.
-// pass in config as a type to be able to pass in optional parameters. Define the type for the config first.
+// Hook for loading payments with filtering and sorting options
 export type PaymentsQueryConfig = {
   month?: string,
   monthReceived?: string,
   userId?: string,
-  search?: string
+  search?: string,
+  sort?: SortConfig
 }
 
 export function usePayments(config: PaymentsQueryConfig) {
   const bankPaymentCrud = new BankPaymentCrud()
   return useQuery({
-    queryKey: ['payments', config.month, config.monthReceived, config.userId, config.search],
-    queryFn: () => bankPaymentCrud.getFiltered(config)
+    queryKey: ['payments', config.month, config.monthReceived, config.userId, config.search, config.sort],
+    queryFn: () => bankPaymentCrud.getFiltered(
+      {
+        targetMonth: config.month,
+        userId: config.userId,
+        // Note: search is handled in the component, not at the DB level
+      }, 
+      false, // Don't include deleted payments
+      config.sort // Pass sort configuration
+    )
   })
 }
