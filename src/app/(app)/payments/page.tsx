@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { usePayments } from "@/hooks/use-payments"
 
 // Mock payment data (at least 10 payments)
 const mockPayments: BankPayment[] = [
@@ -336,6 +337,7 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState("")
   const [monthFilter, setMonthFilter] = useState<string>("")
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+  const { data: payments, isLoading, error } = usePayments({})
 
   // Handle payment split action
   const handleSplitPayment = (payment: BankPayment) => {

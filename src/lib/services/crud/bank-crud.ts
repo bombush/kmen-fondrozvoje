@@ -1,7 +1,9 @@
 import { BankPayment, BankStatement } from "@/types"
 import { FirebaseAdapter } from "../database/firebase-adapter"
+import { QueryConstraint } from "@/lib/services/database/database-adapter"
 import { BaseCrud } from "./base-crud"
-import { Transaction } from "firebase/firestore"
+import { query, Transaction } from "firebase/firestore"
+import { PaymentsQueryConfig } from "@/hooks/use-payments"
 
 export class BankStatementCrud extends BaseCrud<BankStatement> {
   constructor() {
@@ -97,4 +99,32 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
       }
     ])
   }
+
+  async getFiltered(params: BankPaymentsFilterParams, includeDeleted = false) {
+    // Create an empty array of query constraints
+    const queryConstraints: QueryConstraint[] = []
+    
+    Object.keys(params).forEach(key => {
+      if (params[key as keyof BankPaymentsFilterParams] !== null) {
+        queryConstraints.push({
+          field: key, 
+          operator: "==",
+          value: params[key as keyof BankPaymentsFilterParams]
+        })
+      }
+    })
+    
+    if(!includeDeleted) {
+      queryConstraints.push({
+        field: "deleted",
+        operator: "==",
+        value: false
+      })
+    }
+    
+    return this.query(queryConstraints)
+  }
 }
+// define a type PaymentQueryParams which is a subset of Bank Payment where the explicitly mentioned fields are omited and the rest of fields are optional
+export type BankPaymentsFilterParams = Partial<Omit<BankPayment, "id" | "createdAt" | "updatedAt" | "deleted">>;
+
