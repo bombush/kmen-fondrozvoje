@@ -31200,7 +31200,152 @@ Adjustment:
 
 _**Assistant**_
 
+<think>
+I need to adjust the matrix data calculation to:
 
+1. Show actual payment amounts in the user columns (not just the evenly distributed credits)
+2. Keep the total income calculation as is (sum of all contributions for that month)
+3. Keep the "credits per user" as the total income divided by number of contributing users
+
+So the main change is in how I populate the `userCredits` object. Instead of assigning the same value to each contributing user, I need to map each user to their actual payment amount.
+</think>
+
+🤖 I'll adjust the matrix calculation to display actual payment amounts for each user:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+// Calculate matrix data from actual payments
+const matrixData = useMemo(() => {
+  if (isLoadingUsers || isLoadingPayments) {
+    return { months: [], users: [] };
+  }
+  
+  // Get unique months from payments
+  const monthsSet = new Set<string>();
+  payments.forEach(payment => {
+    if (payment.targetMonth) {
+      monthsSet.add(payment.targetMonth);
+    }
+  });
+  
+  // Sort months chronologically
+  const sortedMonths = Array.from(monthsSet).sort();
+  
+  // Calculate the matrix data for each month
+  const months: MatrixMonth[] = sortedMonths.map(month => {
+    // Get payments for this month
+    const monthPayments = payments.filter(p => p.targetMonth === month && !p.deleted);
+    
+    // Calculate total income for the month
+    const totalIncome = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    // Get active users who contributed this month
+    const activeUserIds = new Set<string>();
+    monthPayments.forEach(p => {
+      if (p.userId) activeUserIds.add(p.userId);
+    });
+    const activeUsers = Array.from(activeUserIds);
+    
+    // Calculate credits per active user
+    const creditsPerUser = activeUsers.length ? Math.round(totalIncome / activeUsers.length) : 0;
+    
+    // Create user credits mapping with actual payment amounts
+    const userCredits: Record<string, number> = {};
+    users.forEach(user => {
+      // Get the payments made by this user for this month
+      const userPayments = monthPayments.filter(p => p.userId === user.id);
+      
+      // Sum up the user's actual payments
+      const userTotal = userPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      // Store the actual amount contributed, not the evenly distributed credits
+      userCredits[user.id] = userTotal;
+    });
+    
+    return {
+      month,
+      totalIncome,
+      creditsPerUser,
+      userCredits
+    };
+  });
+  
+  return { months, users };
+}, [users, payments, isLoadingUsers, isLoadingPayments]);
+````
+
+
+This change:
+
+1. Calculates the total payments for each month correctly (unchanged)
+2. Keeps the "credits per user" calculation as total income divided by the number of contributing users (unchanged)
+3. Changes the `userCredits` mapping to show each user's actual payment amount (the sum of all their payments for that month), rather than the evenly distributed credits
+
+The UI display will now accurately reflect:
+- Total income: Sum of all payments for the month
+- Credits per user: The evenly distributed amount (total income ÷ number of contributors)
+- User columns: The actual payment amount contributed by each user
+
+This gives a more accurate view of both actual contributions and credit distribution.
+
+---
+
+_**User**_
+
+Add button to toggle inactiva users on and off in the Payment Matrix
+
+---
+
+_**Assistant**_
+
+<think>
+I'll add a toggle button to show/hide inactive users in the payment matrix. This will require:
+
+1. Adding a state variable to track whether to show inactive users
+2. Filtering the users array based on this state
+3. Adding a toggle button in the UI to control this state
+
+The implementation should maintain the existing functionality while adding this new feature.
+</think>
+
+🤖 I'll add a toggle button to show/hide inactive users in the payment matrix:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+// Add state to track showing inactive users
+const [showInactiveUsers, setShowInactiveUsers] = useState(false);
+
+// Filter users based on the toggle state
+const displayUsers = useMemo(() => {
+  if (showInactiveUsers) {
+    return users;
+  } else {
+    return users.filter(user => user.isActive);
+  }
+}, [users, showInactiveUsers]);
+
+// Update matrix data to use filtered users
+const matrixData = useMemo(() => {
+  if (isLoadingUsers || isLoadingPayments) {
+    return { months: [], users: displayUsers };
+  }
+  
+  // Get unique months from payments
+  const monthsSet = new Set<string>();
+  payments.forEach(payment => {
+    if (payment.targetMonth) {
+      monthsSet.add(payment.targetMonth);
+    }
+  });
+  
+  // Sort months chronologically
+  const sortedMonths = Array.from(monthsSet).sort();
+  
+  // Calculate the matrix data for each month
+  const months: MatrixMonth[] = sortedMonths.map(month => {
+    // ... (existing code for month calculations)
+    
+    // Create user credits mapping with actual payment amounts
+    const userCredits: Record<string, number> = {};
+    display
 
 ---
 

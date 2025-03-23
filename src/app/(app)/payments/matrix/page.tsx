@@ -31,10 +31,22 @@ export default function PaymentMatrixPage() {
   // Fetch all payments (we'll filter by month in the component)
   const { data: payments = [], isLoading: isLoadingPayments } = usePayments({})
   
+  // Add state to track showing inactive users
+  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
+
+  // Filter users based on the toggle state
+  const displayUsers = useMemo(() => {
+    if (showInactiveUsers) {
+      return users;
+    } else {
+      return users.filter(user => user.isActive);
+    }
+  }, [users, showInactiveUsers]);
+
   // Calculate matrix data from actual payments
   const matrixData = useMemo(() => {
     if (isLoadingUsers || isLoadingPayments) {
-      return { months: [], users: [] };
+      return { months: [], users: displayUsers };
     }
     
     // Get unique months from payments
@@ -68,7 +80,7 @@ export default function PaymentMatrixPage() {
       
       // Create user credits mapping with actual payment amounts
       const userCredits: Record<string, number> = {};
-      users.forEach(user => {
+      displayUsers.forEach(user => {
         // Get the payments made by this user for this month
         const userPayments = monthPayments.filter(p => p.userId === user.id);
         
@@ -87,8 +99,8 @@ export default function PaymentMatrixPage() {
       };
     });
     
-    return { months, users };
-  }, [users, payments, isLoadingUsers, isLoadingPayments]);
+    return { months, users: displayUsers };
+  }, [displayUsers, payments, isLoadingUsers, isLoadingPayments]);
 
   // Function to handle cell click (for future interaction)
   const handleCellClick = (month: string, userId: string, currentValue: number) => {
@@ -114,6 +126,21 @@ export default function PaymentMatrixPage() {
       <p className="text-muted-foreground">
         Credit distribution matrix showing how income is distributed among users by month.
       </p>
+      
+      {/* Add toggle button for inactive users */}
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={() => setShowInactiveUsers(!showInactiveUsers)}
+          className="px-3 py-1 text-sm rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
+        >
+          {showInactiveUsers ? "Hide Inactive Users" : "Show Inactive Users"}
+        </button>
+        {!showInactiveUsers && users.length > displayUsers.length && (
+          <span className="text-xs text-muted-foreground">
+            ({users.length - displayUsers.length} inactive users hidden)
+          </span>
+        )}
+      </div>
 
       <div className="rounded-md border bg-card">
         <div className="overflow-x-auto">
