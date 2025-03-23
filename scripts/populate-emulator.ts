@@ -107,17 +107,17 @@ async function clearCollections() {
   const collections = [
     'users', 
     'projects', 
-    'payments', 
-    'statements', 
-    'pledges', 
+    'bankStatements',
+    'bankPayments',
     'creditAwards',
-    'creditAwardHistory',
+    'pledges', 
     'historyActions'
   ]
   
   for (const collection of collections) {
     try {
       const snapshot = await db.collection(collection).get()
+      
       const batch = db.batch()
       
       snapshot.docs.forEach((doc) => {
@@ -185,10 +185,10 @@ async function populateProjects(users: User[]) {
 async function populateStatements() {
   log('Populating bank statements...')
   const statements = generateStatements()
-  
   const batch = db.batch()
+  
   statements.forEach(statement => {
-    const docRef = db.collection('statements').doc(statement.id)
+    const docRef = db.collection('bankStatements').doc(statement.id)
     batch.set(docRef, statement)
   })
   
@@ -200,24 +200,28 @@ async function populateStatements() {
 
 // Populate payments
 async function populatePayments(statements: BankStatement[], users: User[]) {
-  log('Populating payments...')
+  log('Populating bank payments...')
   const payments = generatePayments(statements, users)
   
   const batchSize = 20
-  for (let i = 0; i < payments.length; i += batchSize) {
-    const currentBatch = db.batch()
+  try {
+    for (let i = 0; i < payments.length; i += batchSize) {
+      const currentBatch = db.batch()
+      
+      const batch = payments.slice(i, i + batchSize)
+      batch.forEach(payment => {
+        const docRef = db.collection('bankPayments').doc(payment.id)
+        currentBatch.set(docRef, payment)
+      })
+      
+      await currentBatch.commit()
+      log(`✓ Created batch of payments: ${i + 1} to ${Math.min(i + batchSize, payments.length)}`)
+    }
     
-    const batch = payments.slice(i, i + batchSize)
-    batch.forEach(payment => {
-      const docRef = db.collection('payments').doc(payment.id)
-      currentBatch.set(docRef, payment)
-    })
-    
-    await currentBatch.commit()
-    log(`✓ Created batch of payments: ${i + 1} to ${Math.min(i + batchSize, payments.length)}`)
+    log(`✓ Created total of ${payments.length} bank payments`)
+  } catch (error) {
+    logError(`Error creating bank payments:`, error)
   }
-  
-  log(`✓ Created total of ${payments.length} payments`)
   
   return payments
 }
@@ -302,7 +306,7 @@ async function initializeEmulator() {
     log(`  - ${users.length} users`)
     log(`  - ${projects.length} projects`)
     log(`  - ${statements.length} bank statements`)
-    log(`  - ${payments.length} payments`)
+    log(`  - ${payments.length} bank payments`)
     log(`  - ${awards.length} credit awards`)
     log(`  - ${pledges.length} pledges`)
     log(`  - ${history.length} history actions`)

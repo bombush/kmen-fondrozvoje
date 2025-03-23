@@ -81,8 +81,26 @@ describe('ProjectWorkflow', () => {
       }
       
       const pledges: Pledge[] = [
-        { id: 'pledge1', projectId, userId: 'user1', amount: 500, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' },
-        { id: 'pledge2', projectId, userId: 'user2', amount: 500, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' }
+        { 
+          id: 'pledge1', 
+          projectId, 
+          userId: 'user1', 
+          amount: 500, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 1'
+        },
+        { 
+          id: 'pledge2', 
+          projectId, 
+          userId: 'user2', 
+          amount: 500, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 2'
+        }
       ]
       
       const updatedProject = {
@@ -137,8 +155,26 @@ describe('ProjectWorkflow', () => {
       // Arrange
       const projectId = 'proj1'
       const pledges: Pledge[] = [
-        { id: 'pledge1', projectId, userId: 'user1', amount: 500, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' },
-        { id: 'pledge2', projectId, userId: 'user2', amount: 300, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' }
+        { 
+          id: 'pledge1', 
+          projectId, 
+          userId: 'user1', 
+          amount: 500, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 1'
+        },
+        { 
+          id: 'pledge2', 
+          projectId, 
+          userId: 'user2', 
+          amount: 300, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 2'
+        }
       ]
       
       mockPledgeCrud.getByProjectId.mockResolvedValue(pledges)
@@ -169,8 +205,26 @@ describe('ProjectWorkflow', () => {
       }
       
       const pledges: Pledge[] = [
-        { id: 'pledge1', projectId, userId: 'user1', amount: 500, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' },
-        { id: 'pledge2', projectId, userId: 'user2', amount: 500, locked: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' }
+        { 
+          id: 'pledge1', 
+          projectId, 
+          userId: 'user1', 
+          amount: 500, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 1'
+        },
+        { 
+          id: 'pledge2', 
+          projectId, 
+          userId: 'user2', 
+          amount: 500, 
+          locked: false, 
+          createdAt: '2023-01-01', 
+          updatedAt: '2023-01-01',
+          description: 'Test pledge 2'
+        }
       ]
       
       const deletedProject = {

@@ -32,7 +32,9 @@ export async function processBankStatement(statement: BankStatement): Promise<Ba
         counterpartyAccountNumber: raw.counterpartyAccountNumber,
         counterpartyName: raw.counterpartyName,
         comment: "",
-        targetMonth: new Date(raw.receivedAt).toISOString().slice(0, 7)
+        targetMonth: new Date(raw.receivedAt).toISOString().slice(0, 7),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }))
     )
 
@@ -88,7 +90,9 @@ export async function splitPayment(
     counterpartyName: payment.counterpartyName,
     comment: `Virtual payment split from ${payment.id}`,
     targetMonth: split.targetMonth,
-    isSplitFromId: payment.id
+    isSplitFromId: payment.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }))
 
   // Update original payment amount (remaining unsplit amount)
