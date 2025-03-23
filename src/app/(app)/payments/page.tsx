@@ -61,6 +61,7 @@ export default function PaymentsPage() {
     field: 'receivedAt',
     direction: 'desc'
   })
+  const [hoveredPaymentId, setHoveredPaymentId] = useState<string | null>(null)
   
   // Create query config
   const queryConfig: PaymentsQueryConfig = useMemo(() => ({
@@ -133,6 +134,29 @@ export default function PaymentsPage() {
     return sortConfig.direction === 'asc' 
       ? <ChevronUp size={14} className="ml-1" />
       : <ChevronDown size={14} className="ml-1" />;
+  };
+  
+  // Enhance the isRelatedPayment function to identify the specific relationship type
+  const getRelationshipType = (payment: BankPayment) => {
+    if (!hoveredPaymentId || !allPayments) return null;
+    
+    // Skip if this is the hovered payment itself
+    if (payment.id === hoveredPaymentId) return "self";
+    
+    const hoveredPayment = allPayments.find(p => p.id === hoveredPaymentId);
+    if (!hoveredPayment) return null;
+    
+    // This payment is the parent of the hovered payment
+    if (payment.id === hoveredPayment.isSplitFromId) return "parent";
+    
+    // This payment is a child of the hovered payment
+    if (payment.isSplitFromId === hoveredPaymentId) return "child";
+    
+    // This payment is a sibling of the hovered payment (shares same parent)
+    if (hoveredPayment.isSplitFromId && 
+        payment.isSplitFromId === hoveredPayment.isSplitFromId) return "sibling";
+    
+    return null;
   };
   
   return (
@@ -263,13 +287,21 @@ export default function PaymentsPage() {
                     <React.Fragment key={payment.id}>
                       <TableRow 
                         className={cn(
-                          "cursor-pointer group",
-                          isChild && "bg-slate-50 dark:bg-slate-950/30",
-                          expandedPaymentId === payment.id && "bg-muted/50"
+                          "cursor-pointer transition-colors",
+                          isParentPayment(payment) && !expandedPaymentId ? "border-l-2 border-l-primary" : "",
+                          payment.isSplitFromId ? "border-l-2 border-l-orange-500" : "",
+                          {
+                            "outline outline-2 outline-green-500": getRelationshipType(payment) === "parent",
+                            "outline outline-2 outline-blue-500": getRelationshipType(payment) === "child",
+                            "outline outline-1 outline-gray-300 dark:outline-gray-700": getRelationshipType(payment) === "sibling",
+                            "bg-muted/30": getRelationshipType(payment) === "self",
+                          }
                         )}
                         onClick={() => {
                           setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
                         }}
+                        onMouseEnter={() => setHoveredPaymentId(payment.id)}
+                        onMouseLeave={() => setHoveredPaymentId(null)}
                       >
                         <TableCell className="text-center">
                           {isParent ? (

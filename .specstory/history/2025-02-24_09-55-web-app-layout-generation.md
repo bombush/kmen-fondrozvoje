@@ -30733,7 +30733,168 @@ I need to add a similar section that checks if the payment is a child payment (h
 I'll need to:
 1. Check if the payment has a `isSplitFromId`
 2. If it does, find the parent payment from the `allPayments` array
-3. Display information about the parent payment in a similar format to how child payments
+3. Display information about the parent payment in a similar format to how child payments are displayed
+
+Let me create this section:
+</think>
+
+🤖 I'll add a section that shows parent payment information when viewing a child payment:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Inside the expanded payment section in TableCell, after counterparty info and before symbols section
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <h3 className="text-sm font-medium text-muted-foreground">Counterparty</h3>
+    <p>{payment.counterpartyName || 'Not provided'}</p>
+    <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
+  </div>
+  <div>
+    <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+    <p>{payment.message || 'No message'}</p>
+  </div>
+</div>
+
+{/* Parent payment section - show when this is a child payment */}
+{payment.isSplitFromId && (
+  <div className="mt-4 border-t pt-4">
+    <h3 className="text-sm font-medium mb-3">Is child payment of</h3>
+    {allPayments && (() => {
+      const parentPayment = allPayments.find(p => p.id === payment.isSplitFromId);
+      if (!parentPayment) return <p className="text-sm text-muted-foreground">Parent payment not found</p>;
+      
+      return (
+        <div className="flex items-center gap-2 p-2 rounded-md bg-background border">
+          <CornerUpRight size={16} className="text-muted-foreground" />
+          <div className="font-semibold">{formatMoney(parentPayment.amount)}</div>
+          <div className="text-muted-foreground ml-4">
+            Received: <span className="font-medium">{formatDate(parentPayment.receivedAt)}</span>
+          </div>
+          <button 
+            className="ml-auto text-xs text-primary hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedPaymentId(parentPayment.id);
+            }}
+          >
+            View parent
+          </button>
+        </div>
+      );
+    })()}
+  </div>
+)}
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div>
+    <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+    <p>{payment.variableSymbol || 'Not provided'}</p>
+  </div>
+````
+
+This change adds a new section that appears only when viewing a child payment. It:
+
+1. Displays a section title "Is child payment of"
+2. Finds the parent payment from the allPayments array
+3. Shows the parent payment's amount and received date
+4. Includes a "View parent" button that lets the user quickly navigate to the parent payment's details
+5. Uses the `CornerUpRight` icon to indicate the relationship to the parent (opposite of the `CornerDownRight` used for child payments)
+
+The design mirrors the child payments section but with upward-pointing icons to indicate the parent relationship. The user can now easily understand the payment structure from both directions.
+
+---
+
+_**User**_
+
+When hovering over a payment, highlight all of its parents or children
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants to add functionality to highlight all related payments (parents and children) when hovering over a payment in the payments table. 
+
+First, I need to understand the current code structure. In `src/app/(app)/payments/page.tsx`, we have a table of payments with expandable rows. Each payment can have child payments (if it's been split) or a parent payment (if it was created as a result of a split).
+
+To implement the highlighting functionality, I'll need to:
+
+1. Add state to track which payment ID is being hovered
+2. Add a function to determine if a payment is related to the hovered payment
+3. Modify the TableRow style based on the hovering state
+4. Add onMouseEnter and onMouseLeave handlers to the TableRow
+
+The highlighting should work in both directions - when hovering over a parent payment, all its children should be highlighted, and when hovering over a child payment, its parent should be highlighted.
+</think>
+
+🤖 I'll add functionality to highlight all related payments (parents and children) when hovering over a payment in the table:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Add this state after your other useState declarations
+const [hoveredPaymentId, setHoveredPaymentId] = useState<string | null>(null)
+
+// Add this function before the return statement
+const isRelatedPayment = (payment: BankPayment) => {
+  if (!hoveredPaymentId || !allPayments) return false;
+  
+  // The payment itself is related
+  if (payment.id === hoveredPaymentId) return true;
+  
+  // If this is the parent of the hovered payment
+  if (payment.id === allPayments.find(p => p.id === hoveredPaymentId)?.isSplitFromId) return true;
+  
+  // If this is a child of the hovered payment
+  if (payment.isSplitFromId === hoveredPaymentId) return true;
+  
+  // If this is a sibling of the hovered payment (shares same parent)
+  const hoveredPayment = allPayments.find(p => p.id === hoveredPaymentId);
+  if (hoveredPayment?.isSplitFromId && payment.isSplitFromId === hoveredPayment.isSplitFromId) return true;
+  
+  return false;
+};
+
+// Modify the TableRow to add hover handlers and highlighting
+// Inside the filteredPayments.map() in the return statement
+<TableRow 
+  key={payment.id}
+  className={cn(
+    "cursor-pointer transition-colors",
+    isParentPayment(payment) && !expandedPaymentId ? "border-l-2 border-l-primary" : "",
+    payment.isSplitFromId ? "border-l-2 border-l-orange-500" : "",
+    isRelatedPayment(payment) ? "bg-muted/50" : ""
+  )}
+  onClick={() => handleRowClick(payment.id)}
+  onMouseEnter={() => setHoveredPaymentId(payment.id)}
+  onMouseLeave={() => setHoveredPaymentId(null)}
+>
+````
+
+This implementation:
+
+1. Adds a new `hoveredPaymentId` state to track which payment is being hovered
+2. Creates an `isRelatedPayment` function that determines if a payment is related to the currently hovered payment, checking for:
+   - The payment itself
+   - The parent of the hovered payment
+   - Children of the hovered payment
+   - Siblings of the hovered payment (same parent)
+3. Modifies the TableRow to:
+   - Add onMouseEnter/onMouseLeave handlers to update the hover state
+   - Add conditional styling with a light background color when the payment is related to the hovered one
+
+This creates a visual connection between related payments when hovering, making it easier to see the relationships between split payments and their parents/children.
+
+---
+
+_**User**_
+
+Hover indicating parent-child relationship should cause different highlight than is the normal highlight for clickable rows.
+
+Use green outline for parent payment row and blue outline for child payment row.
+
+---
+
+_**Assistant**_
+
+
 
 ---
 
