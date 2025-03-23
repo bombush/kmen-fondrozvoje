@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { usePayments } from "@/hooks/use-payments"
 
@@ -374,6 +375,16 @@ export default function PaymentsPage() {
     new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
   );
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    )
+  }
+  
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
