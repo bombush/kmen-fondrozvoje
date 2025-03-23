@@ -4,12 +4,14 @@
  */
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { toast } from "sonner"
-import { User } from "@/types"
+import { User, BankPayment } from "@/types"
 import { cn, formatMoney } from "@/lib/utils"
+import { useUsers } from "@/hooks/use-users"
+import { usePayments } from "@/hooks/use-payments"
 
-// Mock data for the payment matrix
+// Types for the payment matrix
 type MatrixMonth = {
   month: string // Format: YYYY-MM
   totalIncome: number
@@ -22,215 +24,71 @@ type PaymentMatrixData = {
   users: User[]
 }
 
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: "user-001",
-    name: "User1",
-    email: "user1@example.com",
-    avatar: "https://i.pravatar.cc/150?img=1",
-    role: "user",
-    //balance: 100,
-    specificSymbol: "US001",
-    variableSymbol: "123456",
-    constantSymbol: "001",
-    isActive: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "user-002",
-    name: "User2",
-    email: "user2@example.com",
-    avatar: "https://i.pravatar.cc/150?img=2",
-    role: "user",
-    //balance: 200,
-    specificSymbol: "US002",
-    variableSymbol: "234567",
-    constantSymbol: "002",
-    isActive: true,
-    createdAt: "2024-01-02T00:00:00Z",
-    updatedAt: "2024-01-02T00:00:00Z"
-  },
-  {
-    id: "user-003",
-    name: "User3",
-    email: "user3@example.com",
-    avatar: "https://i.pravatar.cc/150?img=3",
-    role: "user",
-    //balance: 300,
-    specificSymbol: "US003",
-    variableSymbol: "345678",
-    constantSymbol: "003",
-    isActive: true,
-    createdAt: "2024-01-03T00:00:00Z",
-    updatedAt: "2024-01-03T00:00:00Z"
-  },
-  {
-    id: "user-004",
-    name: "User4",
-    email: "user4@example.com",
-    avatar: "https://i.pravatar.cc/150?img=4",
-    role: "user",
-    //balance: 400,
-    specificSymbol: "US004",
-    variableSymbol: "456789",
-    constantSymbol: "004",
-    isActive: true,
-    createdAt: "2024-01-04T00:00:00Z",
-    updatedAt: "2024-01-04T00:00:00Z"
-  },
-  {
-    id: "user-005",
-    name: "User5",
-    email: "user5@example.com",
-    avatar: "https://i.pravatar.cc/150?img=5",
-    role: "user",
-    //balance: 500,
-    specificSymbol: "US005",
-    variableSymbol: "567890",
-    constantSymbol: "005",
-    isActive: true,
-    createdAt: "2024-01-05T00:00:00Z",
-    updatedAt: "2024-01-05T00:00:00Z"
-  },
-  {
-    id: "user-006",
-    name: "User6",
-    email: "user6@example.com",
-    avatar: "https://i.pravatar.cc/150?img=6",
-    role: "user",
-    //balance: 600,
-    specificSymbol: "US006",
-    variableSymbol: "678901",
-    constantSymbol: "006",
-    isActive: true,
-    createdAt: "2024-01-06T00:00:00Z",
-    updatedAt: "2024-01-06T00:00:00Z"
-  },
-  {
-    id: "user-007",
-    name: "User7",
-    email: "user7@example.com",
-    avatar: "https://i.pravatar.cc/150?img=7",
-    role: "user",
-    //balance: 700,
-    specificSymbol: "US007",
-    variableSymbol: "789012",
-    constantSymbol: "007",
-    isActive: true,
-    createdAt: "2024-01-07T00:00:00Z",
-    updatedAt: "2024-01-07T00:00:00Z"
-  },
-  {
-    id: "user-008",
-    name: "User8",
-    email: "user8@example.com",
-    avatar: "https://i.pravatar.cc/150?img=8",
-    role: "user",
-    //balance: 800,
-    specificSymbol: "US008",
-    variableSymbol: "890123",
-    constantSymbol: "008",
-    isActive: true,
-    createdAt: "2024-01-08T00:00:00Z",
-    updatedAt: "2024-01-08T00:00:00Z"
-  },
-  {
-    id: "user-009",
-    name: "User9",
-    email: "user9@example.com",
-    avatar: "https://i.pravatar.cc/150?img=9",
-    role: "user",
-    //balance: 900,
-    specificSymbol: "US009",
-    variableSymbol: "901234",
-    constantSymbol: "009",
-    isActive: true,
-    createdAt: "2024-01-09T00:00:00Z",
-    updatedAt: "2024-01-09T00:00:00Z"
-  },
-  {
-    id: "user-010",
-    name: "User10",
-    email: "user10@example.com",
-    avatar: "https://i.pravatar.cc/150?img=10",
-    role: "user",
-    //balance: 1000,
-    specificSymbol: "US010",
-    variableSymbol: "012345",
-    constantSymbol: "010",
-    isActive: true,
-    createdAt: "2024-01-10T00:00:00Z",
-    updatedAt: "2024-01-10T00:00:00Z"
-  }
-]
-
-const mockMatrixData: MatrixMonth[] = [
-  {
-    month: "2025-02",
-    totalIncome: 3600,
-    creditsPerUser: 300,
-    userCredits: {
-      "user-001": 300,
-      "user-002": 300,
-      "user-003": 300,
-      "user-004": 300,
-      "user-005": 300,
-      "user-006": 300,
-      "user-007": 300,
-      "user-008": 300,
-      "user-009": 300,
-      "user-010": 300,
-      "user-011": 300,
-      "user-012": 300
-    }
-  },
-  {
-    month: "2025-03",
-    totalIncome: 2400,
-    creditsPerUser: 300,
-    userCredits: {
-      "user-001": 300,
-      "user-002": 0,
-      "user-003": 300,
-      "user-004": 0,
-      "user-005": 300,
-      "user-006": 0,
-      "user-007": 300,
-      "user-008": 0,
-      "user-009": 300,
-      "user-010": 0,
-      "user-011": 300,
-      "user-012": 0
-    }
-  },
-  {
-    month: "2025-04",
-    totalIncome: 4800,
-    creditsPerUser: 400,
-    userCredits: {
-      "user-001": 400,
-      "user-002": 400,
-      "user-003": 400,
-      "user-004": 400,
-      "user-005": 400,
-      "user-006": 400,
-      "user-007": 400,
-      "user-008": 400,
-      "user-009": 400,
-      "user-010": 400,
-      "user-011": 400,
-      "user-012": 400
-    }
-  }
-]
-
 export default function PaymentMatrixPage() {
-  const [matrixData, setMatrixData] = useState<PaymentMatrixData>({
-    months: mockMatrixData,
-    users: mockUsers
-  })
+  // Fetch actual users
+  const { data: users = [], isLoading: isLoadingUsers } = useUsers(true)
+  
+  // Fetch all payments (we'll filter by month in the component)
+  const { data: payments = [], isLoading: isLoadingPayments } = usePayments({})
+  
+  // Calculate matrix data from actual payments
+  const matrixData = useMemo(() => {
+    if (isLoadingUsers || isLoadingPayments) {
+      return { months: [], users: [] };
+    }
+    
+    // Get unique months from payments
+    const monthsSet = new Set<string>();
+    payments.forEach(payment => {
+      if (payment.targetMonth) {
+        monthsSet.add(payment.targetMonth);
+      }
+    });
+    
+    // Sort months chronologically
+    const sortedMonths = Array.from(monthsSet).sort();
+    
+    // Calculate the matrix data for each month
+    const months: MatrixMonth[] = sortedMonths.map(month => {
+      // Get payments for this month
+      const monthPayments = payments.filter(p => p.targetMonth === month && !p.deleted);
+      
+      // Calculate total income for the month
+      const totalIncome = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      // Get active users who contributed this month
+      const activeUserIds = new Set<string>();
+      monthPayments.forEach(p => {
+        if (p.userId) activeUserIds.add(p.userId);
+      });
+      const activeUsers = Array.from(activeUserIds);
+      
+      // Calculate credits per active user
+      const creditsPerUser = activeUsers.length ? Math.round(totalIncome / activeUsers.length) : 0;
+      
+      // Create user credits mapping with actual payment amounts
+      const userCredits: Record<string, number> = {};
+      users.forEach(user => {
+        // Get the payments made by this user for this month
+        const userPayments = monthPayments.filter(p => p.userId === user.id);
+        
+        // Sum up the user's actual payments
+        const userTotal = userPayments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Store the actual amount contributed, not the evenly distributed credits
+        userCredits[user.id] = userTotal;
+      });
+      
+      return {
+        month,
+        totalIncome,
+        creditsPerUser,
+        userCredits
+      };
+    });
+    
+    return { months, users };
+  }, [users, payments, isLoadingUsers, isLoadingPayments]);
 
   // Function to handle cell click (for future interaction)
   const handleCellClick = (month: string, userId: string, currentValue: number) => {
@@ -242,6 +100,12 @@ export default function PaymentMatrixPage() {
   // Function to format month for display
   const formatMonth = (month: string) => {
     return month // Could enhance with localization if needed
+  }
+
+  if (isLoadingUsers || isLoadingPayments) {
+    return <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+    </div>
   }
 
   return (

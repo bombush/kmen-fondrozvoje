@@ -30894,6 +30894,312 @@ Use green outline for parent payment row and blue outline for child payment row.
 
 _**Assistant**_
 
+<think>
+I need to modify the hover highlighting behavior to make parent-child relationships more visually distinct. The request is to:
+
+1. Make the parent-child relationship highlighting different from the normal hover highlighting
+2. Use a green outline for parent payment rows
+3. Use a blue outline for child payment rows
+
+Let me think about how to approach this. Currently, I'm using `isRelatedPayment(payment)` to apply `bg-muted/50` to all related payments. Instead, I should create distinct style treatments for different relationships:
+
+1. For parent payments of the hovered item: green outline
+2. For child payments of the hovered item: blue outline
+3. For siblings: maybe a lighter highlight
+
+I'll modify the highlighting logic to have these distinct visual treatments.
+</think>
+
+🤖 I'll update the hover highlighting to use different colors for parent-child relationships:
+
+````typescript:src/app/(app)/payments/page.tsx
+// Enhance the isRelatedPayment function to identify the specific relationship type
+const getRelationshipType = (payment: BankPayment) => {
+  if (!hoveredPaymentId || !allPayments) return null;
+  
+  // Skip if this is the hovered payment itself
+  if (payment.id === hoveredPaymentId) return "self";
+  
+  const hoveredPayment = allPayments.find(p => p.id === hoveredPaymentId);
+  if (!hoveredPayment) return null;
+  
+  // This payment is the parent of the hovered payment
+  if (payment.id === hoveredPayment.isSplitFromId) return "parent";
+  
+  // This payment is a child of the hovered payment
+  if (payment.isSplitFromId === hoveredPaymentId) return "child";
+  
+  // This payment is a sibling of the hovered payment (shares same parent)
+  if (hoveredPayment.isSplitFromId && 
+      payment.isSplitFromId === hoveredPayment.isSplitFromId) return "sibling";
+  
+  return null;
+};
+
+// Then update the TableRow styling
+<TableRow 
+  className={cn(
+    "cursor-pointer transition-colors",
+    isParentPayment(payment) && !expandedPaymentId ? "border-l-2 border-l-primary" : "",
+    payment.isSplitFromId ? "border-l-2 border-l-orange-500" : "",
+    {
+      "outline outline-2 outline-green-500": getRelationshipType(payment) === "parent",
+      "outline outline-2 outline-blue-500": getRelationshipType(payment) === "child",
+      "outline outline-1 outline-gray-300 dark:outline-gray-700": getRelationshipType(payment) === "sibling",
+      "bg-muted/30": getRelationshipType(payment) === "self",
+    }
+  )}
+  onClick={() => {
+    setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)
+  }}
+  onMouseEnter={() => setHoveredPaymentId(payment.id)}
+  onMouseLeave={() => setHoveredPaymentId(null)}
+>
+````
+
+This change:
+
+1. Introduces a `getRelationshipType` function that precisely identifies the relationship between the hovered payment and each row
+2. Uses different outline styles based on the relationship:
+   - Green outline for parent payments 
+   - Blue outline for child payments
+   - Light gray outline for sibling payments
+   - Light background highlight for the hovered payment itself
+
+The outlines make the parent-child relationships immediately obvious when hovering, while still maintaining the existing border indicators that show which payments are splits or parents permanently.
+
+---
+
+_**User**_
+
+Use actual payment data in the payment matrix. Do not change the design or layout.
+
+---
+
+_**Assistant**_
+
+<think>
+I need to modify the payment matrix page to use actual payment data rather than the mock data it's currently using. I should:
+
+1. Keep the same design and layout as requested
+2. Use the actual payment data from the system
+3. Connect to the necessary APIs/services to fetch real data
+
+Looking at the current code, it's using a mock matrix structure with:
+- months (array of month objects with total income, credits per user, and per-user credit allocation)
+- users (array of user objects)
+
+To use real data, I need to:
+1. Fetch real users from the user service
+2. Fetch payment data for each month
+3. Calculate the credit distribution matrix 
+
+Let me implement this while maintaining the same interface and functionality.
+</think>
+
+🤖 I'll modify the payment matrix page to use actual payment data instead of the mocked data:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+/**
+ * Payment matrix page
+ * Shows payments in a user/month matrix
+ */
+"use client"
+
+import React, { useState, useEffect, useMemo } from "react"
+import { toast } from "sonner"
+import { User, BankPayment } from "@/types"
+import { cn, formatMoney } from "@/lib/utils"
+import { useUsers } from "@/hooks/use-users"
+import { usePayments } from "@/hooks/use-payments"
+
+// Types for the payment matrix
+type MatrixMonth = {
+  month: string // Format: YYYY-MM
+  totalIncome: number
+  creditsPerUser: number
+  userCredits: Record<string, number>
+}
+
+type PaymentMatrixData = {
+  months: MatrixMonth[]
+  users: User[]
+}
+
+export default function PaymentMatrixPage() {
+  // Fetch actual users
+  const { data: users = [], isLoading: isLoadingUsers } = useUsers(true)
+  
+  // Fetch all payments (we'll filter by month in the component)
+  const { data: payments = [], isLoading: isLoadingPayments } = usePayments({})
+  
+  // Calculate matrix data from actual payments
+  const matrixData = useMemo(() => {
+    if (isLoadingUsers || isLoadingPayments) {
+      return { months: [], users: [] };
+    }
+    
+    // Get unique months from payments
+    const monthsSet = new Set<string>();
+    payments.forEach(payment => {
+      if (payment.targetMonth) {
+        monthsSet.add(payment.targetMonth);
+      }
+    });
+    
+    // Sort months chronologically
+    const sortedMonths = Array.from(monthsSet).sort();
+    
+    // Calculate the matrix data for each month
+    const months: MatrixMonth[] = sortedMonths.map(month => {
+      // Get payments for this month
+      const monthPayments = payments.filter(p => p.targetMonth === month && !p.deleted);
+      
+      // Calculate total income for the month
+      const totalIncome = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      // Get active users who contributed this month
+      const activeUserIds = new Set<string>();
+      monthPayments.forEach(p => {
+        if (p.userId) activeUserIds.add(p.userId);
+      });
+      const activeUsers = Array.from(activeUserIds);
+      
+      // Calculate credits per active user
+      const creditsPerUser = activeUsers.length ? Math.round(totalIncome / activeUsers.length) : 0;
+      
+      // Create user credits mapping
+      const userCredits: Record<string, number> = {};
+      users.forEach(user => {
+        userCredits[user.id] = activeUserIds.has(user.id) ? creditsPerUser : 0;
+      });
+      
+      return {
+        month,
+        totalIncome,
+        creditsPerUser,
+        userCredits
+      };
+    });
+    
+    return { months, users };
+  }, [users, payments, isLoadingUsers, isLoadingPayments]);
+
+  // Function to handle cell click (for future interaction)
+  const handleCellClick = (month: string, userId: string, currentValue: number) => {
+    toast.info(`Cell clicked: ${month}, User ID: ${userId}, Value: ${currentValue}`, {
+      description: "Editing functionality would be implemented here"
+    })
+  }
+
+  // Function to format month for display
+  const formatMonth = (month: string) => {
+    return month // Could enhance with localization if needed
+  }
+
+  if (isLoadingUsers || isLoadingPayments) {
+    return <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+    </div>
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <h1 className="text-2xl font-bold tracking-tight">Payment Matrix</h1>
+      <p className="text-muted-foreground">
+        Credit distribution matrix showing how income is distributed among users by month.
+      </p>
+
+      <div className="rounded-md border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-b-2 border-b-border">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Month</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Total income</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Credits per user</th>
+                {matrixData.users.map(user => (
+                  <th key={user.id} className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    {user.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrixData.months.map(month => (
+                <tr key={month.month} className="border-b border-b-muted/20">
+                  <td className="px-4 py-3">{formatMonth(month.month)}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-white-600 dark:text-black-400">
+                      {formatMoney(month.totalIncome)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-blue-600 dark:text-blue-400">
+                      {formatMoney(month.creditsPerUser)}
+                    </span>
+                  </td>
+                  {matrixData.users.map(user => (
+                    <td
+                      key={`${month.month}-${user.id}`}
+                      className={cn(
+                        "px-4 py-3 cursor-pointer hover:bg-muted/50",
+                        month.userCredits[user.id] ? "" : "text-muted-foreground"
+                      )}
+                      onClick={() => handleCellClick(month.month, user.id, month.userCredits[user.id] || 0)}
+                    >
+                      {month.userCredits[user.id] ? (
+                        <span className="text-green-600 dark:text-green-400">
+                          {formatMoney(month.userCredits[user.id])}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        <p>Click on any user credit cell to edit.</p>
+        <p>Green values show credit allocations, empty cells are shown in gray.</p>
+      </div>
+    </div>
+  )
+}
+````
+
+This implementation:
+
+1. Uses the `useUsers` hook to fetch all actual users from the system
+2. Uses the `usePayments` hook to fetch all payment data
+3. Calculates the matrix data based on real payments by:
+   - Extracting unique months from payment data
+   - Calculating total income for each month
+   - Determining which users contributed in each month
+   - Distributing credits evenly among contributing users
+4. Shows a loading indicator while data is being fetched
+5. Maintains the exact same UI layout and styling as the original
+
+The matrix now shows real distribution data based on actual payments in the system. The credit distribution follows the rule of dividing total income evenly among users who contributed in a given month.
+
+---
+
+_**User**_
+
+Adjustment:
+- The columns for each user should display actual amount contributed (i.e. BankPayment.amount).
+- total income should display the sum of all contributions with that targetMonth
+- credits per user should display credits awarded to each user (i.e. total income divided by number of contributors)
+
+---
+
+_**Assistant**_
+
 
 
 ---
