@@ -93,4 +93,35 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     const awards = await this.getByMonth(month)
     return awards.reduce((total, award) => total + award.amount, 0)
   }
+
+  /**
+   * Get paginated credit awards
+   * @param constraints Query constraints
+   * @param limit Number of items per page
+   * @param startAfter Document to start after (cursor for pagination)
+   */
+  async getWithPagination(
+    constraints: QueryConstraint[] = [],
+    limit: number = 40,
+    startAfter?: CreditAward | null
+  ): Promise<CreditAward[]> {
+    const adapter = this.db as FirebaseAdapter<CreditAward>
+    
+    // Create a basic query with constraints
+    let query = adapter.createQueryWithConstraints(constraints)
+    
+    // Apply sorting - sort by createdAt in descending order
+    query = adapter.addOrderBy(query, 'createdAt', 'desc')
+    
+    // Apply limit
+    query = adapter.addLimit(query, limit)
+    
+    // Apply startAfter if provided
+    if (startAfter) {
+      query = await adapter.addStartAfter(query, startAfter)
+    }
+    
+    // Execute the query
+    return adapter.executeQuery(query)
+  }
 } 

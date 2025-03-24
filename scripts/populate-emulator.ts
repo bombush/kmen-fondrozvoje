@@ -50,7 +50,7 @@ async function waitForEmulators() {
   // Add check to Make sure emulators are running: firebase emulators:start
     // poll if emulators are running periodically until a timeout is reached. 
     // Throw error if they are not running after the timeout
-    const timeout = 20000
+    const timeout = 30000
     const startTime = Date.now()
     log('Using Firebase Auth Emulator at:', process.env.FIREBASE_AUTH_EMULATOR_HOST)
     log('Using Firestore Emulator at:', process.env.FIRESTORE_EMULATOR_HOST)

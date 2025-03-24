@@ -12,8 +12,12 @@ import {
   query,
   runTransaction,
   updateDoc,
-  where
+  where,
+  orderBy,
+  limit,
+  startAfter
 } from "firebase/firestore"
+import { Query } from "firebase/firestore"
 import { db } from "../../firebase/config"
 
 export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapter<T> {
@@ -74,5 +78,52 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
 
   async runTransaction<R>(updateFunction: (transaction: Transaction) => Promise<R>): Promise<R> {
     return runTransaction(this.db, updateFunction)
+  }
+
+  /**
+   * Create a query with constraints
+   */
+  createQueryWithConstraints(constraints: QueryConstraint[]): Query<T> {
+    const ref = this.collectionRef as CollectionReference<T>
+    
+    // Apply all query constraints
+    const queryConstraints = constraints.map(constraint => {
+      const { field, operator, value } = constraint
+      return where(field, operator, value)
+    })
+    
+    return query(ref, ...queryConstraints)
+  }
+
+  /**
+   * Add ordering to a query
+   */
+  addOrderBy(queryIn: Query<T>, field: string, direction: 'asc' | 'desc'): Query<T> {
+    return query(queryIn, orderBy(field, direction))
+  }
+
+  /**
+   * Add a limit to a query
+   */
+  addLimit(queryIn: Query<T>, limitIn: number): Query<T> {
+    return query(queryIn, limit(limitIn))
+  }
+
+  /**
+   * Add a startAfter cursor to a query
+   */
+  async addStartAfter(queryIn: Query<T>, startAfterIn: T): Promise<Query<T>> {
+    // For Firestore, we need to get the DocumentSnapshot for the startAfter document
+    const docSnap = await getDoc(doc(this.collectionRef, startAfterIn.id))
+    
+    return query(queryIn, startAfter(docSnap))
+  }
+
+  /**
+   * Execute a query and return the results
+   */
+  async executeQuery(queryIn: Query<T>): Promise<T[]> {
+    const snapshot = await getDocs(queryIn)
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
   }
 }

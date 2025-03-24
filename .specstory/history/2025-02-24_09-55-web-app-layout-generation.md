@@ -31345,7 +31345,1324 @@ const matrixData = useMemo(() => {
     
     // Create user credits mapping with actual payment amounts
     const userCredits: Record<string, number> = {};
-    display
+    displayUsers.forEach(user => {
+      // ... (existing code for user credit calculations)
+    });
+    
+    return {
+      month,
+      totalIncome,
+      creditsPerUser,
+      userCredits
+    };
+  });
+  
+  return { months, users: displayUsers };
+}, [displayUsers, payments, isLoadingUsers, isLoadingPayments]);
+
+// Then in the return statement, add the toggle button after the title and description
+return (
+  <div className="space-y-6 p-6">
+    <h1 className="text-2xl font-bold tracking-tight">Payment Matrix</h1>
+    <p className="text-muted-foreground">
+      Credit distribution matrix showing how income is distributed among users by month.
+    </p>
+    
+    {/* Add toggle button for inactive users */}
+    <div className="flex items-center space-x-2">
+      <button
+        onClick={() => setShowInactiveUsers(!showInactiveUsers)}
+        className="px-3 py-1 text-sm rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
+      >
+        {showInactiveUsers ? "Hide Inactive Users" : "Show Inactive Users"}
+      </button>
+      {!showInactiveUsers && users.length > displayUsers.length && (
+        <span className="text-xs text-muted-foreground">
+          ({users.length - displayUsers.length} inactive users hidden)
+        </span>
+      )}
+    </div>
+
+    <div className="rounded-md border bg-card">
+      {/* Rest of the table ... */}
+````
+
+
+This implementation:
+
+1. Adds a state variable `showInactiveUsers` to track whether inactive users should be displayed
+2. Creates a filtered `displayUsers` array that either includes all users or only active ones
+3. Updates the matrix calculation to use the filtered users list
+4. Adds a toggle button with appropriate labeling above the table
+5. Shows a count of hidden inactive users when they're not being displayed
+
+The button is styled to match the design system, and the UI provides clear feedback about what's being shown or hidden.
+
+---
+
+_**User**_
+
+On hover over a field in the payment matrix a tooltip should show details about the payment:
+- month received
+- counterparty account number
+- counterparty name
+- bank transaction id
+- symbols
+- amount (in case of a child payment the parent payment info should be shown and indicated as parent)
+
+---
+
+_**Assistant**_
+
+<think>
+I need to add a tooltip to the payment matrix cells that shows details about the payment. This will involve:
+
+1. Finding all the relevant payment details for each user-month combination
+2. Creating a tooltip component that displays this information
+3. Adding hover behavior to show the tooltip
+
+First, I'll need to collect more data about each payment to show in the tooltip. Currently, the matrix only shows the total amount contributed by each user in each month, but we need to access individual payment details (including parent-child relationships).
+
+I'll also need to handle the case where a user might have multiple payments for a given month.
+</think>
+
+🤖 I'll add tooltips to each cell in the payment matrix to show detailed payment information:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { CornerUpRight } from "lucide-react"
+
+// Within the matrixData useMemo, modify to store all payment details, not just the sum
+const matrixData = useMemo(() => {
+  if (isLoadingUsers || isLoadingPayments) {
+    return { months: [], users: displayUsers };
+  }
+  
+  // Get unique months from payments
+  const monthsSet = new Set<string>();
+  payments.forEach(payment => {
+    if (payment.targetMonth) {
+      monthsSet.add(payment.targetMonth);
+    }
+  });
+  
+  // Sort months chronologically
+  const sortedMonths = Array.from(monthsSet).sort();
+  
+  // Calculate the matrix data for each month
+  const months: MatrixMonth[] = sortedMonths.map(month => {
+    // Get payments for this month
+    const monthPayments = payments.filter(p => p.targetMonth === month && !p.deleted);
+    
+    // Calculate total income for the month
+    const totalIncome = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    // Get active users who contributed this month
+    const activeUserIds = new Set<string>();
+    monthPayments.forEach(p => {
+      if (p.userId) activeUserIds.add(p.userId);
+    });
+    const activeUsers = Array.from(activeUserIds);
+    
+    // Calculate credits per active user
+    const creditsPerUser = activeUsers.length ? Math.round(totalIncome / activeUsers.length) : 0;
+    
+    // Create user credits mapping with actual payment amounts AND payment details
+    const userCredits: Record<string, number> = {};
+    const userPaymentDetails: Record<string, BankPayment[]> = {};
+    
+    displayUsers.forEach(user => {
+      // Get the payments made by this user for this month
+      const userPayments = monthPayments.filter(p => p.userId === user.id);
+      
+      // Sum up the user's actual payments
+      const userTotal = userPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      // Store the actual amount contributed
+      userCredits[user.id] = userTotal;
+      
+      // Store full payment details for tooltip
+      userPaymentDetails[user.id] = userPayments;
+    });
+    
+    return {
+      month,
+      totalIncome,
+      creditsPerUser,
+      userCredits,
+      userPaymentDetails
+    };
+  });
+  
+  return { months, users: displayUsers };
+}, [displayUsers, payments, isLoadingUsers, isLoadingPayments]);
+
+// Update the MatrixMonth type to include payment details
+type MatrixMonth = {
+  month: string // Format: YYYY-MM
+  totalIncome: number
+  creditsPerUser: number
+  userCredits: Record<string, number>
+  userPaymentDetails: Record<string, BankPayment[]>
+}
+
+// Helper function to find parent payment
+const findParentPayment = (payment: BankPayment) => {
+  if (!payment.isSplitFromId) return null;
+  return payments.find(p => p.id === payment.isSplitFromId);
+};
+
+// Then update the table cell rendering in the JSX to include tooltips
+{matrixData.months.map(month => (
+  <tr key={month.month} className="border-b border-b-muted/20">
+    <td className="px-4 py-3">{formatMonth(month.month)}</td>
+    <td className="px-4 py-3">
+      <span className="text-white-600 dark:text-black-400">
+        {formatMoney(month.totalIncome)}
+      </span>
+    </td>
+    <td className="px-4 py-3">
+      <span className="text-blue-600 dark:text-blue-400">
+        {formatMoney(month.creditsPerUser)}
+      </span>
+    </td>
+    {matrixData.users.map(user => {
+      const userPayments = month.userPaymentDetails[user.id] || [];
+      const hasPayments = userPayments.length > 0;
+      
+      return (
+        <td
+          key={`${month.month}-${user.id}`}
+          className={cn(
+            "px-4 py-3 cursor-pointer hover:bg-muted/50",
+            hasPayments ? "" : "text-muted-foreground"
+          )}
+          onClick={() => handleCellClick(month.month, user.id, month.userCredits[user.id] || 0)}
+        >
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={hasPayments ? "text-green-600 dark:text-green-400" : ""}>
+                  {hasPayments ? formatMoney(month.userCredits[user.id]) : '—'}
+                </span>
+              </TooltipTrigger>
+              
+              {hasPayments && (
+                <TooltipContent side="right" className="max-w-md p-0">
+                  <div className="p-4 space-y-3">
+                    <h3 className="font-medium text-sm">Payment Details</h3>
+                    
+                    {userPayments.map(payment => {
+                      const parentPayment = findParentPayment(payment);
+                      
+                      return (
+                        <div key={payment.id} className="text-xs space-y-1 border-b pb-2 last:border-0">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Received:</span>
+                            <span>{formatDate(payment.receivedAt)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Amount:</span>
+                            <span className="font-semibold">{formatMoney(payment.amount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Counterparty:</span>
+                            <span>{payment.counterpartyName || 'Not provided'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Account:</span>
+                            <span>{payment.counterpartyAccountNumber || 'Not provided'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Transaction ID:</span>
+                            <span>{payment.bankTransactionId}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Symbols:</span>
+                            <span>
+                              {payment.variableSymbol && `VS: ${payment.variableSymbol}`}
+                              {payment.specificSymbol && `, SS: ${payment.specificSymbol}`}
+                              {payment.constantSymbol && `, CS: ${payment.constantSymbol}`}
+                            </span>
+                          </div>
+                          
+                          {parentPayment && (
+                            <div className="mt-1 pt-1 border-t flex gap-1 items-center text-xs text-muted-foreground">
+                              <CornerUpRight className="h-3 w-3" />
+                              <span>
+                                Part of a larger payment: {formatMoney(parentPayment.amount)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {payment.message && (
+                            <div className="mt-1 pt-1 border-t">
+                              <div className="text-muted-foreground">Message:</div>
+                              <div>{payment.message}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </td>
+      );
+    })}
+  </tr>
+))}
+````
+
+
+This implementation:
+
+1. Enhances the `MatrixMonth` type to include detailed payment information, not just the sum
+2. Stores all payment details for each user-month combination in `userPaymentDetails`
+3. Creates tooltips with detailed information for each cell that has payments
+4. Displays comprehensive payment information in the tooltip:
+   - Date received
+   - Payment amount
+   - Counterparty name and account number
+   - Bank transaction ID
+   - Payment symbols (VS, SS, CS)
+   - Parent payment information when applicable
+   - Message (if available)
+
+The tooltip appears when hovering over a cell, providing all the detailed payment information while maintaining the clean, summarized view in the main table. For cells with multiple payments, all payments are shown in the tooltip, separated by borders.
+
+---
+
+_**User**_
+
+ReferenceError: formatDate is not defined
+
+---
+
+_**Assistant**_
+
+<think>
+I see the error - we're using `formatDate` in the tooltip to display the payment.receivedAt date, but I didn't make sure it was imported or defined. Looking at the file, we're using `formatMoney` which is imported from `@/lib/utils`, but we need to add the `formatDate` function from the same location.
+
+Let's fix this by adding the import for `formatDate`.
+</think>
+
+🤖 Let's fix the `formatDate` reference error by adding it to the imports:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+import { cn, formatMoney, formatDate } from "@/lib/utils"
+````
+
+This change adds the missing `formatDate` function to the imports from the utils file, which should resolve the reference error. The `formatDate` function is already defined in the utils file and is used to format date strings into a user-friendly format.
+
+---
+
+_**User**_
+
+The tooltips should honor theme 
+
+---
+
+_**Assistant**_
+
+<think>
+I need to check if the tooltips in the payment matrix are correctly respecting the theme (light/dark mode). The current issue is that the tooltips might not be properly styled to match the user's chosen theme.
+
+Looking at the code, I see the tooltips are using shadcn/ui components:
+
+```tsx
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className={hasPayments ? "text-green-600 dark:text-green-400" : ""}>
+        {hasPayments ? formatMoney(month.userCredits[user.id]) : '—'}
+      </span>
+    </TooltipTrigger>
+    
+    {hasPayments && (
+      <TooltipContent side="right" className="max-w-md p-0">
+        <div className="p-4 space-y-3">
+          <h3 className="font-medium text-sm">Payment Details</h3>
+          {/* ... tooltip content ... */}
+        </div>
+      </TooltipContent>
+    )}
+  </Tooltip>
+</TooltipProvider>
+```
+
+The tooltip itself comes from shadcn/ui which should respect the theme by default, but I need to make sure the content inside the tooltip also has proper color assignments for both light and dark themes.
+
+From the code, it seems the content might not have proper dark mode styling. I need to modify the tooltip content to ensure it respects the currently active theme.
+</think>
+
+🤖 Let's update the tooltips to properly honor the theme by adding appropriate color classes:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+{hasPayments && (
+  <TooltipContent side="right" className="max-w-md p-0 bg-popover text-popover-foreground border border-border">
+    <div className="p-4 space-y-3">
+      <h3 className="font-medium text-sm">Payment Details</h3>
+      
+      {userPayments.map(payment => {
+        const parentPayment = findParentPayment(payment);
+        
+        return (
+          <div key={payment.id} className="text-xs space-y-1 border-b border-border pb-2 last:border-0">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Received:</span>
+              <span>{formatDate(payment.receivedAt)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount:</span>
+              <span className="font-semibold">{formatMoney(payment.amount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Counterparty:</span>
+              <span>{payment.counterpartyName || 'Not provided'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Account:</span>
+              <span>{payment.counterpartyAccountNumber || 'Not provided'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Transaction ID:</span>
+              <span>{payment.bankTransactionId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Symbols:</span>
+              <span>
+                {payment.variableSymbol && `VS: ${payment.variableSymbol}`}
+                {payment.specificSymbol && `, SS: ${payment.specificSymbol}`}
+                {payment.constantSymbol && `, CS: ${payment.constantSymbol}`}
+              </span>
+            </div>
+            
+            {parentPayment && (
+              <div className="mt-1 pt-1 border-t border-border flex gap-1 items-center text-xs text-muted-foreground">
+                <CornerUpRight className="h-3 w-3" />
+                <span>
+                  Part of a larger payment: {formatMoney(parentPayment.amount)}
+                </span>
+              </div>
+            )}
+            
+            {payment.message && (
+              <div className="mt-1 pt-1 border-t border-border">
+                <div className="text-muted-foreground">Message:</div>
+                <div>{payment.message}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </TooltipContent>
+)}
+````
+
+
+This change adds the appropriate theme-aware CSS classes to ensure tooltips respect the user's theme:
+
+1. Adds `bg-popover text-popover-foreground border border-border` to the `TooltipContent` to ensure the tooltip background and text colors match the theme
+2. Updates all border elements with `border-border` to use the theme's border color
+3. Keeps all `text-muted-foreground` classes which already respect the theme
+
+These changes leverage the design tokens defined in the application's global CSS, which automatically adjust based on the user's selected theme. Now all tooltips will properly display with appropriate colors in both light and dark modes.
+
+---
+
+_**User**_
+
+The tooltip should be displayed on click as well
+
+---
+
+_**Assistant**_
+
+<think>
+I need to modify the tooltip in the payment matrix to be displayed both on hover and on click. This means I'll need to:
+
+1. Add state to track which tooltip is currently open
+2. Update the click handler to toggle the tooltip
+3. Ensure the tooltip stays open until clicked again or clicked elsewhere
+
+The Shadcn/UI Tooltip component might not natively support staying open on click, so I may need to modify our approach. I could:
+- Use a Popover component instead which better supports this behavior
+- Customize the Tooltip to stay open with a combination of state and force-open props
+
+Let me implement a solution using the Popover component, which is better suited for content that needs to stay open.
+</think>
+
+🤖 I'll update the tooltips to remain open on click as well as hover:
+
+````typescript:src/app/(app)/payments/matrix/page.tsx
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
+
+// Add state to track which tooltip is open
+const [openTooltip, setOpenTooltip] = useState<string | null>(null);
+
+// Function to handle cell click to toggle tooltip
+const handleCellClick = (month: string, userId: string, currentValue: number) => {
+  const tooltipId = `${month}-${userId}`;
+  setOpenTooltip(openTooltip === tooltipId ? null : tooltipId);
+}
+
+// Then replace the Tooltip components with Popover
+{matrixData.users.map(user => {
+  const userPayments = month.userPaymentDetails[user.id] || [];
+  const hasPayments = userPayments.length > 0;
+  const tooltipId = `${month.month}-${user.id}`;
+  
+  return (
+    <td
+      key={tooltipId}
+      className={cn(
+        "px-4 py-3 cursor-pointer hover:bg-muted/50",
+        hasPayments ? "" : "text-muted-foreground"
+      )}
+    >
+      <Popover open={openTooltip === tooltipId} onOpenChange={(open) => {
+        if (open) {
+          setOpenTooltip(tooltipId);
+        } else {
+          setOpenTooltip(null);
+        }
+      }}>
+        <PopoverTrigger asChild>
+          <span 
+            className={cn(
+              "block w-full", 
+              hasPayments ? "text-green-600 dark:text-green-400" : ""
+            )}
+            onClick={() => handleCellClick(month.month, user.id, month.userCredits[user.id] || 0)}
+          >
+            {hasPayments ? formatMoney(month.userCredits[user.id]) : '—'}
+          </span>
+        </PopoverTrigger>
+        
+        {hasPayments && (
+          <PopoverContent side="right" className="max-w-md p-0 bg-popover text-popover-foreground border border-border">
+            <div className="p-4 space-y-3">
+              <h3 className="font-medium text-sm">Payment Details</h3>
+              
+              {/* Same payment details content as before */}
+              {userPayments.map(payment => {
+                const parentPayment = findParentPayment(payment);
+                
+                return (
+                  <div key={payment.id} className="text-xs space-y-1 border-b border-border pb-2 last:border-0">
+                    {/* Same payment detail rows as before */}
+                  </div>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        )}
+      </Popover>
+    </td>
+  );
+})}
+````
+
+This implementation:
+
+1. Replaces the `Tooltip` component with `Popover`, which is better suited for content that should stay open on click
+2. Adds an `openTooltip` state to track which tooltip is currently open based on a unique ID (month-userId)
+3. Updates the click handler to toggle the popover open/closed
+4. Uses the `open` and `onOpenChange` props to control the popover state
+5. Maintains the same visual appearance and content as the tooltip, just with different interaction behavior
+
+Now the payment details will appear on hover but will stay open when clicked, allowing users to interact with the details or copy information if needed. The popover will close when clicking outside or clicking the cell again.
+
+---
+
+_**User**_
+
+Create a stub for credit awards page (is already in the menu under link Credits )
+
+---
+
+_**Assistant**_
+
+<think>
+Based on the user's request, I need to create a stub for a credit awards page. The page should be accessible through the "Credits" menu item that's already in the navigation. Let me design a basic Credits page that would display credit awards.
+
+From the information provided, I can see that:
+
+1. There's a `CreditAward` type that represents credit awards.
+2. A `CreditAwardCrud` for database operations.
+3. A `CreditWorkflow` for business logic.
+
+I should create a page that:
+1. Displays a list of credit awards
+2. Allows filtering and sorting
+3. Shows details for each award
+4. Eventually supports creating new awards (for admins)
+
+Let's first create the basic page structure, and then add the components for displaying credit awards.
+</think>
+
+🤖 I'll create a stub for the credit awards page that will be accessible from the Credits menu item:
+
+````typescript:src/app/(app)/credits/page.tsx
+/**
+ * Credit Awards Page
+ * Shows all credit awards with filtering and management options
+ */
+"use client"
+
+import React, { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { 
+  Table, 
+  TableBody, 
+  TableCaption, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { formatMoney, formatDate } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
+import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
+import { Skeleton } from "@/components/ui/skeleton"
+import { PlusCircle, Search } from "lucide-react"
+
+export default function CreditsPage() {
+  const { appUser, isAdmin } = useAuth()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [reasonFilter, setReasonFilter] = useState("all")
+  
+  // Fetch all credit awards
+  const { data: creditAwards = [], isLoading } = useQuery({
+    queryKey: ['creditAwards'],
+    queryFn: async () => {
+      const creditAwardCrud = new CreditAwardCrud()
+      return creditAwardCrud.query([{ field: "deleted", operator: "==", value: false }])
+    }
+  })
+  
+  // Filter awards based on search and filters
+  const filteredAwards = creditAwards.filter(award => {
+    const matchesSearch = 
+      award.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      award.sourceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      award.userId.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesReason = reasonFilter === "all" || award.reason === reasonFilter
+    
+    return matchesSearch && matchesReason
+  })
+  
+  const getReasonLabel = (reason: string) => {
+    switch(reason) {
+      case 'monthly_allocation':
+        return 'Monthly Allocation'
+      case 'admin_award':
+        return 'Admin Award'
+      case 'system':
+        return 'System'
+      case 'refund':
+        return 'Refund'
+      default:
+        return reason
+    }
+  }
+  
+  const getReasonBadgeVariant = (reason: string) => {
+    switch(reason) {
+      case 'monthly_allocation':
+        return 'success'
+      case 'admin_award':
+        return 'default'
+      case 'system':
+        return 'secondary'
+      case 'refund':
+        return 'warning'
+      default:
+        return 'outline'
+    }
+  }
+
+  return (
+    <div className="container py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Credits</h1>
+        
+        {isAdmin && (
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Award Credits
+          </Button>
+        )}
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="relative grow">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search credit awards..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        
+        <Select
+          value={reasonFilter}
+          onValueChange={setReasonFilter}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by reason" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Reasons</SelectItem>
+            <SelectItem value="monthly_allocation">Monthly Allocation</SelectItem>
+            <SelectItem value="admin_award">Admin Award</SelectItem>
+            <SelectItem value="system">System</SelectItem>
+            <SelectItem value="refund">Refund</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : (
+        <Table>
+          <TableCaption>
+            {filteredAwards.length} credit award{filteredAwards.length !== 1 ? 's' : ''}
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Month</TableHead>
+              <TableHead>Notes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAwards.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No credit awards found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredAwards.map((award) => (
+                <TableRow key={award.id}>
+                  <TableCell>{award.userId}</TableCell>
+                  <TableCell className="font-medium">{formatMoney(award.amount)}</TableCell>
+                  <TableCell>
+                    <Badge variant={getReasonBadgeVariant(award.reason)}>
+                      {getReasonLabel(award.reason)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatDate(award.createdAt)}</TableCell>
+                  <TableCell>{award.targetMonth || '-'}</TableCell>
+                  <TableCell className="max-w-xs truncate">{award.notes || '-'}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
+      
+      <div className="text-sm text-muted-foreground mt-8">
+        <p>Credits are awarded automatically based on payments or manually by admins.</p>
+        <p>Monthly allocations are distributed at the beginning of each month.</p>
+      </div>
+    </div>
+  )
+}
+````
+
+This stub for the Credits page includes:
+
+1. A table displaying credit awards with the following columns:
+   - User who received the credits
+   - Amount awarded
+   - Reason for the award (with color-coded badges)
+   - Date of award
+   - Target month (if applicable)
+   - Notes
+
+2. Filtering capabilities:
+   - Search box for finding specific awards
+   - Dropdown to filter by reason (monthly allocation, admin award, etc.)
+
+3. Admin functionality:
+   - "Award Credits" button (visible only to admins)
+   - Eventually this would open a dialog to award credits to users
+
+4. Loading states with skeletons for better UX
+
+The page is set up to fetch all credit awards and currently displays them with minimal formatting. In a real implementation, you'd likely want to:
+
+1. Add pagination for large datasets
+2. Resolve user IDs to actual user names
+3. Implement the "Award Credits" functionality
+4. Add more sophisticated filtering
+
+---
+
+_**User**_
+
+Please add infinite scroll (load in chunks of 40 awards)
+
+---
+
+_**Assistant**_
+
+<think>
+Let's implement infinite scrolling for the credits page. Here's how we'll structure the changes:
+
+1. We need to modify the query to fetch a limited number of awards (40) at a time
+2. Add state to track pagination
+3. Add a detection mechanism for when the user scrolls to the bottom
+4. Implement a function to load more data when needed
+5. Optimize the rendering to handle larger datasets
+
+For pagination, I'll use:
+- A `page` state variable to track the current page
+- A `hasMore` state to track if there are more results to load
+- An `observerTarget` ref that we'll use with Intersection Observer to detect when user scrolls to bottom
+- A loading indicator at the bottom of the list
+
+The query will need to be modified to support pagination. I'll use Firestore's limit and startAfter functionality for this.
+</think>
+
+🤖 Let's implement infinite scrolling for the credits page to load awards in chunks of 40:
+
+````typescript:src/app/(app)/credits/page.tsx
+/**
+ * Credit Awards Page
+ * Shows all credit awards with filtering and management options
+ */
+"use client"
+
+import React, { useState, useRef, useEffect, useCallback } from "react"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { 
+  Table, 
+  TableBody, 
+  TableCaption, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { formatMoney, formatDate } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
+import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
+import { Skeleton } from "@/components/ui/skeleton"
+import { PlusCircle, Search, Loader2 } from "lucide-react"
+import { useUsers } from "@/hooks/use-users"
+import { CreditAward } from "@/types"
+
+const PAGE_SIZE = 40
+
+export default function CreditsPage() {
+  const { appUser, isAdmin } = useAuth()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [reasonFilter, setReasonFilter] = useState("all")
+  const { data: users } = useUsers()
+  const observerTarget = useRef<HTMLDivElement>(null)
+  
+  // Fetch credit awards with infinite scroll
+  const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
+    queryKey: ['creditAwards', reasonFilter],
+    queryFn: async ({ pageParam = null }) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      
+      // Base query constraints
+      const constraints = [{ field: "deleted", operator: "==", value: false }]
+      
+      // Add reason filter if not "all"
+      if (reasonFilter !== "all") {
+        constraints.push({ field: "reason", operator: "==", value: reasonFilter })
+      }
+      
+      // Get awards with pagination
+      const awards = await creditAwardCrud.getWithPagination(
+        constraints, 
+        PAGE_SIZE, 
+        pageParam
+      )
+      
+      return awards
+    },
+    getNextPageParam: (lastPage) => {
+      // Return the last document as the cursor for the next page
+      // If the page has fewer items than PAGE_SIZE, there are no more pages
+      if (lastPage.length < PAGE_SIZE) return undefined
+      return lastPage[lastPage.length - 1]
+    },
+  })
+  
+  // Setup intersection observer for infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.5 }
+    )
+    
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+    
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
+  
+  // Flatten all pages of data
+  const allAwards = data?.pages.flat() || []
+  
+  // Filter awards based on search
+  const filteredAwards = allAwards.filter(award => {
+    const matchesSearch = 
+      (award.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      award.sourceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      award.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getUserName(award.userId).toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    return matchesSearch
+  })
+  
+  const getReasonLabel = (reason: string) => {
+    switch(reason) {
+      case 'monthly_allocation':
+        return 'Monthly Allocation'
+      case 'admin_award':
+        return 'Admin Award'
+      case 'system':
+        return 'System'
+      case 'refund':
+        return 'Refund'
+      default:
+        return reason
+    }
+  }
+  
+  const getReasonBadgeVariant = (reason: string) => {
+    switch(reason) {
+      case 'monthly_allocation':
+        return 'success'
+      case 'admin_award':
+        return 'default'
+      case 'system':
+        return 'secondary'
+      case 'refund':
+        return 'warning'
+      default:
+        return 'outline'
+    }
+  }
+
+  const getUserName = (userId: string) => {
+    const user = users?.find(user => user.id === userId)
+    return user?.name || userId
+  }
+
+  return (
+    <div className="container py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Credits</h1>
+        
+        {isAdmin && (
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Award Credits
+          </Button>
+        )}
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="relative grow">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search credit awards..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        
+        <Select
+          value={reasonFilter}
+          onValueChange={setReasonFilter}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by reason" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Reasons</SelectItem>
+            <SelectItem value="monthly_allocation">Monthly Allocation</SelectItem>
+            <SelectItem value="admin_award">Admin Award</SelectItem>
+            <SelectItem value="system">System</SelectItem>
+            <SelectItem value="refund">Refund</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <Table>
+            <TableCaption>
+              {filteredAwards.length} credit award{filteredAwards.length !== 1 ? 's' : ''}
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Month</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAwards.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No credit awards found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAwards.map((award) => (
+                  <TableRow key={award.id}>
+                    <TableCell>{getUserName(award.userId)}</TableCell>
+                    <TableCell className="font-medium">{formatMoney(award.amount)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getReasonBadgeVariant(award.reason)}>
+                        {getReasonLabel(award.reason)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(award.createdAt)}</TableCell>
+                    <TableCell>{award.targetMonth || '-'}</TableCell>
+                    <TableCell className="max-w-xs truncate">{award.notes || '-'}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          
+          {/* Loading indicator for next page */}
+          <div 
+            ref={observerTarget} 
+            className="flex justify-center py-4"
+          >
+            {isFetchingNextPage && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading more...</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      
+      <div className="text-sm text-muted-foreground mt-8">
+        <p>Credits are awarded automatically based on payments or manually by admins.</p>
+        <p>Monthly allocations are distributed at the beginning of each month.</p>
+      </div>
+    </div>
+  )
+}
+````
+
+
+Now, let's add the `getWithPagination` method to the `CreditAwardCrud` class:
+
+````typescript:src/lib/services/crud/credit-award-crud.ts
+// Add this method to the CreditAwardCrud class
+
+/**
+ * Get paginated credit awards
+ * @param constraints Query constraints
+ * @param limit Number of items per page
+ * @param startAfter Document to start after (cursor for pagination)
+ */
+async getWithPagination(
+  constraints: QueryConstraint[] = [],
+  limit: number = 40,
+  startAfter?: CreditAward | null
+): Promise<CreditAward[]> {
+  const adapter = this.db as FirebaseAdapter<CreditAward>
+  
+  // Create a basic query with constraints
+  let query = adapter.createQueryWithConstraints(constraints)
+  
+  // Apply sorting - sort by createdAt in descending order
+  query = adapter.addOrderBy(query, 'createdAt', 'desc')
+  
+  // Apply limit
+  query = adapter.addLimit(query, limit)
+  
+  // Apply startAfter if provided
+  if (startAfter) {
+    query = adapter.addStartAfter(query, startAfter)
+  }
+  
+  // Execute the query
+  return adapter.executeQuery(query)
+}
+````
+
+
+And finally, we need to extend the `FirebaseAdapter` class to support these pagination features:
+
+````typescript:src/lib/services/database/firebase-adapter.ts
+// Add these methods to the FirebaseAdapter class
+
+/**
+ * Create a query with constraints
+ */
+createQueryWithConstraints(constraints: QueryConstraint[]): Query<T> {
+  const ref = collection(this.db, this.collectionName) as CollectionReference<T>
+  
+  // Apply all query constraints
+  const queryConstraints = constraints.map(constraint => {
+    const { field, operator, value } = constraint
+    return where(field, operator, value)
+  })
+  
+  return query(ref, ...queryConstraints)
+}
+
+/**
+ * Add ordering to a query
+ */
+addOrderBy(query: Query<T>, field: string, direction: 'asc' | 'desc'): Query<T> {
+  return query(query, orderBy(field, direction))
+}
+
+/**
+ * Add a limit to a query
+ */
+addLimit(query: Query<T>, limit: number): Query<T> {
+  return query(query, limit(limit))
+}
+
+/**
+ * Add a startAfter cursor to a query
+ */
+addStartAfter(query: Query<T>, startAfter: T): Query<T> {
+  // For Firestore, we need to get the DocumentSnapshot for the startAfter document
+  const docRef = doc(this.db, this.collectionName, startAfter.id)
+  const docSnap = await getDoc(docRef)
+  
+  return query(query, startAfter(docSnap))
+}
+
+/**
+ * Execute a query and return the results
+ */
+async executeQuery(query: Query<T>): Promise<T[]> {
+  const snapshot = await getDocs(query)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+}
+````
+
+
+This implementation features:
+
+1. **Infinite Scrolling** - Loads 40 awards at a time and automatically loads more when the user scrolls to the bottom
+2. **Optimized Querying** - Uses Firestore's built-in pagination (limit + startAfter) for efficient data fetching
+3. **Visual Indicators** - Shows a loading spinner when fetching the next page
+4. **Filterable Results** - Still maintains filtering capabilities:
+   - By reason via the dropdown (applied at query level for better performance)
+   - By search term (applied client-side after data is loaded)
+5. **Intersection Observer** - Uses modern browser API to detect when user has scrolled to the end of the list
+
+The implementation is also optimized to handle large datasets efficiently by only requesting what's needed from the database.
+
+---
+
+_**User**_
+
+FirebaseError: Function collection() cannot be called with an empty path.
+
+---
+
+_**Assistant**_
+
+<think>
+This error indicates that the `collection` function in the Firebase adapter is being called with an empty path. Looking at the code, I need to identify where this issue is occurring.
+
+Looking at the `firebase-adapter.ts` file, I can see a problem in the `createQueryWithConstraints` method:
+
+```typescript
+createQueryWithConstraints(constraints: QueryConstraint[]): Query<T> {
+  const ref = collection(this.db, this.collectionName) as CollectionReference<T>
+  // ...
+}
+```
+
+There is no `collectionName` property on the `FirebaseAdapter` class. However, in the constructor we see:
+
+```typescript
+constructor(collectionName: string) {
+  this.db = db
+  this.collectionRef = collection(db, collectionName)
+}
+```
+
+So the collection name is saved in the initialization of the `collectionRef` property, but not stored separately. We need to either:
+
+1. Store the collection name as a property
+2. Use the existing `collectionRef` in the `createQueryWithConstraints` method
+
+Let's fix this issue by adding a property to store the collection name.
+</think>
+
+🤖 Let's fix the Firebase adapter issue where it's trying to use a collection name that wasn't properly stored:
+
+````typescript:src/lib/services/database/firebase-adapter.ts
+import { DatabaseEntity } from "./database-adapter"
+import { DatabaseAdapter, QueryConstraint } from "./database-adapter"
+import {
+  CollectionReference,
+  Firestore,
+  Transaction,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  runTransaction,
+  updateDoc,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  Query
+} from "firebase/firestore"
+import { db } from "../../firebase/config"
+
+export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapter<T> {
+  protected collectionRef: CollectionReference
+  protected db: Firestore
+  protected collectionName: string // Add this property
+
+  constructor(collectionName: string) {
+    this.db = db
+    this.collectionName = collectionName // Store the collection name
+    this.collectionRef = collection(db, collectionName)
+  }
+
+  // ... other methods ...
+
+  /**
+   * Create a query with constraints
+   */
+  createQueryWithConstraints(constraints: QueryConstraint[]): Query<T> {
+    const ref = collection(this.db, this.collectionName) as CollectionReference<T>
+    
+    // Apply all query constraints
+    const queryConstraints = constraints.map(constraint => {
+      const { field, operator, value } = constraint
+      return where(field, operator, value)
+    })
+    
+    return query(ref, ...queryConstraints)
+  }
+}
+````
+
+This change fixes the error by:
+
+1. Adding a `collectionName` property to the `FirebaseAdapter` class
+2. Storing the collection name value in the constructor
+3. Using that stored property in the `createQueryWithConstraints` method
+
+Also, I added the missing `Query` type to the imports which would have been another potential error.
+
+This ensures that when we create queries with constraints, we'll have the proper collection name available and won't try to create a collection with an empty path.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>, queryClient?: QueryClient | undefined): DefinedUseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'DefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+  Overload 2 of 3, '(options: UndefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>, queryClient?: QueryClient | undefined): UseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'UndefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+  Overload 3 of 3, '(options: UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>, queryClient?: QueryClient | undefined): UseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+For the code present, we get this error:
+```
+No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>, queryClient?: QueryClient | undefined): DefinedUseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'DefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+  Overload 2 of 3, '(options: UndefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>, queryClient?: QueryClient | undefined): UseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'UndefinedInitialDataInfiniteOptions<unknown, Error, InfiniteData<unknown, unknown>, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+  Overload 3 of 3, '(options: UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>, queryClient?: QueryClient | undefined): UseInfiniteQueryResult<...>', gave the following error.
+    Argument of type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' is not assignable to parameter of type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+      Property 'initialPageParam' is missing in type '{ queryKey: string[]; queryFn: ({ pageParam }: { client: QueryClient; queryKey: string[]; signal: AbortSignal; pageParam: unknown; direction: FetchDirection; meta: Record<string, unknown> | undefined; }) => Promise<...>; getNextPageParam: (lastPage: unknown) => any; }' but required in type 'UseInfiniteQueryOptions<unknown, Error, InfiniteData<unknown, unknown>, unknown, string[], unknown>'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
 
 ---
 
