@@ -105,6 +105,9 @@ export interface Project {
   ownerId: string
   closed: boolean
   closedAt?: string
+  fundsSentToOwner: boolean
+  bought: boolean
+  addedToAssetList: boolean
   deleted?: boolean
   createdAt: string
   updatedAt: string
