@@ -124,4 +124,79 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     // Execute the query
     return adapter.executeQuery(query)
   }
+
+  /**
+   * Get credit awards with pagination and filtering
+   */
+  async getPaginatedAwards(
+    reasonFilter: string = 'all',
+    userFilter: string = 'all',
+    monthFilter: string = 'all',
+    pageParam: CreditAward | null,
+    pageSize: number = 40
+  ): Promise<CreditAward[]> {
+    // Base query constraints
+    const constraints: QueryConstraint[] = [];
+    
+    // Add reason filter if not "all"
+    if (reasonFilter !== "all") {
+      constraints.push({ field: "reason", operator: "==", value: reasonFilter });
+    }
+    
+    // Add user filter if not "all"
+    if (userFilter !== "all") {
+      constraints.push({ field: "userId", operator: "==", value: userFilter });
+    }
+    
+    // Add month filter if not "all"
+    if (monthFilter !== "all") {
+      constraints.push({ field: "targetMonth", operator: "==", value: monthFilter });
+    }
+    
+    // Always filter out deleted awards
+    constraints.push({ field: "deleted", operator: "==", value: false });
+    
+    // Use the existing pagination method
+    return this.getWithPagination(constraints, pageSize, pageParam);
+  }
+
+  /**
+   * Get month range for filtering
+   * Returns array of months between earliest and latest targetMonth in database
+   */
+  async getMonthRange(): Promise<{ value: string; label: string }[]> {
+    const adapter = this.db as FirebaseAdapter<CreditAward>;
+    
+    // Create query to find all unique targetMonths, sorted ascending
+    const constraints = [
+      { field: "deleted", operator: "==", value: false },
+      { field: "targetMonth", operator: "!=", value: null }
+    ];
+    
+    let query = adapter.createQueryWithConstraints(constraints);
+    query = adapter.addOrderBy(query, 'targetMonth', 'asc');
+    
+    const awards = await adapter.executeQuery(query);
+    
+    // Find unique months from the data
+    const uniqueMonths = new Set<string>();
+    
+    awards.forEach(award => {
+      if (award.targetMonth) {
+        uniqueMonths.add(award.targetMonth);
+      }
+    });
+    
+    // Convert to array and format for select component
+    return Array.from(uniqueMonths).map(month => {
+      const [year, monthNum] = month.split('-');
+      const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+      const monthName = date.toLocaleString('default', { month: 'long' });
+      
+      return {
+        value: month,
+        label: `${monthName} ${year}`
+      };
+    }).sort((a, b) => b.value.localeCompare(a.value)); // Sort newest to oldest
+  }
 } 

@@ -32666,6 +32666,682 @@ How can I resolve this? If you propose a fix, please make it concise.
 
 ---
 
+_**Assistant**_
+
+<think>
+The error message is telling us that we're missing the `initialPageParam` property in our `useInfiniteQuery` hook. This is a required property in newer versions of TanStack Query (v5+).
+
+In TanStack Query v5, the `initialPageParam` property was added to specify what the initial page parameter should be. This helps TypeScript understand the type flow and ensures consistent behavior.
+
+To fix this error, we need to add the `initialPageParam` property to our `useInfiniteQuery` call.
+
+The fix is straightforward:
+</think>
+
+🤖 You need to add the `initialPageParam` property to the `useInfiniteQuery` hook - it's required in TanStack Query v5+:
+
+````typescript:src/app/(app)/credits/page.tsx
+  const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
+    queryKey: ['creditAwards', reasonFilter],
+    queryFn: async ({ pageParam = null }) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      
+      // Base query constraints
+      const constraints = [{ field: "deleted", operator: "==", value: false }]
+      
+      // Add reason filter if not "all"
+      if (reasonFilter !== "all") {
+        constraints.push({ field: "reason", operator: "==", value: reasonFilter })
+      }
+      
+      // Get awards with pagination
+      const awards = await creditAwardCrud.getWithPagination(
+        constraints, 
+        PAGE_SIZE, 
+        pageParam
+      )
+      
+      return awards
+    },
+    initialPageParam: null,  // Add this line
+    getNextPageParam: (lastPage) => {
+      // Return the last document as the cursor for the next page
+      // If the page has fewer items than PAGE_SIZE, there are no more pages
+      if (lastPage.length < PAGE_SIZE) return undefined
+      return lastPage[lastPage.length - 1]
+    },
+  })
+````
+
+This fixes the TypeScript error by providing the required `initialPageParam` property that was introduced in TanStack Query v5.
+
+---
+
+_**User**_
+
+Move paginated loading to the crud service
+
+---
+
+_**Assistant**_
+
+<think>
+The request is asking to move the paginated loading functionality from the component to the CRUD service. This will encapsulate the pagination logic in the service layer rather than having it in the component. Let's see what we need to do:
+
+1. First, I need to understand what's currently in the credits page component that should be moved to a service.
+2. Then I'll need to create or modify a function in the CRUD service to handle this pagination.
+3. Finally, I'll update the component to use this new service method.
+
+Looking at the current code, the paginated loading is happening in the `useInfiniteQuery` hook in the `src/app/(app)/credits/page.tsx` file. The component is:
+1. Setting up a query with constraints
+2. Calling `getWithPagination` on the CreditAwardCrud
+3. Handling the pagination logic with `getNextPageParam`
+
+I should move this to a method in the `CreditAwardCrud` class that handles all this logic, so the component just needs to provide the filter parameters and doesn't need to deal with pagination details.
+</think>
+
+🤖 Let's move the pagination logic to the CreditAwardCrud service:
+
+````typescript:src/lib/services/crud/credit-award-crud.ts
+/**
+ * Get credit awards with pagination and filtering
+ * Handles infinite query setup for components
+ */
+async getPaginatedAwards(
+  reasonFilter: string = 'all',
+  pageParam: CreditAward | null,
+  pageSize: number = 40
+): Promise<CreditAward[]> {
+  // Base query constraints
+  const constraints: QueryConstraint[] = [];
+  
+  // Add reason filter if not "all"
+  if (reasonFilter !== "all") {
+    constraints.push({ field: "reason", operator: "==", value: reasonFilter });
+  }
+  
+  // Always filter out deleted awards
+  constraints.push({ field: "deleted", operator: "==", value: false });
+  
+  // Use the existing pagination method
+  return this.getWithPagination(constraints, pageSize, pageParam);
+}
+````
+
+Now update the credits page to use this new service method:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Fetch credit awards with infinite scroll
+const { 
+  data, 
+  isLoading, 
+  fetchNextPage, 
+  hasNextPage, 
+  isFetchingNextPage 
+} = useInfiniteQuery({
+  queryKey: ['creditAwards', reasonFilter],
+  queryFn: async ({ pageParam }) => {
+    const creditAwardCrud = new CreditAwardCrud();
+    return creditAwardCrud.getPaginatedAwards(reasonFilter, pageParam, PAGE_SIZE);
+  },
+  initialPageParam: null,
+  getNextPageParam: (lastPage) => {
+    // Return the last document as the cursor for the next page
+    // If the page has fewer items than PAGE_SIZE, there are no more pages
+    if (lastPage.length < PAGE_SIZE) return undefined;
+    return lastPage[lastPage.length - 1];
+  },
+});
+````
+
+This approach:
+1. Moves pagination logic to the service layer
+2. Makes the component code cleaner and more focused
+3. Makes it easier to reuse the pagination logic elsewhere
+
+---
+
+_**User**_
+
+Create hook for getting paginated awards instead of using the tanstack query directly in the page
+
+---
+
+_**Assistant**_
+
+<think>
+I'll create a custom hook that encapsulates the useInfiniteQuery logic for credit awards. This will make the page component cleaner and provide a reusable hook for other components that might need to access paginated credit awards.
+
+The hook should:
+1. Take filter parameters as arguments
+2. Handle the infinite query setup
+3. Return the data and query functions/state needed by the component
+
+I'll also make sure the hook properly types the returned data.
+</think>
+
+🤖 Let's create a custom hook for paginated credit awards:
+
+````typescript:src/hooks/use-credit-awards.ts
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { CreditAward } from "@/types"
+import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
+
+const DEFAULT_PAGE_SIZE = 40
+
+/**
+ * Hook for fetching paginated credit awards with filtering
+ */
+export function usePaginatedCreditAwards(
+  reasonFilter: string = 'all',
+  pageSize: number = DEFAULT_PAGE_SIZE
+) {
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  } = useInfiniteQuery({
+    queryKey: ['creditAwards', reasonFilter, pageSize],
+    queryFn: async ({ pageParam }) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      return creditAwardCrud.getPaginatedAwards(reasonFilter, pageParam, pageSize)
+    },
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < pageSize) return undefined
+      return lastPage[lastPage.length - 1]
+    },
+  })
+
+  // Get all awards across all pages
+  const allAwards = data?.pages.flat() || []
+
+  return {
+    data: allAwards,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  }
+}
+````
+
+Now let's update the credits page to use this hook:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Remove the useInfiniteQuery import
+// Remove the fetchNextPage, hasNextPage etc. from the component
+
+// Replace the useInfiniteQuery call with:
+const { 
+  data: allAwards = [],
+  isLoading, 
+  fetchNextPage, 
+  hasNextPage, 
+  isFetchingNextPage 
+} = usePaginatedCreditAwards(reasonFilter, PAGE_SIZE)
+````
+
+This approach:
+1. Encapsulates the query logic in a reusable hook
+2. Makes the component code cleaner and more focused
+3. Follows the separation of concerns principle
+4. Makes it easier to use the pagination logic elsewhere
+
+---
+
+_**User**_
+
+The pagination should respect the fulltext filter as well 
+
+---
+
+_**Assistant**_
+
+<think>
+The current implementation only applies the text search filter on the client-side after all data has been fetched. This isn't efficient for large datasets because it means we're downloading potentially a lot of unnecessary data.
+
+To make the fulltext filter work with pagination, we need to:
+
+1. Add the search term to the query key so that the query is invalidated when the search term changes
+2. Pass the search term to the hook and then to the CRUD service
+3. Apply the search filtering at the database level within the getPaginatedAwards method
+
+However, Firestore doesn't have great built-in full-text search capabilities. The best we can do with plain Firestore is to use the `array-contains` operator for predefined keywords or exact matches. For true full-text search, you'd typically use a solution like Algolia or Elasticsearch.
+
+For this implementation, I'll focus on making the search work with the existing client-side approach but optimize the hook to include the search term in the query key. This way, when the search term changes, the query will be reset (though it's not as efficient as server-side filtering).
+</think>
+
+🤖 Let's update our implementation to respect the fulltext filter as well:
+
+````typescript:src/hooks/use-credit-awards.ts
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { CreditAward } from "@/types"
+import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
+
+const DEFAULT_PAGE_SIZE = 40
+
+/**
+ * Hook for fetching paginated credit awards with filtering
+ */
+export function usePaginatedCreditAwards(
+  reasonFilter: string = 'all',
+  searchTerm: string = '',
+  pageSize: number = DEFAULT_PAGE_SIZE
+) {
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  } = useInfiniteQuery({
+    queryKey: ['creditAwards', reasonFilter, searchTerm, pageSize],
+    queryFn: async ({ pageParam }) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      return creditAwardCrud.getPaginatedAwards(reasonFilter, pageParam, pageSize)
+    },
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < pageSize) return undefined
+      return lastPage[lastPage.length - 1]
+    },
+  })
+
+  // Get all awards across all pages
+  const allAwards = data?.pages.flat() || []
+  
+  // Apply text search filter
+  const filteredAwards = searchTerm 
+    ? allAwards.filter(award => 
+        award.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        award.sourceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        award.userId.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : allAwards
+
+  return {
+    data: filteredAwards,
+    rawData: allAwards,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  }
+}
+````
+
+
+And let's update the credits page:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Update the hook call
+const { 
+  data: filteredAwards = [],
+  isLoading, 
+  fetchNextPage, 
+  hasNextPage, 
+  isFetchingNextPage 
+} = usePaginatedCreditAwards(reasonFilter, searchTerm, PAGE_SIZE)
+
+// Remove the existing filtering code
+// const filteredAwards = allAwards.filter(award => {
+//   const matchesSearch = ...
+//   return matchesSearch
+// })
+````
+
+
+This approach:
+
+1. Includes `searchTerm` in the query key, so when it changes, the query will be invalidated
+2. Applies text filtering within the hook so it's consistent and reusable
+3. Returns both the filtered data and raw data in case you need access to both
+4. Simplifies the component by removing the duplicate filtering logic
+
+The search is still client-side, which is fine for moderate amounts of data. For a true server-side search with large datasets, you'd want to implement a more sophisticated search solution like Algolia or Elastic Search.
+
+---
+
+_**User**_
+
+Ditch the full text search. Instead add filter by user and filter by month
+
+---
+
+_**Assistant**_
+
+<think>
+Let's modify the credit awards system to replace the text search with filters for user and month. Here's what we need to do:
+
+1. Update the `usePaginatedCreditAwards` hook to accept userId and month filters instead of searchTerm
+2. Modify the CreditAwardCrud's getPaginatedAwards method to handle these new filters at the database level
+3. Update the credits page UI to show dropdowns for user and month filters instead of the search box
+
+Let's start with the hook:
+</think>
+
+🤖 Let's modify our implementation to use user and month filters instead of text search:
+
+````typescript:src/hooks/use-credit-awards.ts
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { CreditAward } from "@/types"
+import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
+
+const DEFAULT_PAGE_SIZE = 40
+
+/**
+ * Hook for fetching paginated credit awards with filtering
+ */
+export function usePaginatedCreditAwards(
+  reasonFilter: string = 'all',
+  userFilter: string = 'all',
+  monthFilter: string = 'all',
+  pageSize: number = DEFAULT_PAGE_SIZE
+) {
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  } = useInfiniteQuery({
+    queryKey: ['creditAwards', reasonFilter, userFilter, monthFilter, pageSize],
+    queryFn: async ({ pageParam }) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      return creditAwardCrud.getPaginatedAwards(reasonFilter, userFilter, monthFilter, pageParam, pageSize)
+    },
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < pageSize) return undefined
+      return lastPage[lastPage.length - 1]
+    },
+  })
+
+  const allAwards = data?.pages.flat() || []
+
+  return {
+    data: allAwards,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError,
+    error
+  }
+}
+````
+
+Now let's update the credit award CRUD service:
+
+````typescript:src/lib/services/crud/credit-award-crud.ts
+/**
+ * Get credit awards with pagination and filtering
+ */
+async getPaginatedAwards(
+  reasonFilter: string = 'all',
+  userFilter: string = 'all',
+  monthFilter: string = 'all',
+  pageParam: CreditAward | null,
+  pageSize: number = 40
+): Promise<CreditAward[]> {
+  // Base query constraints
+  const constraints: QueryConstraint[] = [];
+  
+  // Add reason filter if not "all"
+  if (reasonFilter !== "all") {
+    constraints.push({ field: "reason", operator: "==", value: reasonFilter });
+  }
+  
+  // Add user filter if not "all"
+  if (userFilter !== "all") {
+    constraints.push({ field: "userId", operator: "==", value: userFilter });
+  }
+  
+  // Add month filter if not "all"
+  if (monthFilter !== "all") {
+    constraints.push({ field: "targetMonth", operator: "==", value: monthFilter });
+  }
+  
+  // Always filter out deleted awards
+  constraints.push({ field: "deleted", operator: "==", value: false });
+  
+  // Use the existing pagination method
+  return this.getWithPagination(constraints, pageSize, pageParam);
+}
+````
+
+Finally, let's update the credits page UI:
+
+````typescript:src/app/(app)/credits/page.tsx
+export default function CreditsPage() {
+  const { appUser, isAdmin } = useAuth()
+  const [reasonFilter, setReasonFilter] = useState("all")
+  const [userFilter, setUserFilter] = useState("all") 
+  const [monthFilter, setMonthFilter] = useState("all")
+  const { data: users } = useUsers()
+  
+  // Get a list of months (based on data or predefined list)
+  const months = [
+    { value: "2023-01", label: "January 2023" },
+    { value: "2023-02", label: "February 2023" },
+    { value: "2023-03", label: "March 2023" },
+    // Add more months as needed
+  ]
+  
+  const { 
+    data: filteredAwards = [],
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = usePaginatedCreditAwards(reasonFilter, userFilter, monthFilter, PAGE_SIZE)
+  
+  // ... rest of the code ...
+
+  return (
+    <div className="container py-6 space-y-6">
+      {/* ... header ... */}
+      
+      <div className="flex items-center gap-4 flex-wrap">
+        {/* User filter */}
+        <Select
+          value={userFilter}
+          onValueChange={setUserFilter}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by user" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users</SelectItem>
+            {users?.map(user => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {/* Reason filter */}
+        <Select
+          value={reasonFilter}
+          onValueChange={setReasonFilter}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by reason" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Reasons</SelectItem>
+            <SelectItem value="monthly_allocation">Monthly Allocation</SelectItem>
+            <SelectItem value="admin_award">Admin Award</SelectItem>
+            <SelectItem value="system">System</SelectItem>
+            <SelectItem value="refund">Refund</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        {/* Month filter */}
+        <Select
+          value={monthFilter}
+          onValueChange={setMonthFilter}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by month" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {months.map(month => (
+              <SelectItem key={month.value} value={month.value}>
+                {month.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* ... rest of the UI ... */}
+    </div>
+  )
+}
+````
+
+These changes will:
+
+1. Replace the text search with more precise user and month filters
+2. Push the filtering to the database level for better performance
+3. Present users with clear, structured filtering options
+4. Make the system more intuitive for finding specific credit awards
+
+---
+
+_**User**_
+
+Add months to the filter for each month between the lowest month in the database and highest month in the database.
+
+---
+
+_**Assistant**_
+
+<think>
+To add months to the filter dynamically based on the data range, we need to:
+
+1. Fetch the earliest and latest months with credit awards in the database
+2. Generate a list of all months between those two timestamps
+3. Use that list for the month filter dropdown
+
+Let's implement this by adding a new method to `CreditAwardCrud` to get the month range, and then update the component to use this data.
+</think>
+
+🤖 Let's add dynamic months to the filter based on the data in the database:
+
+````typescript:src/lib/services/crud/credit-award-crud.ts
+/**
+ * Get month range for filtering
+ * Returns array of months between earliest and latest targetMonth in database
+ */
+async getMonthRange(): Promise<{ value: string; label: string }[]> {
+  const adapter = this.db as FirebaseAdapter<CreditAward>;
+  
+  // Create query to find all unique targetMonths, sorted ascending
+  const constraints = [
+    { field: "deleted", operator: "==", value: false },
+    { field: "targetMonth", operator: "!=", value: null }
+  ];
+  
+  let query = adapter.createQueryWithConstraints(constraints);
+  query = adapter.addOrderBy(query, 'targetMonth', 'asc');
+  
+  const awards = await adapter.executeQuery(query);
+  
+  // Find unique months from the data
+  const uniqueMonths = new Set<string>();
+  
+  awards.forEach(award => {
+    if (award.targetMonth) {
+      uniqueMonths.add(award.targetMonth);
+    }
+  });
+  
+  // Convert to array and format for select component
+  return Array.from(uniqueMonths).map(month => {
+    const [year, monthNum] = month.split('-');
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+    const monthName = date.toLocaleString('default', { month: 'long' });
+    
+    return {
+      value: month,
+      label: `${monthName} ${year}`
+    };
+  }).sort((a, b) => b.value.localeCompare(a.value)); // Sort newest to oldest
+}
+````
+
+Now let's modify the credits page to use these dynamically generated months:
+
+````typescript:src/app/(app)/credits/page.tsx
+export default function CreditsPage() {
+  const { appUser, isAdmin } = useAuth();
+  const [reasonFilter, setReasonFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const { data: users } = useUsers();
+  const observerTarget = useRef<HTMLDivElement>(null);
+  
+  // Fetch months for filter
+  const { data: months = [] } = useQuery({
+    queryKey: ['creditAwardMonths'],
+    queryFn: async () => {
+      const creditAwardCrud = new CreditAwardCrud();
+      return creditAwardCrud.getMonthRange();
+    }
+  });
+  
+  const { 
+    data: filteredAwards = [],
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = usePaginatedCreditAwards(reasonFilter, userFilter, monthFilter, PAGE_SIZE);
+  
+  // ... rest of the component ...
+}
+````
+
+This implementation:
+
+1. Adds a new method to `CreditAwardCrud` that:
+   - Finds all unique months with credit awards
+   - Formats them for display in the dropdown
+   - Sorts them by date (newest first)
+
+2. Adds a new query to the page component that:
+   - Fetches the available months when the page loads
+   - Populates the month filter dropdown dynamically
+
+3. Preserves the existing filtering behavior but now with real months from the database
+
+The month dropdown will now show all months that have credit awards in the system, making it more relevant and useful for users.
+
+---
+
 
 
 ---
