@@ -34777,7 +34777,109 @@ I'll need to pay attention to the layout and make sure the icons don't disrupt t
 ````typescript:src/components/projects/project-card.tsx
 // Remove the CardFooter we just added and move the icons to the title section
 
-//
+// Replace this:
+<CardFooter className="flex items-center justify-end gap-2 mt-3 text-muted-foreground">
+  <BanknoteIcon 
+    size={16} 
+    className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} 
+    title={project.fundsSentToOwner ? "Funds sent to owner" : "Funds not sent yet"}
+  />
+  <ShoppingCartIcon 
+    size={16} 
+    className={project.bought ? "text-green-500" : "text-red-500"} 
+    title={project.bought ? "Item purchased" : "Not purchased yet"}
+  />
+  <ClipboardListIcon 
+    size={16} 
+    className={project.addedToAssetList ? "text-green-500" : "text-red-500"} 
+    title={project.addedToAssetList ? "Added to asset list" : "Not in asset list"}
+  />
+</CardFooter>
+
+// And modify the title section to include the icons:
+<CardHeader className="pb-2">
+  <div className="flex items-center justify-between">
+    <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+    <div className="flex gap-1">
+      <BanknoteIcon 
+        size={16} 
+        className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} 
+        title={project.fundsSentToOwner ? "Funds sent to owner" : "Funds not sent yet"}
+      />
+      <ShoppingCartIcon 
+        size={16} 
+        className={project.bought ? "text-green-500" : "text-red-500"} 
+        title={project.bought ? "Item purchased" : "Not purchased yet"}
+      />
+      <ClipboardListIcon 
+        size={16} 
+        className={project.addedToAssetList ? "text-green-500" : "text-red-500"} 
+        title={project.addedToAssetList ? "Added to asset list" : "Not in asset list"}
+      />
+    </div>
+  </div>
+</CardHeader>
+````
+
+This layout:
+1. Groups the title and icons in a flex container
+2. Places the title on the left and icons on the right
+3. Uses justify-between to create space between them
+4. Keeps the icons small and maintains their tooltip functionality
+
+---
+
+_**User**_
+
+You removed the original label with project status (completed or in progress) from the header
+
+---
+
+_**Assistant**_
+
+<think>
+You're right - I removed the Badge component that showed if the project was "Completed" or "Active" when I moved the status icons. This was a mistake, as that Badge is important information. Let me fix this by adding the Badge back into the header alongside the new status icons.
+</think>
+
+🤖 You're absolutely right - I accidentally removed the status badge. Let's fix that by adding it back:
+
+````typescript:src/components/projects/project-card.tsx
+// Update the header to include both the status badge and the icons
+<CardHeader className="pb-2">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+      <Badge variant={project.closed ? "default" : "secondary"}>
+        {project.closed ? "Completed" : "Active"}
+      </Badge>
+    </div>
+    <div className="flex gap-1">
+      <BanknoteIcon 
+        size={16} 
+        className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} 
+        title={project.fundsSentToOwner ? "Funds sent to owner" : "Funds not sent yet"}
+      />
+      <ShoppingCartIcon 
+        size={16} 
+        className={project.bought ? "text-green-500" : "text-red-500"} 
+        title={project.bought ? "Item purchased" : "Not purchased yet"}
+      />
+      <ClipboardListIcon 
+        size={16} 
+        className={project.addedToAssetList ? "text-green-500" : "text-red-500"} 
+        title={project.addedToAssetList ? "Added to asset list" : "Not in asset list"}
+      />
+    </div>
+  </div>
+  <CardDescription>{project.description}</CardDescription>
+</CardHeader>
+````
+
+This updated layout:
+1. Keeps the project name and status badge together on the left
+2. Places the administrative status icons on the right
+3. Preserves the important project status information
+4. Maintains a clean, organized header
 
 ---
 

@@ -87,10 +87,11 @@ export const createProject = async (data: Omit<Project, "id" | "createdAt" | "up
 export const updateProject = async (id: string, data: Partial<Project>) => {
   try {
     const docRef = doc(db, COLLECTION_NAME, id)
-    const updatedData = {
-      ...data,
-      updatedAt: new Date().toISOString()
-    }
+    // remove undefined fields from the data
+    const updatedData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    )
+    updatedData.updatedAt = new Date().toISOString()
 
     await updateDoc(docRef, updatedData)
     return { id, ...updatedData } as Project

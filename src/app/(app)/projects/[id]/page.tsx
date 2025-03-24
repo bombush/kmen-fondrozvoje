@@ -82,7 +82,10 @@ export default function ProjectPage() {
           description: editedProject.description,
           goal: editedProject.goal,
           closed: editedProject.closed,
-          url: editedProject.url
+          url: editedProject.url,
+          fundsSentToOwner: editedProject.fundsSentToOwner,
+          bought: editedProject.bought,
+          addedToAssetList: editedProject.addedToAssetList
         }
       })
       setIsEditing(false)

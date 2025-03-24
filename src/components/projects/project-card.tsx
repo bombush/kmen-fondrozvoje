@@ -33,7 +33,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <Card className="transition-colors hover:bg-muted/50 h-full flex flex-col">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+              <Badge variant={project.closed ? "default" : "secondary"}>
+                {project.closed ? "Completed" : "Active"}
+              </Badge>
+            </div>
             <div className="flex gap-1">
               <BanknoteIcon 
                 size={16} 
