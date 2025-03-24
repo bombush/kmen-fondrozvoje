@@ -1,5 +1,5 @@
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
 
 interface ProjectFiltersProps {
   search: string
@@ -15,21 +15,36 @@ export function ProjectFilters({
   onStatusFilterChange
 }: ProjectFiltersProps) {
   return (
-    <div className="flex gap-4">
-      <Input 
-        type="search"
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <Input
         placeholder="Search projects..."
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
+        className="sm:w-[200px]"
       />
-      <Select 
-        value={statusFilter}
-        onValueChange={onStatusFilterChange}
-      >
-        <option value="all">All</option>
-        <option value="active">Active</option>
-        <option value="completed">Completed</option>
-      </Select>
+      <div className="flex items-center space-x-1">
+        <Button
+          variant={statusFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => onStatusFilterChange("all")}
+        >
+          All
+        </Button>
+        <Button
+          variant={statusFilter === "active" ? "default" : "outline"}
+          size="sm"
+          onClick={() => onStatusFilterChange("active")}
+        >
+          Active
+        </Button>
+        <Button
+          variant={statusFilter === "completed" ? "default" : "outline"}
+          size="sm"
+          onClick={() => onStatusFilterChange("completed")}
+        >
+          Completed
+        </Button>
+      </div>
     </div>
   )
 } 

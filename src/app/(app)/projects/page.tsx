@@ -14,12 +14,23 @@ import { Label } from "@/components/ui/label"
 import { useUndoDeleteProject } from "@/hooks/use-projects"
 import { Project } from "@/types"
 import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all")
   const [showDeleted, setShowDeleted] = useState(false)
-  const { projects, isLoading } = useFilteredProjects(search, statusFilter, showDeleted)
+  const [fundsSentFilter, setFundsSentFilter] = useState<boolean | null>(null)
+  const [boughtFilter, setBoughtFilter] = useState<boolean | null>(null)
+  const [assetListFilter, setAssetListFilter] = useState<boolean | null>(null)
+  const { projects, isLoading } = useFilteredProjects(
+    search, 
+    statusFilter, 
+    showDeleted,
+    fundsSentFilter,
+    boughtFilter,
+    assetListFilter
+  )
   const { mutateAsync: undoDelete } = useUndoDeleteProject()
 
   //@TODO: undo delete pledges. Or maybe  remove the feature completely
@@ -61,6 +72,62 @@ export default function ProjectsPage() {
           />
           <Label htmlFor="show-deleted">Show deleted projects</Label>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 items-center">
+        <Select
+          value={fundsSentFilter === null ? "all" : fundsSentFilter ? "yes" : "no"}
+          onValueChange={(value) => {
+            if (value === "all") setFundsSentFilter(null);
+            else if (value === "yes") setFundsSentFilter(true);
+            else setFundsSentFilter(false);
+          }}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Funds Sent Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            <SelectItem value="yes">Funds Sent</SelectItem>
+            <SelectItem value="no">Funds Not Sent</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select
+          value={boughtFilter === null ? "all" : boughtFilter ? "yes" : "no"}
+          onValueChange={(value) => {
+            if (value === "all") setBoughtFilter(null);
+            else if (value === "yes") setBoughtFilter(true);
+            else setBoughtFilter(false);
+          }}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Purchase Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            <SelectItem value="yes">Purchased</SelectItem>
+            <SelectItem value="no">Not Purchased</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select
+          value={assetListFilter === null ? "all" : assetListFilter ? "yes" : "no"}
+          onValueChange={(value) => {
+            if (value === "all") setAssetListFilter(null);
+            else if (value === "yes") setAssetListFilter(true);
+            else setAssetListFilter(false);
+          }}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Asset List Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            <SelectItem value="yes">In Asset List</SelectItem>
+            <SelectItem value="no">Not In Asset List</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
