@@ -16,31 +16,38 @@ export class CreditWorkflow {
   /**
    * Award credits to a user
    */
-  async awardCredits(
-    userId: string,
-    amount: number,
-    reason: CreditAward['reason'],
-    options: {
-      sourceId?: string,
-      sourceType?: string,
-      notes?: string,
-      targetMonth?: string
-    } = {}
-  ): Promise<CreditAward> {
-    try {
-      // Create the credit award record
-      const creditAward = await this.creditAwardCrud.create({
-        userId,
-        amount,
-        reason,
-        ...options
-      })
-
-      return creditAward
-    } catch (error) {
-      console.error("Error in awardCredits workflow:", error)
-      throw error
+  async awardCredits({
+    userId,
+    amount,
+    reason,
+    targetMonth,
+    notes,
+    sourceType,
+    sourceId
+  }: {
+    userId: string;
+    amount: number;
+    reason: CreditAward['reason'];
+    targetMonth?: string;
+    notes?: string;
+    sourceType?: string;
+    sourceId?: string;
+  }): Promise<CreditAward> {
+    // Validate amount is a valid number
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+      throw new Error('Invalid amount. Must be a positive number.');
     }
+
+    // Create credit award
+    return this.creditAwardCrud.create({
+      userId,
+      amount, // Ensure this is a valid number
+      reason,
+      targetMonth,
+      notes,
+      sourceType: sourceType || 'admin',
+      sourceId: sourceId || 'manual_award'
+    })
   }
 
   /**
@@ -101,7 +108,10 @@ export class CreditWorkflow {
     projectId: string
   ): Promise<CreditAward> {
     try {
-      return await this.awardCredits(userId, amount, 'refund', {
+      return await this.awardCredits({
+        userId,
+        amount,
+        reason: 'refund',
         sourceId: pledgeId,
         sourceType: 'pledge',
         notes: `Refund from project ${projectId}`

@@ -29,10 +29,22 @@ import { formatMoney, formatDate } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { CreditAwardCrud } from "@/lib/services/crud/credit-award-crud"
 import { Skeleton } from "@/components/ui/skeleton"
-import { PlusCircle, Search, Loader2 } from "lucide-react"
+import { PlusCircle, Search, Loader2, Trash2 } from "lucide-react"
 import { useUsers } from "@/hooks/use-users"
 import { CreditAward } from "@/types"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { AwardCreditsDialog } from "@/components/credits/award-credits-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/components/ui/use-toast"
 
 const PAGE_SIZE = 2
 
@@ -61,6 +73,34 @@ export default function CreditsPage() {
     isFetchingNextPage 
   } = usePaginatedCreditAwards(reasonFilter, userFilter, monthFilter, PAGE_SIZE)
   const observerTarget = useRef<HTMLDivElement>(null)
+
+  const [awardToDelete, setAwardToDelete] = useState<CreditAward | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  const { mutate: deleteAward, isPending: isDeleting } = useMutation({
+    mutationFn: async (awardId: string) => {
+      const creditAwardCrud = new CreditAwardCrud()
+      return creditAwardCrud.softDelete(awardId)
+    },
+    onSuccess: () => {
+      toast({
+        title: "Credit award deleted",
+        description: "The credit award has been successfully deleted.",
+      })
+      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+      setDeleteDialogOpen(false)
+      setAwardToDelete(null)
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting credit award",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  })
 
   const getUserName = (userId: string) => {
     const user = users?.find(user => user.id === userId)
@@ -115,19 +155,28 @@ export default function CreditsPage() {
     }
   }
 
+  const handleDeleteClick = (award: CreditAward) => {
+    setAwardToDelete(award)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (awardToDelete) {
+      deleteAward(awardToDelete.id)
+    }
+  }
+
   return (
-    <div className="container py-6 space-y-6">
+    <div className="container py-2 space-y-2">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Credits</h1>
         
-        {isAdmin && (
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Award Credits
-          </Button>
-        )}
+        {isAdmin && <AwardCreditsDialog users={users || []} />}
       </div>
-      
+      <div className="text-sm text-muted-foreground mt-8 py-6">
+        <p>Credits are awarded automatically based on payments or manually by admins.</p>
+        <p>Monthly allocations are distributed at the beginning of each month.</p>
+      </div>
       <div className="flex items-center gap-4 flex-wrap">
         {/* User filter */}
         <Select
@@ -203,6 +252,7 @@ export default function CreditsPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Month</TableHead>
                 <TableHead>Notes</TableHead>
+                {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -225,6 +275,18 @@ export default function CreditsPage() {
                     <TableCell>{formatDate(award.createdAt)}</TableCell>
                     <TableCell>{award.targetMonth || '-'}</TableCell>
                     <TableCell className="max-w-xs truncate">{award.notes || '-'}</TableCell>
+                    <TableCell>
+                      {isAdmin && award.reason !== 'monthly_allocation' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleDeleteClick(award)}
+                          title="Delete award"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -246,10 +308,36 @@ export default function CreditsPage() {
         </>
       )}
       
-      <div className="text-sm text-muted-foreground mt-8">
-        <p>Credits are awarded automatically based on payments or manually by admins.</p>
-        <p>Monthly allocations are distributed at the beginning of each month.</p>
-      </div>
+
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the credit award of {awardToDelete && formatMoney(awardToDelete.amount)} for {awardToDelete && getUserName(awardToDelete.userId)}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 

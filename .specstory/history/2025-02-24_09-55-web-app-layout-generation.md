@@ -33342,6 +33342,783 @@ The month dropdown will now show all months that have credit awards in the syste
 
 ---
 
+_**User**_
+
+Implement the Award Credits button for awarding credits by admin.
+This will work in a popup.
+
+
+---
+
+_**Assistant**_
+
+<think>
+Let's create a dialog component for awarding credits. This component will:
+
+1. Open when the "Award Credits" button is clicked
+2. Allow admins to select:
+   - User to award credits to
+   - Amount of credits
+   - Reason for the award
+   - Target month (optional)
+   - Notes (optional)
+3. Have validation 
+4. Submit the form to create a new credit award
+
+Since we're using Shadcn UI, we'll use their Dialog component for this.
+</think>
+
+🤖 Let's implement the Award Credits dialog for admin users:
+
+````typescript:src/components/credits/award-credits-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { PlusCircle, Loader2 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { User } from "@/types"
+import { CreditWorkflow } from "@/lib/services/workflows/credit-workflow"
+
+interface AwardCreditsDialogProps {
+  users: User[]
+}
+
+export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [userId, setUserId] = useState("")
+  const [amount, setAmount] = useState("")
+  const [reason, setReason] = useState("admin_award")
+  const [targetMonth, setTargetMonth] = useState("")
+  const [notes, setNotes] = useState("")
+  
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  
+  const resetForm = () => {
+    setUserId("")
+    setAmount("")
+    setReason("admin_award")
+    setTargetMonth("")
+    setNotes("")
+  }
+  
+  // Generate current month and previous/next months for the dropdown
+  const generateMonthOptions = () => {
+    const options = []
+    const today = new Date()
+    
+    // Add 3 previous months, current month, and 3 future months
+    for (let i = -3; i <= 3; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() + i, 1)
+      const month = date.toLocaleString('default', { month: 'long' })
+      const year = date.getFullYear()
+      const value = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      
+      options.push({
+        value,
+        label: `${month} ${year}`
+      })
+    }
+    
+    return options
+  }
+  
+  const monthOptions = generateMonthOptions()
+  
+  // Mutation for awarding credits
+  const { mutate, isPending } = useMutation({
+    mutationFn: async () => {
+      if (!userId || !amount) return
+      
+      const workflow = new CreditWorkflow()
+      await workflow.awardCredits({
+        userId,
+        amount: parseFloat(amount),
+        reason: reason as any,
+        targetMonth: targetMonth || undefined,
+        notes: notes || undefined,
+        sourceType: "admin",
+        sourceId: "manual_award"
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: "Credits awarded",
+        description: `Successfully awarded ${amount} credits to the user.`,
+      })
+      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+      setOpen(false)
+      resetForm()
+    },
+    onError: (error) => {
+      toast({
+        title: "Error awarding credits",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  })
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "Please select a user",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount greater than 0",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    mutate()
+  }
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Award Credits
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Award Credits</DialogTitle>
+          <DialogDescription>
+            Award credits to a user. This will increase their balance.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="user">User</Label>
+            <Select 
+              value={userId} 
+              onValueChange={setUserId}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount</Label>
+            <Input
+              id="amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason</Label>
+            <Select 
+              value={reason} 
+              onValueChange={setReason}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin_award">Admin Award</SelectItem>
+                <SelectItem value="monthly_allocation">Monthly Allocation</SelectItem>
+                <SelectItem value="system">System</SelectItem>
+                <SelectItem value="refund">Refund</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="month">Target Month (Optional)</Label>
+            <Select 
+              value={targetMonth} 
+              onValueChange={setTargetMonth}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a month" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No specific month</SelectItem>
+                {monthOptions.map(month => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Additional information about this award"
+              rows={3}
+            />
+          </div>
+          
+          <DialogFooter className="pt-4">
+            <Button 
+              variant="outline" 
+              type="button" 
+              onClick={() => setOpen(false)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Awarding...
+                </>
+              ) : (
+                "Award Credits"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+Now, let's update the credits page to use this dialog:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Add this import
+import { AwardCreditsDialog } from "@/components/credits/award-credits-dialog"
+
+// Then in the CreditsPage component, replace this part:
+<div className="flex items-center justify-between">
+  <h1 className="text-2xl font-bold">Credits</h1>
+  
+  {isAdmin && (
+    <Button>
+      <PlusCircle className="mr-2 h-4 w-4" />
+      Award Credits
+    </Button>
+  )}
+</div>
+
+// With this:
+<div className="flex items-center justify-between">
+  <h1 className="text-2xl font-bold">Credits</h1>
+  
+  {isAdmin && <AwardCreditsDialog users={users || []} />}
+</div>
+````
+
+Let's also implement the missing Label component for Shadcn UI:
+
+````typescript:src/components/ui/label.tsx
+"use client"
+
+import * as React from "react"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+)
+
+const Label = React.forwardRef<
+  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
+    VariantProps<typeof labelVariants>
+>(({ className, ...props }, ref) => (
+  <LabelPrimitive.Root
+    ref={ref}
+    className={cn(labelVariants(), className)}
+    {...props}
+  />
+))
+Label.displayName = LabelPrimitive.Root.displayName
+
+export { Label }
+````
+
+And the Textarea component:
+
+````typescript:src/components/ui/textarea.tsx
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Textarea.displayName = "Textarea"
+
+export { Textarea }
+````
+
+And finally, let's create a toast component:
+
+````typescript:src/components/ui/use-toast.ts
+// This file will just re-export from the toast library you're using
+// For simplicity, let's use sonner
+import { toast } from "sonner"
+
+export const useToast = () => {
+  return { toast }
+}
+````
+
+This implementation provides:
+
+1. A clean, modal dialog for admins to award credits
+2. Form validation to ensure required fields are filled
+3. Real-time feedback with loading states and toast notifications
+4. Automatically refreshes the credit awards data after successful operation
+5. Month selection with sensible defaults (current month ± 3 months)
+6. Optional fields for flexibility
+
+---
+
+_**User**_
+
+Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+
+---
+
+_**Assistant**_
+
+<think>
+Let's address the error in the AwardCreditsDialog component where we're using an empty string value in a SelectItem. The error message is telling us that we can't use an empty string value for a SelectItem because empty strings are used to clear selections.
+
+In this case, we're encountering this issue in the month selection dropdown where we have:
+```jsx
+<SelectItem value="">No specific month</SelectItem>
+```
+
+We need to change this to use a non-empty value that still represents "no value" or "no specific month". A common pattern is to use null or "null" or some other special value that can be recognized and handled accordingly.
+</think>
+
+🤖 Let's fix the error in the AwardCreditsDialog component. The issue is that we're using an empty string as a value for a SelectItem, which isn't allowed:
+
+````typescript:src/components/credits/award-credits-dialog.tsx
+// In the AwardCreditsDialog component
+// Change this:
+<SelectItem value="">No specific month</SelectItem>
+
+// To this:
+<SelectItem value="null">No specific month</SelectItem>
+````
+
+And we need to update the handling code:
+
+````typescript:src/components/credits/award-credits-dialog.tsx
+// In the mutation function, change this:
+targetMonth: targetMonth || undefined,
+
+// To this:
+targetMonth: targetMonth === "null" ? undefined : targetMonth,
+````
+
+This fixes the error by:
+1. Using "null" as a string value instead of an empty string
+2. Properly handling this special value when submitting the form
+
+---
+
+_**User**_
+
+FirebaseError: Function addDoc() called with invalid data. Unsupported field value: undefined (found in field amount in document creditAwards/jSUE3gKcZvOQXBlpEZG5)
+
+---
+
+_**Assistant**_
+
+<think>
+It looks like there's an issue with the `awardCredits` function in CreditWorkflow or related classes. The error shows that an `undefined` value is being passed for the `amount` field when creating a new credit award document.
+
+Let's look at the error more closely:
+- The error occurs during the `addDoc()` function call
+- The field with the invalid value is `amount` 
+- The document being created is in the `creditAwards` collection
+- The problem is that the `amount` value is `undefined`
+
+Since the error is coming from Firebase and not from our validation, it suggests there might be an issue in the workflow that's responsible for creating credit awards. Let's check the potential issue:
+
+1. In the `AwardCreditsDialog` component, we parse the amount as a float, but maybe it's not being correctly passed to the workflow:
+```typescript
+await workflow.awardCredits({
+  userId,
+  amount: parseFloat(amount),
+  reason: reason as any,
+  targetMonth: targetMonth === "null" ? undefined : targetMonth,
+  notes: notes || undefined,
+  sourceType: "admin",
+  sourceId: "manual_award"
+})
+```
+
+2. The `CreditWorkflow.awardCredits` method might not be handling the amount correctly, or it might be losing the amount somewhere.
+
+3. The actual Firebase document creation might not be validating or ensuring the amount is present.
+
+Let me review what the error is saying and propose a solution:
+- There's an attempt to create a document in the `creditAwards` collection
+- The document has an `amount` field that is `undefined`
+- Firestore doesn't accept `undefined` values
+
+This suggests we need to ensure the `amount` field is always a valid number before calling `addDoc()`. We should check:
+1. The validation in the `AwardCreditsDialog` component
+2. The implementation of `CreditWorkflow.awardCredits`
+3. The actual creation of the document in the database adapter or CRUD service
+
+Let's focus on ensuring the amount is properly validated and handled throughout the flow.
+</think>
+
+🤖 The error indicates we're trying to create a credit award with an `undefined` amount. Let's fix the award credits flow by ensuring amount is properly validated:
+
+````typescript:src/lib/services/workflows/credit-workflow.ts
+// Add this to the CreditWorkflow class
+
+/**
+ * Award credits to a user
+ */
+async awardCredits({
+  userId,
+  amount,
+  reason,
+  targetMonth,
+  notes,
+  sourceType,
+  sourceId
+}: {
+  userId: string;
+  amount: number;
+  reason: CreditAward['reason'];
+  targetMonth?: string;
+  notes?: string;
+  sourceType?: string;
+  sourceId?: string;
+}) {
+  // Validate amount is a valid number
+  if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+    throw new Error('Invalid amount. Must be a positive number.');
+  }
+
+  const creditAwardCrud = new CreditAwardCrud();
+  
+  // Create credit award
+  return creditAwardCrud.create({
+    userId,
+    amount, // Ensure this is a valid number
+    reason,
+    targetMonth,
+    notes,
+    sourceType: sourceType || 'admin',
+    sourceId: sourceId || 'manual_award'
+  });
+}
+````
+
+If this file already exists, update the validation to ensure amount is always a valid number. If the CreditWorkflow class doesn't exist, create it with the method above.
+
+This ensures:
+1. The amount is a valid number before creating an award
+2. We throw a clear error message if validation fails
+3. Firebase will receive a valid amount value
+
+---
+
+_**User**_
+
+Error: Objects are not valid as a React child (found: object with keys {title, description}). If you meant to render a collection of children, use an array instead.
+
+---
+
+_**Assistant**_
+
+<think>
+This error indicates that we're trying to render an object directly in the JSX, which React doesn't allow. Looking at the error details, it seems related to the `toast` component since the error message mentions "object with keys {title, description}".
+
+The issue is likely in the `award-credits-dialog.tsx` file where we're using the toast notifications. Let's check how we're importing and using the toast component.
+
+It seems we have a custom `useToast` hook that returns a `toast` object, but the implementation might not match what we're trying to use. The error suggests we're passing an object with `title` and `description` directly to toast, but the toast implementation expects something different.
+
+We need to check:
+1. The toast library being used (sonner or another one)
+2. The correct way to use it with the properties we want
+
+Let's fix this by adjusting how we're calling the toast function to match what the library expects.
+</think>
+
+🤖 The issue is with how we're using the toast function. The error occurs because we're passing an object to a toast library that expects different parameters. Let's fix the toast implementation:
+
+````typescript:src/components/ui/use-toast.ts
+// Change this implementation
+import { toast } from "sonner"
+
+export const useToast = () => {
+  return { 
+    toast: (props: { title?: string; description?: string; variant?: string }) => {
+      if (props.variant === "destructive") {
+        return toast.error(props.title, {
+          description: props.description
+        });
+      }
+      return toast.success(props.title, {
+        description: props.description
+      });
+    }
+  }
+}
+````
+
+
+This implementation:
+1. Wraps the Sonner toast to handle our expected API
+2. Maps the variant prop to the appropriate Sonner toast type
+3. Properly passes title and description to match Sonner's expectations
+
+Most toast libraries don't accept direct objects as children, which is causing the React error. This adapter pattern bridges the gap between our application's toast expectations and the actual toast library implementation.
+
+---
+
+_**User**_
+
+Add delete button for credit awards other than Monthly Allocation
+
+---
+
+_**Assistant**_
+
+<think>
+Let's add a delete button to credit awards that aren't of type 'monthly_allocation'. This will allow admins to remove specific awards if needed. Here's how we can do this:
+
+1. Add a delete button to each row in the table for non-monthly allocations
+2. Create a confirmation dialog before deleting
+3. Implement the deletion functionality using the existing softDelete method in CreditAwardCrud
+
+We need to consider:
+- Only admins should be able to delete awards
+- We'll use softDelete rather than hard delete to maintain records
+- We need a confirmation step before deletion
+- We should refresh the data after deletion
+</think>
+
+🤖 Let's add a delete button to credit awards that aren't monthly allocations:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Add the AlertDialog components to the imports
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Trash2 } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+
+// Inside the CreditsPage component, add these states:
+const [awardToDelete, setAwardToDelete] = useState<CreditAward | null>(null)
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+const queryClient = useQueryClient()
+const { toast } = useToast()
+
+// Add the delete mutation
+const { mutate: deleteAward, isPending: isDeleting } = useMutation({
+  mutationFn: async (awardId: string) => {
+    const creditAwardCrud = new CreditAwardCrud()
+    return creditAwardCrud.softDelete(awardId)
+  },
+  onSuccess: () => {
+    toast({
+      title: "Credit award deleted",
+      description: "The credit award has been successfully deleted.",
+    })
+    queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+    setDeleteDialogOpen(false)
+    setAwardToDelete(null)
+  },
+  onError: (error) => {
+    toast({
+      title: "Error deleting credit award",
+      description: error.message,
+      variant: "destructive",
+    })
+  }
+})
+
+// Add a function to handle delete click
+const handleDeleteClick = (award: CreditAward) => {
+  setAwardToDelete(award)
+  setDeleteDialogOpen(true)
+}
+
+// Add a function to confirm deletion
+const confirmDelete = () => {
+  if (awardToDelete) {
+    deleteAward(awardToDelete.id)
+  }
+}
+````
+
+Now update the TableRow to include a delete button:
+
+````typescript:src/app/(app)/credits/page.tsx
+// Inside the table body mapping, add an Actions column
+<TableRow key={award.id}>
+  <TableCell>{getUserName(award.userId)}</TableCell>
+  <TableCell className="font-medium">{formatMoney(award.amount)}</TableCell>
+  <TableCell>
+    <Badge variant={getReasonBadgeVariant(award.reason)}>
+      {getReasonLabel(award.reason)}
+    </Badge>
+  </TableCell>
+  <TableCell>{formatDate(award.createdAt)}</TableCell>
+  <TableCell>{award.targetMonth || '-'}</TableCell>
+  <TableCell className="max-w-xs truncate">{award.notes || '-'}</TableCell>
+  
+  {/* Add this new cell */}
+  <TableCell>
+    {isAdmin && award.reason !== 'monthly_allocation' && (
+      <Button 
+        variant="ghost" 
+        size="icon"
+        onClick={() => handleDeleteClick(award)}
+        title="Delete award"
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    )}
+  </TableCell>
+</TableRow>
+````
+
+Also, add the Actions column to the TableHeader:
+
+````typescript:src/app/(app)/credits/page.tsx
+<TableHeader>
+  <TableRow>
+    <TableHead>User</TableHead>
+    <TableHead>Amount</TableHead>
+    <TableHead>Reason</TableHead>
+    <TableHead>Date</TableHead>
+    <TableHead>Month</TableHead>
+    <TableHead>Notes</TableHead>
+    {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
+  </TableRow>
+</TableHeader>
+````
+
+Finally, add the AlertDialog component at the end of the component, just before the closing `</div>`:
+
+````typescript:src/app/(app)/credits/page.tsx
+{/* Confirmation Dialog */}
+<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+      <AlertDialogDescription>
+        This will remove the credit award of {awardToDelete && formatMoney(awardToDelete.amount)} for {awardToDelete && getUserName(awardToDelete.userId)}.
+        This action cannot be undone.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+      <AlertDialogAction 
+        onClick={confirmDelete} 
+        disabled={isDeleting}
+        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+      >
+        {isDeleting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Deleting...
+          </>
+        ) : (
+          "Delete"
+        )}
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+````
+
+This implementation:
+1. Adds a delete button only for non-monthly allocations
+2. Only shows delete actions for admin users
+3. Requires confirmation before deleting
+4. Shows appropriate loading and success/error states
+5. Refreshes the credit awards list after deletion
+
+---
+
 
 
 ---
