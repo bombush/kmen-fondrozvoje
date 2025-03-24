@@ -1,11 +1,12 @@
 import Link from "next/link"
 import { Project } from "@/types"
 import { formatMoney } from "@/lib/utils"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useProjectBalance } from "@/hooks/use-project-balance"
 import { Skeleton } from "@/components/ui/skeleton"
+import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon } from "lucide-react"
 
 interface ProjectCardProps {
   project: Project
@@ -30,12 +31,26 @@ export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Link href={`/projects/${project.id}`}>
       <Card className="transition-colors hover:bg-muted/50 h-full flex flex-col">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <CardTitle>{project.name}</CardTitle>
-            <Badge variant={project.closed ? "default" : "secondary"}>
-              {project.closed ? "Completed" : "Active"}
-            </Badge>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+            <div className="flex gap-1">
+              <BanknoteIcon 
+                size={16} 
+                className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} 
+                title={project.fundsSentToOwner ? "Funds sent to owner" : "Funds not sent yet"}
+              />
+              <ShoppingCartIcon 
+                size={16} 
+                className={project.bought ? "text-green-500" : "text-red-500"} 
+                title={project.bought ? "Item purchased" : "Not purchased yet"}
+              />
+              <ClipboardListIcon 
+                size={16} 
+                className={project.addedToAssetList ? "text-green-500" : "text-red-500"} 
+                title={project.addedToAssetList ? "Added to asset list" : "Not in asset list"}
+              />
+            </div>
           </div>
           <CardDescription>{project.description}</CardDescription>
         </CardHeader>

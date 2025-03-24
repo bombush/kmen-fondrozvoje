@@ -34119,6 +34119,668 @@ This implementation:
 
 ---
 
+_**User**_
+
+I added the following field in the project type:
+fundsSentToOwner,  bought and nameInAssetList. 
+Please make these fields editable in the project details .
+Also make it possible to filter projects by these bool values
+
+---
+
+_**Assistant**_
+
+<think>
+Let's break down what needs to be done:
+
+1. Add UI controls to edit the new boolean fields in project details:
+   - fundsSentToOwner
+   - bought
+   - addedToAssetList
+
+2. Add filtering functionality for these fields on the projects list page
+
+Let's start by implementing the editing functionality in the project details page. We'll need to:
+- Update the project form component to include checkboxes for these fields
+- Make sure the update mutation includes these fields
+
+Then we'll add filtering to the projects list. We'll need to:
+- Add filter controls (probably checkboxes or select elements)
+- Modify the query to include these filters
+
+Let's start with the editing functionality.
+</think>
+
+🤖 I'll implement these features for you. Let's start with making the boolean fields editable in project details and then add filtering options:
+
+## 1. Project Details Edit Form
+
+First, let's update the project edit form to include checkboxes for the new fields:
+
+````typescript:src/components/projects/project-form.tsx
+import { Checkbox } from "@/components/ui/checkbox"
+
+// Inside your form component
+const ProjectForm = ({ project, onSubmit, isLoading }) => {
+  // Existing form code...
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Existing form fields... */}
+      
+      {/* Add these new fields - only show for existing projects */}
+      {project?.id && (
+        <div className="space-y-4 border rounded-md p-4 mt-6">
+          <h3 className="font-medium">Administrative Status</h3>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="fundsSentToOwner" 
+              checked={formData.fundsSentToOwner}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, fundsSentToOwner: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="fundsSentToOwner"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Funds Sent To Owner
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when funds have been transferred to the project owner
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="bought" 
+              checked={formData.bought}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, bought: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="bought"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Item Purchased
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the project item has been purchased
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="addedToAssetList" 
+              checked={formData.addedToAssetList}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, addedToAssetList: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="addedToAssetList"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Added to Asset List
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the item has been added to the organization's asset list
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Submit button */}
+      <Button type="submit" disabled={isLoading} className="mt-6">
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          "Save Project"
+        )}
+      </Button>
+    </form>
+  )
+}
+````
+
+## 2. Projects List with Filtering
+
+Now let's add the filter controls to the projects list:
+
+````typescript:src/app/(app)/projects/page.tsx
+export default function ProjectsPage() {
+  // Add new state for the boolean filters
+  const [showFundsSent, setShowFundsSent] = useState<boolean | null>(null);
+  const [showBought, setShowBought] = useState<boolean | null>(null);
+  const [showAddedToAssetList, setShowAddedToAssetList] = useState<boolean | null>(null);
+  
+  // Existing state and hooks...
+  
+  // Modify your fetch projects function to include the new filters
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ['projects', showClosed, showFundsSent, showBought, showAddedToAssetList],
+    queryFn: async () => {
+      const projectService = new ProjectService()
+      return projectService.getProjects({
+        includeClosed: showClosed,
+        fundsSentToOwner: showFundsSent,
+        bought: showBought,
+        addedToAssetList: showAddedToAssetList
+      })
+    }
+  })
+  
+  return (
+    <div className="container py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Projects</h1>
+        <Button asChild>
+          <Link href="/projects/new">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Project
+          </Link>
+        </Button>
+      </div>
+      
+      {/* Add filter section */}
+      <div className="flex flex-wrap gap-4 items-center">
+        {/* Existing "Show Closed Projects" filter */}
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="showClosed"
+            checked={showClosed}
+            onCheckedChange={(checked) => setShowClosed(checked === true)}
+          />
+          <label
+            htmlFor="showClosed"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Show Closed Projects
+          </label>
+        </div>
+        
+        {/* New filters */}
+        <div className="flex items-center space-x-2">
+          <Select
+            value={showFundsSent === null ? "all" : showFundsSent ? "yes" : "no"}
+            onValueChange={(value) => {
+              if (value === "all") setShowFundsSent(null);
+              else if (value === "yes") setShowFundsSent(true);
+              else setShowFundsSent(false);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Funds Sent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="yes">Funds Sent</SelectItem>
+              <SelectItem value="no">Funds Not Sent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Select
+            value={showBought === null ? "all" : showBought ? "yes" : "no"}
+            onValueChange={(value) => {
+              if (value === "all") setShowBought(null);
+              else if (value === "yes") setShowBought(true);
+              else setShowBought(false);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Item Purchased" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="yes">Purchased</SelectItem>
+              <SelectItem value="no">Not Purchased</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Select
+            value={showAddedToAssetList === null ? "all" : showAddedToAssetList ? "yes" : "no"}
+            onValueChange={(value) => {
+              if (value === "all") setShowAddedToAssetList(null);
+              else if (value === "yes") setShowAddedToAssetList(true);
+              else setShowAddedToAssetList(false);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="In Asset List" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="yes">In Asset List</SelectItem>
+              <SelectItem value="no">Not In Asset List</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      {/* Rest of your UI */}
+    </div>
+  )
+}
+````
+
+## 3. Update the ProjectService to handle the filters
+
+````typescript:src/lib/services/project-service.ts
+export class ProjectService {
+  // Update the getProjects method to include the new filters
+  async getProjects({ 
+    includeClosed = false, 
+    fundsSentToOwner = null, 
+    bought = null, 
+    addedToAssetList = null 
+  }: { 
+    includeClosed?: boolean 
+    fundsSentToOwner?: boolean | null
+    bought?: boolean | null
+    addedToAssetList?: boolean | null
+  } = {}): Promise<Project[]> {
+    const projectCrud = new ProjectCrud()
+    
+    const constraints: QueryConstraint[] = [
+      { field: "deleted", operator: "==", value: false }
+    ]
+    
+    // Only add closed filter if not showing closed projects
+    if (!includeClosed) {
+      constraints.push({ field: "closed", operator: "==", value: false })
+    }
+    
+    // Add the new filters if they're not null
+    if (fundsSentToOwner !== null) {
+      constraints.push({ field: "fundsSentToOwner", operator: "==", value: fundsSentToOwner })
+    }
+    
+    if (bought !== null) {
+      constraints.push({ field: "bought", operator: "==", value: bought })
+    }
+    
+    if (addedToAssetList !== null) {
+      constraints.push({ field: "addedToAssetList", operator: "==", value: addedToAssetList })
+    }
+    
+    return projectCrud.query(constraints)
+  }
+}
+````
+
+## 4. Add Checkbox Component
+
+If you don't already have a Checkbox component, you'll need to create one:
+
+````typescript:src/components/ui/checkbox.tsx
+"use client"
+
+import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
+import { Check } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      className
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="h-4 w-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+))
+Checkbox.displayName = CheckboxPrimitive.Root.displayName
+
+export { Checkbox }
+````
+
+This implementation:
+
+1. Adds editable checkboxes for the new boolean fields in the project form
+2. Creates filters for these fields in the projects list
+3. Updates the project service to handle these filters
+4. Includes a reusable Checkbox component
+
+You'll need to connect your API and backend to support these new fields in your database operations, but this covers the UI and frontend logic.
+
+---
+
+_**User**_
+
+Fix the label on fundsSentToOwner checkbox. It's not aligned with the checkbox
+
+---
+
+_**Assistant**_
+
+<think>
+I'll fix the alignment issue with the checkbox labels in the project details page. The issue is that the labels aren't properly aligned with the checkboxes. Here's what I'll do:
+
+1. Fix the label formatting and alignment for each checkbox
+2. Add proper labels for all checkboxes
+3. Use consistent styling for all checkboxes
+
+The issue is in the `src/app/(app)/projects/[id]/page.tsx` file where the checkboxes were added without proper label formatting.
+</think>
+
+🤖 Let's fix the alignment issue with the checkboxes in the project details page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Inside the edit mode section, replace the poorly formatted checkboxes
+<div>
+  <label>Funds sent to owner</label>
+  <Checkbox 
+    id="fundsSentToOwner" 
+    checked={project.fundsSentToOwner}
+    onCheckedChange={(checked) => 
+      setEditedProject({...editedProject, fundsSentToOwner: checked === true})
+    }
+  />
+</div>
+<div>
+  <Checkbox 
+    id="bought" 
+    checked={project.bought}
+    onCheckedChange={(checked) => 
+      setEditedProject({...editedProject, bought: checked === true})
+    }
+  />
+</div>
+<div>
+  <Checkbox 
+    id="addedToAssetList" 
+    checked={project.addedToAssetList}
+    onCheckedChange={(checked) => 
+      setEditedProject({...editedProject, addedToAssetList: checked === true})
+    }
+  />
+</div>
+
+// With properly formatted checkboxes with labels
+<div className="space-y-4 border rounded-md p-4 mt-6">
+  <h3 className="font-medium">Administrative Status</h3>
+  
+  <div className="flex items-start space-x-2">
+    <Checkbox 
+      id="fundsSentToOwner" 
+      checked={project.fundsSentToOwner}
+      onCheckedChange={(checked) => 
+        setEditedProject({...editedProject, fundsSentToOwner: checked === true})
+      }
+    />
+    <div className="grid gap-1.5 leading-none">
+      <label
+        htmlFor="fundsSentToOwner"
+        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+      >
+        Funds Sent To Owner
+      </label>
+      <p className="text-sm text-muted-foreground">
+        Mark when funds have been transferred to the project owner
+      </p>
+    </div>
+  </div>
+  
+  <div className="flex items-start space-x-2">
+    <Checkbox 
+      id="bought" 
+      checked={project.bought}
+      onCheckedChange={(checked) => 
+        setEditedProject({...editedProject, bought: checked === true})
+      }
+    />
+    <div className="grid gap-1.5 leading-none">
+      <label
+        htmlFor="bought"
+        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+      >
+        Item Purchased
+      </label>
+      <p className="text-sm text-muted-foreground">
+        Mark when the project item has been purchased
+      </p>
+    </div>
+  </div>
+  
+  <div className="flex items-start space-x-2">
+    <Checkbox 
+      id="addedToAssetList" 
+      checked={project.addedToAssetList}
+      onCheckedChange={(checked) => 
+        setEditedProject({...editedProject, addedToAssetList: checked === true})
+      }
+    />
+    <div className="grid gap-1.5 leading-none">
+      <label
+        htmlFor="addedToAssetList"
+        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+      >
+        Added to Asset List
+      </label>
+      <p className="text-sm text-muted-foreground">
+        Mark when the item has been added to the organization's asset list
+      </p>
+    </div>
+  </div>
+</div>
+````
+
+This change:
+
+1. Wraps all checkboxes in a border container for better organization
+2. Uses a consistent layout for each checkbox with proper spacing
+3. Adds descriptive labels that are properly aligned with the checkboxes
+4. Includes helpful descriptions for each option
+5. Uses the same styling as the project form component for consistency
+
+The key to proper alignment is using the flex layout with space-x-2 for the checkbox and label group, and ensuring the label has the proper HTML "for" attribute that matches the checkbox id.
+
+---
+
+_**User**_
+
+Add fundsSentToOwner, bought and addedToAssetList to the bottom of the project detail display . Use icons for each:
+funds Sent to owner: icon of money
+bought: icon of shopping cart
+addedToAssetList: icon of a list.
+
+Outside of the editing mode, the icons will be green if the value is true and red if the value is false or missing
+
+---
+
+_**Assistant**_
+
+<think>
+Let's add these status indicators to the project detail display. We'll need to:
+
+1. Import the appropriate icons from lucide-react
+2. Create a component that displays the icon with green/red coloring based on the boolean value
+3. Add these indicators to the non-editing view of the project details
+
+For the icons:
+- fundsSentToOwner: Money/Banknote icon
+- bought: ShoppingCart icon
+- addedToAssetList: ClipboardList icon
+
+Let's create a status indicator component and then use it in the project details page.
+</think>
+
+🤖 Let's add the status indicators with appropriate icons to the project details page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+import { 
+  Pencil, 
+  Clock, 
+  CheckCircle, 
+  Users,
+  BanknoteIcon, // Add this import
+  ShoppingCartIcon, // Add this import
+  ClipboardListIcon, // Add this import
+  XCircle // Add this import
+} from "lucide-react"
+
+// Inside the view mode (not edit mode) section of your component,
+// add this block somewhere appropriate:
+
+<div className="mt-6 border rounded-md p-4">
+  <h3 className="font-medium mb-4">Project Status</h3>
+  
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="flex items-center gap-2">
+      <BanknoteIcon className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} size={20} />
+      <div>
+        <div className="font-medium">Funds Sent</div>
+        <div className="text-sm text-muted-foreground">
+          {project.fundsSentToOwner ? "Completed" : "Pending"}
+        </div>
+      </div>
+    </div>
+    
+    <div className="flex items-center gap-2">
+      <ShoppingCartIcon className={project.bought ? "text-green-500" : "text-red-500"} size={20} />
+      <div>
+        <div className="font-medium">Item Purchased</div>
+        <div className="text-sm text-muted-foreground">
+          {project.bought ? "Completed" : "Pending"}
+        </div>
+      </div>
+    </div>
+    
+    <div className="flex items-center gap-2">
+      <ClipboardListIcon className={project.addedToAssetList ? "text-green-500" : "text-red-500"} size={20} />
+      <div>
+        <div className="font-medium">Added to Asset List</div>
+        <div className="text-sm text-muted-foreground">
+          {project.addedToAssetList ? "Completed" : "Pending"}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+````
+
+This will create a neatly formatted status section with the appropriate icons that show as:
+- Green when the value is true
+- Red when the value is false
+
+Make sure to add this code in the non-editing view part of your component, outside of the editing section we fixed earlier.
+
+---
+
+_**User**_
+
+Add these small icons to indicate the administrative status to the footer of Project card as well. The icons will be quite small and won't have any labels. 
+
+---
+
+_**Assistant**_
+
+<think>
+Let's modify the ProjectCard component to include the administrative status icons in the footer. We'll need to:
+
+1. Import the necessary icons
+2. Add small status icons to the footer, without labels
+3. Color them appropriately (green for true, red for false)
+4. Make them small enough to not dominate the card, but visible enough to be useful
+
+I'll need to examine the current ProjectCard component structure, but I'll focus on adding these status indicators to what's likely a footer or bottom section of the card.
+</think>
+
+🤖 Let's add the administrative status icons to the ProjectCard component footer:
+
+````typescript:src/components/projects/project-card.tsx
+import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon } from "lucide-react"
+
+// Inside the ProjectCard component, add these icons to the footer section
+// Find where the current footer or bottom section of the card is rendered
+// and add this block:
+
+<div className="flex items-center justify-end gap-2 mt-3 text-muted-foreground">
+  <BanknoteIcon 
+    size={16} 
+    className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} 
+    title={project.fundsSentToOwner ? "Funds sent to owner" : "Funds not sent yet"}
+  />
+  <ShoppingCartIcon 
+    size={16} 
+    className={project.bought ? "text-green-500" : "text-red-500"} 
+    title={project.bought ? "Item purchased" : "Not purchased yet"}
+  />
+  <ClipboardListIcon 
+    size={16} 
+    className={project.addedToAssetList ? "text-green-500" : "text-red-500"} 
+    title={project.addedToAssetList ? "Added to asset list" : "Not in asset list"}
+  />
+</div>
+````
+
+
+This will add all three icons to the card footer with these features:
+
+1. Small 16px icons that don't take up much space
+2. Color-coded status (green for completed, red for pending)
+3. Hover tooltips that explain what each icon represents
+4. Right-aligned in the footer for a clean look
+5. Proper spacing between icons
+
+Add this code to your ProjectCard component wherever the footer/bottom area is rendered.
+
+---
+
+_**User**_
+
+Move the icons from the footer next to the project title in the ProjectCard
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants to move the status icons from the footer to be beside the project title. Let's update our diff to move the icons to be next to the title in the header part of the card instead of the footer.
+
+Looking at the ProjectCard component, I need to:
+
+1. Remove the icons from the CardFooter we just added
+2. Add them to the title section instead, which is likely in the CardHeader or near the start of the CardContent
+
+I'll need to pay attention to the layout and make sure the icons don't disrupt the design. Since they're next to the title, I should make sure they're aligned properly.
+</think>
+
+🤖 Let's move the icons to be next to the project title instead of in the footer:
+
+````typescript:src/components/projects/project-card.tsx
+// Remove the CardFooter we just added and move the icons to the title section
+
+//
+
+---
+
 
 
 ---

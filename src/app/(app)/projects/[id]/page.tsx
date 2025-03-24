@@ -18,13 +18,14 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Project } from "@/types"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Pencil, Clock, CheckCircle, Users, BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, XCircle } from "lucide-react"
 import { MotionFade } from "@/components/ui/motion-fade"
 import { toast } from "sonner"
 import { useProjectPledges } from "@/hooks/use-project-pledges"
 import { PledgeList } from "@/components/projects/pledge-list"
 import { PledgeOverlay } from "@/components/projects/pledge-overlay"
 import { useAuth } from "@/contexts/auth-context"
+import { Checkbox } from "@/components/ui/checkbox"
 
 /**
  * The page shows all the project details and buttons:
@@ -252,6 +253,72 @@ export default function ProjectPage() {
                   })}
                 />
               </div>
+              <div className="space-y-4 border rounded-md p-4 mt-6">
+                <h3 className="font-medium">Administrative Status</h3>
+                
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="fundsSentToOwner" 
+                    checked={project.fundsSentToOwner}
+                    onCheckedChange={(checked) => 
+                      setEditedProject({...editedProject, fundsSentToOwner: checked === true})
+                    }
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="fundsSentToOwner"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Funds Sent To Owner
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      Mark when funds have been transferred to the project owner
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="bought" 
+                    checked={project.bought}
+                    onCheckedChange={(checked) => 
+                      setEditedProject({...editedProject, bought: checked === true})
+                    }
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="bought"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Item Purchased
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      Mark when the project item has been purchased
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-2">
+                  <Checkbox 
+                    id="addedToAssetList" 
+                    checked={project.addedToAssetList}
+                    onCheckedChange={(checked) => 
+                      setEditedProject({...editedProject, addedToAssetList: checked === true})
+                    }
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="addedToAssetList"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Added to Asset List
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      Mark when the item has been added to the organization's asset list
+                    </p>
+                  </div>
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -283,6 +350,42 @@ export default function ProjectPage() {
                   </a>
                 </div>
               )}
+              
+              <div className="mt-6 border rounded-md p-4">
+                <h3 className="font-medium mb-4">Project Status</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <BanknoteIcon className={project.fundsSentToOwner ? "text-green-500" : "text-red-500"} size={20} />
+                    <div>
+                      <div className="font-medium">Funds Sent</div>
+                      <div className="text-sm text-muted-foreground">
+                        {project.fundsSentToOwner ? "Completed" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <ShoppingCartIcon className={project.bought ? "text-green-500" : "text-red-500"} size={20} />
+                    <div>
+                      <div className="font-medium">Item Purchased</div>
+                      <div className="text-sm text-muted-foreground">
+                        {project.bought ? "Completed" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <ClipboardListIcon className={project.addedToAssetList ? "text-green-500" : "text-red-500"} size={20} />
+                    <div>
+                      <div className="font-medium">Added to Asset List</div>
+                      <div className="text-sm text-muted-foreground">
+                        {project.addedToAssetList ? "Completed" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </CardContent>
