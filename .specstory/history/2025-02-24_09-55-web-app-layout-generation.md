@@ -35331,7 +35331,459 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <span className="font-medium">{isLoading ? "..." : `${percentComplete}%`}</span>
             </div>
             <Progress 
-              // For the visual progress bar, still cap at 100%
+              // For the visual progress bar, still cap at 100% width, but keep the red color
+              value={isLoading ? 0 : Math.min(percentComplete, 100)} 
+              className="h-2"
+              indicatorClassName={progressColorClass}
+            />
+            <div className="flex justify-between text-sm mt-2">
+
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
+````
+
+Let's also do the same for the project detail page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Update the project detail page progress bar
+
+// Inside your ProjectPage component where you calculate the percentage:
+// Calculate completion percentage without capping
+const percentComplete = Math.round((currentAmount / (project?.goal || 1)) * 100)
+
+// Determine progress color based on percentage
+const progressColorClass = 
+  percentComplete > 100 
+    ? "bg-red-500" // Overpaid - display in red
+    : percentComplete === 100 
+      ? "bg-green-500" // Exactly 100% - display in green
+      : percentComplete > 60 
+        ? "bg-blue-500" 
+        : "bg-primary"
+````
+
+These changes will:
+1. Remove the cap on percentage calculation, so it will display the actual percentage even if over 100%
+2. Change the progress bar color to red when the project is overpaid (>100%)
+3. Maintain the green color for exactly 100% funded projects
+4. Keep the existing colors for partially funded projects
+
+For the visual display of the progress bar itself, I've kept the width capped at 100% (so it doesn't extend beyond the container), but it will still show the red color to indicate overpayment.
+
+---
+
+_**User**_
+
+Add a button in project detail which  will redistribute overpayments to users proportionally.
+When clicked, a dialog will display to confirm the redistribution.
+The amount or funds that are over the project goal will be redistributed proportionally among all users that pledged to the project.
+The confirm dialog will display the amount of credits that will be returned to each user.
+
+---
+
+_**Assistant**_
+
+<think>
+Let's create a button in the project detail page to redistribute overpayments to users proportionally when a project is overpaid. Here's what we need to do:
+
+1. Create a function to calculate the redistribution amounts
+2. Create a dialog to confirm the redistribution
+3. Handle the actual redistribution logic 
+4. Update the UI to reflect the changes
+
+The button should be shown only when:
+- The project is overpaid (currentAmount > project.goal)
+- The user viewing is an admin or has special permissions
+
+For the redistribution logic:
+1. Calculate the excess amount (currentAmount - project.goal)
+2. For each pledge, calculate their proportion of the total funding
+3. Multiply the excess amount by each user's proportion to get their refund amount
+4. Create credit awards for each user with the refund amount
+
+Let's first create the redistribution component and then integrate it into the project detail page.
+</think>
+
+🤖 Let's implement a button to redistribute overpayments proportionally to users. Here's how we'll implement it:
+
+````typescript:src/components/projects/redistribute-funds-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { 
+  Dialog,
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useProjectPledges } from "@/hooks/use-project-pledges"
+import { CreditWorkflow } from "@/lib/services/workflows/credit-workflow"
+import { formatMoney } from "@/lib/utils"
+
+interface RedistributeFundsDialogProps {
+  projectId: string
+  projectName: string
+  overageAmount: number
+}
+
+export function RedistributeFundsDialog({ 
+  projectId, 
+  projectName, 
+  overageAmount 
+}: RedistributeFundsDialogProps) {
+  const [open, setOpen] = useState(false)
+  const { data: pledges = [] } = useProjectPledges(projectId)
+  const queryClient = useQueryClient()
+  
+  // Calculate the total amount pledged
+  const totalPledged = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
+  
+  // Calculate refund amount for each user based on their proportion of the total
+  const redistributions = pledges.map(pledge => {
+    const proportion = pledge.amount / totalPledged
+    const refundAmount = Math.round(overageAmount * proportion)
+    
+    return {
+      userId: pledge.userId,
+      userName: pledge.userName,
+      originalPledge: pledge.amount,
+      proportion,
+      refundAmount
+    }
+  })
+
+  // Actual amount being redistributed (may differ slightly from overageAmount due to rounding)
+  const totalRedistributed = redistributions.reduce((sum, r) => sum + r.refundAmount, 0)
+  
+  const creditWorkflow = new CreditWorkflow()
+  
+  const { mutate: redistributeFunds, isPending } = useMutation({
+    mutationFn: async () => {
+      // Create credit awards for each user
+      const awards = await Promise.all(
+        redistributions.map(refund => 
+          creditWorkflow.awardCredits(
+            refund.userId,
+            refund.refundAmount,
+            'refund',
+            {
+              sourceId: projectId,
+              sourceType: 'project',
+              notes: `Refund of overpayment from project: ${projectName}`
+            }
+          )
+        )
+      )
+      return awards
+    },
+    onSuccess: () => {
+      toast.success("Funds redistributed", {
+        description: `Successfully redistributed ${formatMoney(totalRedistributed)} to ${redistributions.length} users.`
+      })
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['projectBalance'] })
+      queryClient.invalidateQueries({ queryKey: ['projectPledges'] })
+      queryClient.invalidateQueries({ queryKey: ['userBalance'] })
+    },
+    onError: (error) => {
+      toast.error("Error", {
+        description: `Failed to redistribute funds: ${error.message}`
+      })
+    }
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" className="bg-orange-600 text-white hover:bg-orange-500">
+          Redistribute Overpayment
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Redistribute Overpayment</DialogTitle>
+          <DialogDescription>
+            This project is overpaid by {formatMoney(overageAmount)}. This amount will be redistributed 
+            proportionally among all users who pledged to this project.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="max-h-80 overflow-y-auto my-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="py-2">User</th>
+                <th className="py-2 text-right">Original Pledge</th>
+                <th className="py-2 text-right">% of Total</th>
+                <th className="py-2 text-right">Refund Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {redistributions.map((refund, idx) => (
+                <tr key={idx} className="border-b border-muted">
+                  <td className="py-2">{refund.userName}</td>
+                  <td className="py-2 text-right">{formatMoney(refund.originalPledge)}</td>
+                  <td className="py-2 text-right">{(refund.proportion * 100).toFixed(1)}%</td>
+                  <td className="py-2 text-right">{formatMoney(refund.refundAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-medium">
+                <td className="py-2">Total</td>
+                <td className="py-2 text-right">{formatMoney(totalPledged)}</td>
+                <td className="py-2 text-right">100%</td>
+                <td className="py-2 text-right">{formatMoney(totalRedistributed)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => setOpen(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => redistributeFunds()}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Redistribute Funds"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+Now, let's add this component to the project detail page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Add this import at the top of the file
+import { RedistributeFundsDialog } from "@/components/projects/redistribute-funds-dialog"
+
+// Inside the component, add the redistribution button when the project is overpaid
+// Look for the section with project action buttons (Edit/Delete buttons)
+
+// Calculate overage amount
+const overageAmount = currentAmount > (project?.goal || 0) 
+  ? currentAmount - (project?.goal || 0)
+  : 0
+
+// Then add the button in the appropriate section:
+
+<div className="flex gap-2">
+  {/* Only show this button for admins when project is overpaid */}
+  {percentComplete > 100 && appUser?.role === 'admin' && (
+    <RedistributeFundsDialog 
+      projectId={id}
+      projectName={project.name}
+      overageAmount={overageAmount}
+    />
+  )}
+  
+  {/* Existing pledge button */}
+  <Button
+    className="bg-green-800 text-white hover:bg-green-600"
+    onClick={() => {
+      setSelectedPledge(null)
+      setIsPledgeOpen(true)
+    }}
+    disabled={!appUser}
+  >
+    Pledge
+  </Button>
+
+  {/* Existing edit button */}
+  {/* ... */}
+</div>
+````
+
+This implementation:
+
+1. Creates a new component for the redistribution dialog
+2. Calculates each user's refund amount proportionally based on their contribution
+3. Shows a detailed breakdown of the redistribution
+4. Handles the actual refund process by creating credit awards for each user
+5. Updates all relevant queries after successful redistribution
+6. Only shows the button to admins when the project is overpaid
+
+The dialog displays each user's original pledge amount, their percentage of the total, and the amount they'll receive back. This gives administrators full transparency before confirming the redistribution.
+
+---
+
+_**User**_
+
+Error: Invalid amount. Must be a positive number.
+
+---
+
+_**Assistant**_
+
+<think>
+Looking at the error message, it seems we have an issue with the `awardCredits` function. The error message says "Invalid amount. Must be a positive number", which suggests that we might be trying to award a negative or zero amount of credits to a user.
+
+Let's examine the code in the `RedistributeFundsDialog` component that calculates the refund amounts:
+
+```typescript
+// Calculate refund amount for each user based on their proportion of the total
+const redistributions = pledges.map(pledge => {
+  const proportion = pledge.amount / totalPledged
+  const refundAmount = Math.round(overageAmount * proportion)
+  
+  return {
+    userId: pledge.userId,
+    userName: pledge.userName,
+    originalPledge: pledge.amount,
+    proportion,
+    refundAmount
+  }
+})
+```
+
+The issue could be in this calculation. When we do `Math.round(overageAmount * proportion)`, it's possible that for very small proportions, the rounded result might be 0. The `awardCredits` function likely requires a positive amount.
+
+Let's fix this by:
+1. Making sure each refund amount is at least 1 credit
+2. Adjusting the distribution logic to ensure we're properly handling small amounts
+</think>
+
+🤖 The error "Invalid amount. Must be a positive number" is occurring because some users might be getting a refund amount of 0 credits due to rounding. Let's fix the redistribute funds dialog by ensuring all refund amounts are positive:
+
+````typescript:src/components/projects/redistribute-funds-dialog.tsx
+// Update the calculation to ensure positive refund amounts
+
+// Calculate refund amount for each user based on their proportion of the total
+const redistributions = pledges.map(pledge => {
+  const proportion = pledge.amount / totalPledged
+  // Ensure a minimum of 1 credit for anyone who pledged
+  const refundAmount = Math.max(1, Math.round(overageAmount * proportion))
+  
+  return {
+    userId: pledge.userId,
+    userName: pledge.userName,
+    originalPledge: pledge.amount,
+    proportion,
+    refundAmount
+  }
+})
+
+// We need to recalculate the total after ensuring minimums
+const totalRedistributed = redistributions.reduce((sum, r) => sum + r.refundAmount, 0)
+
+// If total redistributed exceeds overage amount, we need to adjust the largest refunds
+const adjustedRedistributions = (() => {
+  if (totalRedistributed <= overageAmount) {
+    return redistributions; // No adjustment needed
+  }
+  
+  // We need to reduce some refunds to match the overage
+  const excess = totalRedistributed - overageAmount;
+  
+  // Sort by refund amount (descending) to adjust the largest refunds first
+  const sorted = [...redistributions].sort((a, b) => b.refundAmount - a.refundAmount);
+  
+  let remainingExcess = excess;
+  
+  // Try to remove 1 credit at a time from largest refunds until excess is gone
+  for (let i = 0; remainingExcess > 0 && i < sorted.length; i++) {
+    if (sorted[i].refundAmount > 1) { // Don't reduce below 1
+      const reduction = Math.min(remainingExcess, sorted[i].refundAmount - 1);
+      sorted[i].refundAmount -= reduction;
+      remainingExcess -= reduction;
+    }
+  }
+  
+  return sorted;
+})();
+
+// Use the adjusted redistributions for the actual refund process
+const finalTotalRedistributed = adjustedRedistributions.reduce((sum, r) => sum + r.refundAmount, 0);
+````
+
+Then update the mutation function to use the adjusted redistributions:
+
+````typescript:src/components/projects/redistribute-funds-dialog.tsx
+const { mutate: redistributeFunds, isPending } = useMutation({
+  mutationFn: async () => {
+    // Create credit awards for each user using the adjusted values
+    const awards = await Promise.all(
+      adjustedRedistributions.map(refund => 
+        creditWorkflow.awardCredits(
+          refund.userId,
+          refund.refundAmount,
+          'refund',
+          {
+            sourceId: projectId,
+            sourceType: 'project',
+            notes: `Refund of overpayment from project: ${projectName}`
+          }
+        )
+      )
+    )
+    return awards
+  },
+  // Rest of the mutation stays the same
+})
+````
+
+And update the display to show the adjusted values:
+
+````typescript:src/components/projects/redistribute-funds-dialog.tsx
+<tbody>
+  {adjustedRedistributions.map((refund, idx) => (
+    <tr key={idx} className="border-b border-muted">
+      <td className="py-2">{refund.userName}</td>
+      <td className="py-2 text-right">{formatMoney(refund.originalPledge)}</td>
+      <td className="py-2 text-right">{(refund.proportion * 100).toFixed(1)}%</td>
+      <td className="py-2 text-right">{formatMoney(refund.refundAmount)}</td>
+    </tr>
+  ))}
+</tbody>
+<tfoot>
+  <tr className="font-medium">
+    <td className="py-2">Total</td>
+    <td className="py-2 text-right">{formatMoney(totalPledged)}</td>
+    <td className="py-2 text-right">100%</td>
+    <td className="py-2 text-right">{formatMoney(finalTotalRedistributed)}</td>
+  </tr>
+</tfoot>
+````
+
+These changes ensure that:
+1. Every user who pledged gets at least 1 credit as a refund
+2. We don't distribute more credits than the overage amount
+3. The adjustment is done fairly by reducing the largest refunds first
+
+---
+
+_**User**_
+
+You are handling the redistribution by awarding new credits to the user.
+I would like to handle the redistribution by lowering the user's pledge instead.
 
 ---
 

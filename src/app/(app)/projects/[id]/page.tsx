@@ -26,6 +26,7 @@ import { PledgeList } from "@/components/projects/pledge-list"
 import { PledgeOverlay } from "@/components/projects/pledge-overlay"
 import { useAuth } from "@/contexts/auth-context"
 import { Checkbox } from "@/components/ui/checkbox"
+import { RedistributeFundsDialog } from "@/components/projects/redistribute-funds-dialog"
 
 /**
  * The page shows all the project details and buttons:
@@ -68,6 +69,11 @@ export default function ProjectPage() {
           ? "bg-blue-500" 
           : "bg-primary"
       
+  // Calculate overage amount
+  const overageAmount = currentAmount > (project?.goal || 0) 
+    ? currentAmount - (project?.goal || 0)
+    : 0
+
   useEffect(() => {
     if (project) {
       setEditedProject(project)
@@ -160,9 +166,23 @@ export default function ProjectPage() {
           <p className="text-muted-foreground">Created by {project.ownerId}</p>
         </div>
         <div className="flex gap-2">
-        <Button
-          className="bg-green-800 text-white hover:bg-green-600"
-          onClick={()=>setIsPledgeOpen(true)}
+          {/* Only show this button for admins when project is overpaid */}
+          {percentComplete > 100 && appUser?.role === 'admin' && (
+            <RedistributeFundsDialog 
+              projectId={id}
+              projectName={project.name}
+              overageAmount={overageAmount}
+            />
+          )}
+          
+          {/* Existing pledge button */}
+          <Button
+            className="bg-green-800 text-white hover:bg-green-600"
+            onClick={() => {
+              setSelectedPledge(null)
+              setIsPledgeOpen(true)
+            }}
+            disabled={!appUser}
           >
             Pledge
           </Button>
