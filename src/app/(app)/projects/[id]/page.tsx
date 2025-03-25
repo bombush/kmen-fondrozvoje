@@ -55,15 +55,18 @@ export default function ProjectPage() {
   const [isPledgeOpen, setIsPledgeOpen] = useState(false)
   const [selectedPledge, setSelectedPledge] = useState<any>(null)
   
-  // Calculate completion percentage
-  const percentComplete = Math.min(Math.round((currentAmount / (project?.goal || 1)) * 100), 100)
+  // Calculate completion percentage without capping
+  const percentComplete = Math.round((currentAmount / (project?.goal || 1)) * 100)
   
   // Determine progress color based on percentage
-  const progressColorClass = percentComplete >= 100 
-    ? "bg-green-500" 
-    : percentComplete > 60 
-      ? "bg-blue-500" 
-      : "bg-primary"
+  const progressColorClass = 
+    percentComplete > 100 
+      ? "bg-red-500" // Overpaid - display in red
+      : percentComplete === 100 
+        ? "bg-green-500" // Exactly 100% - display in green
+        : percentComplete > 60 
+          ? "bg-blue-500" 
+          : "bg-primary"
       
   useEffect(() => {
     if (project) {
@@ -148,7 +151,12 @@ export default function ProjectPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <h1 className="text-2xl font-bold inline-block  ">{project.name}</h1>
+          {(percentComplete>100) && (
+                <Badge variant="destructive" className="inline-block ml-2">
+                  Overpaid
+                </Badge>
+              )}
           <p className="text-muted-foreground">Created by {project.ownerId}</p>
           <Button
           className="bg-green-800 text-white hover:bg-green-600"
@@ -207,7 +215,7 @@ export default function ProjectPage() {
                 <div className="space-y-3">
                   
                   <Progress 
-                    value={isLoadingBalance ? 0 : percentComplete} 
+                    value={isLoadingBalance ? 0 : Math.min(percentComplete, 100)} 
                     className="h-1.5"
                     indicatorClassName={progressColorClass}
                   />

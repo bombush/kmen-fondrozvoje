@@ -18,15 +18,18 @@ export function ProjectCard({ project }: ProjectCardProps) {
   // Load current amount from pledges
   const { data: currentAmount = 0, isLoading } = useProjectBalance(project.id)
   
-  // Calculate completion percentage
-  const percentComplete = Math.min(Math.round((currentAmount / project.goal) * 100), 100)
+  // Calculate completion percentage without capping at 100%
+  const percentComplete = Math.round((currentAmount / project.goal) * 100)
   
   // Determine progress color based on percentage
-  const progressColorClass = percentComplete >= 100 
-    ? "bg-green-500" 
-    : percentComplete > 60 
-      ? "bg-blue-500" 
-      : "bg-primary"
+  const progressColorClass = 
+    percentComplete > 100 
+      ? "bg-red-500" // Overpaid - display in red
+      : percentComplete === 100 
+        ? "bg-green-500" // Exactly 100% - display in green
+        : percentComplete > 60 
+          ? "bg-blue-500" 
+          : "bg-primary"
 
   return (
     <Link href={`/projects/${project.id}`}>
@@ -38,6 +41,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <Badge variant={project.closed ? "default" : "secondary"}>
                 {project.closed ? "Completed" : "Active"}
               </Badge>
+              {(percentComplete>100) && (
+                <Badge variant="destructive">
+                  Overpaid
+                </Badge>
+              )}
             </div>
             <div className="flex gap-1">
               <BanknoteIcon 
@@ -70,7 +78,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <span className="font-medium">{isLoading ? "..." : `${percentComplete}%`}</span>
             </div>
             <Progress 
-              value={isLoading ? 0 : percentComplete} 
+              // For the visual progress bar, still cap at 100% width, but keep the red color
+              value={isLoading ? 0 : Math.min(percentComplete, 100)} 
               className="h-2"
               indicatorClassName={progressColorClass}
             />
