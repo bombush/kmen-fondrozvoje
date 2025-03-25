@@ -158,14 +158,14 @@ export default function ProjectPage() {
                 </Badge>
               )}
           <p className="text-muted-foreground">Created by {project.ownerId}</p>
-          <Button
+        </div>
+        <div className="flex gap-2">
+        <Button
           className="bg-green-800 text-white hover:bg-green-600"
           onClick={()=>setIsPledgeOpen(true)}
           >
             Pledge
           </Button>
-        </div>
-        <div className="flex gap-2">
           <Button 
             variant="outline"
             onClick={() => setIsEditing(!isEditing)}
