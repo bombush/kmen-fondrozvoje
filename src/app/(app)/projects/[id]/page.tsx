@@ -27,6 +27,8 @@ import { PledgeOverlay } from "@/components/projects/pledge-overlay"
 import { useAuth } from "@/contexts/auth-context"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RedistributeFundsDialog } from "@/components/projects/redistribute-funds-dialog"
+import { ProjectLockButton } from "@/components/projects/project-lock-button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
  * The page shows all the project details and buttons:
@@ -73,6 +75,10 @@ export default function ProjectPage() {
   const overageAmount = currentAmount > (project?.goal || 0) 
     ? currentAmount - (project?.goal || 0)
     : 0
+
+  const isOwnerOrAdmin = 
+    (appUser?.id === project?.ownerId) || 
+    (appUser?.role === 'admin')
 
   useEffect(() => {
     if (project) {
@@ -175,17 +181,30 @@ export default function ProjectPage() {
             />
           )}
           
-          {/* Existing pledge button */}
-          <Button
-            className="bg-green-800 text-white hover:bg-green-600"
-            onClick={() => {
-              setSelectedPledge(null)
-              setIsPledgeOpen(true)
-            }}
-            disabled={!appUser}
-          >
-            Pledge
-          </Button>
+          {/* Pledge button with proper tooltip */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="bg-green-800 text-white hover:bg-green-600"
+                onClick={() => {
+                  setSelectedPledge(null)
+                  setIsPledgeOpen(true)
+                }}
+                disabled={!appUser || project?.locked}
+              >
+                Pledge
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {!appUser ? (
+                "Please log in to pledge to this project"
+              ) : project?.locked ? (
+                "This project is locked and cannot receive new pledges"
+              ) : (
+                "Click to pledge to this project"
+              )}
+            </TooltipContent>
+          </Tooltip>
           <Button 
             variant="outline"
             onClick={() => setIsEditing(!isEditing)}
@@ -227,6 +246,13 @@ export default function ProjectPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+          {/* Add the lock/unlock button */}
+          {project && (
+            <ProjectLockButton 
+              project={project} 
+              isOwnerOrAdmin={isOwnerOrAdmin} 
+            />
           )}
         </div>
       </div>

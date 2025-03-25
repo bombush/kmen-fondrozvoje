@@ -35787,6 +35787,432 @@ I would like to handle the redistribution by lowering the user's pledge instead.
 
 ---
 
+_**Assistant**_
+
+<think>
+I understand that instead of creating new credit awards, you want to reduce the pledges that users have made to the project. This is a different approach to handle the redistribution of overpayment. Let's modify the implementation to do this.
+
+The main changes needed:
+
+1. Instead of using the CreditWorkflow, we'll use the PledgeCrud to update existing pledges
+2. We'll reduce each user's pledge amount by their calculated refund amount
+3. This way, the total pledged amount will be reduced to match the project goal
+
+Let's look at what changes we need to make to the RedistributeFundsDialog component:
+</think>
+
+🤖 I'll update the redistribution functionality to reduce users' pledges instead of awarding new credits. This is a more direct approach that adjusts the pledges rather than creating refund transactions.
+
+````typescript:src/components/projects/redistribute-funds-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { 
+  Dialog,
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useProjectPledges } from "@/hooks/use-project-pledges"
+import { formatMoney } from "@/lib/utils"
+import { PledgeCrud } from "@/lib/services/crud/pledge-crud"
+
+interface RedistributeFundsDialogProps {
+  projectId: string
+  projectName: string
+  overageAmount: number
+}
+
+export function RedistributeFundsDialog({ 
+  projectId, 
+  projectName, 
+  overageAmount 
+}: RedistributeFundsDialogProps) {
+  const [open, setOpen] = useState(false)
+  const { data: pledges = [] } = useProjectPledges(projectId)
+  const queryClient = useQueryClient()
+  
+  // Calculate the total amount pledged
+  const totalPledged = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
+  
+  // Calculate reduction amount for each pledge based on their proportion of the total
+  const redistributions = pledges.map(pledge => {
+    const proportion = pledge.amount / totalPledged
+    const reductionAmount = Math.min(pledge.amount - 1, Math.round(overageAmount * proportion))
+    
+    return {
+      pledgeId: pledge.id,
+      userId: pledge.userId,
+      userName: pledge.userName,
+      originalPledge: pledge.amount,
+      // New amount after reduction
+      newPledgeAmount: pledge.amount - reductionAmount,
+      proportion,
+      reductionAmount
+    }
+  })
+
+  // Actual amount being redistributed
+  const totalRedistributed = redistributions.reduce((sum, r) => sum + r.reductionAmount, 0)
+  
+  const pledgeCrud = new PledgeCrud()
+  
+  const { mutate: redistributeFunds, isPending } = useMutation({
+    mutationFn: async () => {
+      // Update each pledge with the reduced amount
+      const updatedPledges = await Promise.all(
+        redistributions.map(reduction => 
+          pledgeCrud.update(reduction.pledgeId, {
+            amount: reduction.newPledgeAmount,
+            // Add a note about the reduction
+            description: `${pledge.description || ''} (Adjusted: -${reduction.reductionAmount} due to project overpayment)`
+          })
+        )
+      )
+      return updatedPledges
+    },
+    onSuccess: () => {
+      toast.success("Pledges reduced", {
+        description: `Successfully reduced pledges by a total of ${formatMoney(totalRedistributed)}`
+      })
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['projectBalance'] })
+      queryClient.invalidateQueries({ queryKey: ['projectPledges'] })
+      queryClient.invalidateQueries({ queryKey: ['userPledge'] })
+    },
+    onError: (error) => {
+      toast.error("Error", {
+        description: `Failed to reduce pledges: ${error.message}`
+      })
+    }
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" className="bg-orange-600 text-white hover:bg-orange-500">
+          Reduce Pledges
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Reduce Pledges for Overpayment</DialogTitle>
+          <DialogDescription>
+            This project is overpaid by {formatMoney(overageAmount)}. Each user's pledge will be reduced 
+            proportionally to match the project goal.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="max-h-80 overflow-y-auto my-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="py-2">User</th>
+                <th className="py-2 text-right">Original Pledge</th>
+                <th className="py-2 text-right">Reduction</th>
+                <th className="py-2 text-right">New Pledge</th>
+              </tr>
+            </thead>
+            <tbody>
+              {redistributions.map((reduction, idx) => (
+                <tr key={idx} className="border-b border-muted">
+                  <td className="py-2">{reduction.userName}</td>
+                  <td className="py-2 text-right">{formatMoney(reduction.originalPledge)}</td>
+                  <td className="py-2 text-right">-{formatMoney(reduction.reductionAmount)}</td>
+                  <td className="py-2 text-right">{formatMoney(reduction.newPledgeAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-medium">
+                <td className="py-2">Total</td>
+                <td className="py-2 text-right">{formatMoney(totalPledged)}</td>
+                <td className="py-2 text-right">-{formatMoney(totalRedistributed)}</td>
+                <td className="py-2 text-right">{formatMoney(totalPledged - totalRedistributed)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => setOpen(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => redistributeFunds()}
+            disabled={isPending || totalRedistributed === 0}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Reduce Pledges"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+This approach:
+
+1. Calculates how much to reduce each pledge based on the user's proportion of the total
+2. Ensures no pledge is reduced below 1 credit
+3. Updates each pledge with the new reduced amount
+4. Adds a note to the pledge description explaining the reduction
+5. Updates all the relevant UI elements to show pledge reductions instead of refunds
+6. Changes the button and dialog title to better reflect the action being taken
+
+The benefit of this approach is that it directly addresses the overpayment issue by reducing the pledges, rather than creating additional transactions. This keeps the project's funding clean and understandable in the history.
+
+---
+
+_**User**_
+
+If a project is complete, add Lock/Unlock button (blue color).
+Lock will lock the project and all pledges associated with it.
+Unlock will do the opposite.
+
+Project can be locked only by the owner and the admin.
+
+---
+
+_**Assistant**_
+
+<think>
+For this feature, we need to implement a lock/unlock button for completed projects. The button will toggle the locked status of the project and also lock/unlock all pledges associated with the project. Only the project owner and administrators should be able to perform this action.
+
+Here's what we'll need to do:
+
+1. Add a lock/unlock button to the project detail page that appears only when the project is complete
+2. Implement the locking/unlocking functionality in the project workflow
+3. Ensure only the project owner and admins can see and use this button
+4. Add visual indicators for the locked status
+
+Let's start by designing the UI component and the lock/unlock functionality.
+</think>
+
+🤖 Let's implement a Lock/Unlock button for completed projects that can only be used by the project owner and admins:
+
+````typescript:src/components/projects/project-lock-button.tsx
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Lock, Unlock, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Project } from "@/types"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { ProjectCrud } from "@/lib/services/crud/project-crud"
+import { PledgeCrud } from "@/lib/services/crud/pledge-crud"
+
+interface ProjectLockButtonProps {
+  project: Project
+  isOwnerOrAdmin: boolean
+}
+
+export function ProjectLockButton({ project, isOwnerOrAdmin }: ProjectLockButtonProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const projectCrud = new ProjectCrud()
+  const pledgeCrud = new PledgeCrud()
+  
+  const { mutate: toggleLock, isPending } = useMutation({
+    mutationFn: async () => {
+      // First update the project's locked status
+      const updatedProject = await projectCrud.update(project.id, {
+        locked: !project.locked
+      })
+      
+      // Then update all associated pledges
+      const pledges = await pledgeCrud.getByProjectId(project.id)
+      await Promise.all(
+        pledges.map(pledge => 
+          pledgeCrud.update(pledge.id, { locked: !project.locked })
+        )
+      )
+      
+      return updatedProject
+    },
+    onSuccess: (updatedProject) => {
+      const action = updatedProject.locked ? "locked" : "unlocked"
+      toast.success(`Project ${action}`, {
+        description: `Successfully ${action} the project and all associated pledges.`
+      })
+      setIsOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['projectPledges', project.id] })
+    },
+    onError: (error) => {
+      toast.error("Error", {
+        description: `Failed to update project: ${error.message}`
+      })
+    }
+  })
+  
+  // Don't render if user is not owner or admin
+  if (!isOwnerOrAdmin) return null
+  
+  // Don't render if project is not completed
+  if (!project.closed) return null
+  
+  const actionText = project.locked ? "Unlock" : "Lock"
+  const icon = project.locked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />
+  
+  return (
+    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+      <AlertDialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="bg-blue-600 text-white hover:bg-blue-500"
+        >
+          {icon}
+          {actionText} Project
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{actionText} Project</AlertDialogTitle>
+          <AlertDialogDescription>
+            {project.locked 
+              ? "Unlocking will allow changes to this project and all its pledges. Users will be able to add or remove their pledges."
+              : "Locking will prevent any changes to this project and all its pledges. Users won't be able to add or remove their pledges."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              toggleLock()
+            }}
+            disabled={isPending}
+            className={project.locked ? "bg-blue-600 hover:bg-blue-500" : "bg-blue-600 hover:bg-blue-500"}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {icon}
+                {actionText} Project
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+````
+
+Now let's add this button to the project detail page:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Add this import at the top
+import { ProjectLockButton } from "@/components/projects/project-lock-button"
+
+// Inside the component, add the following code to determine if the user is owner or admin
+const isOwnerOrAdmin = 
+  (appUser?.id === project?.ownerId) || 
+  (appUser?.role === 'admin')
+
+// In the section with the project action buttons, add:
+<div className="flex gap-2">
+  {/* Existing buttons for pledge, redistributing overpaid pledges, etc. */}
+  
+  {/* Add the lock/unlock button */}
+  {project && (
+    <ProjectLockButton 
+      project={project} 
+      isOwnerOrAdmin={isOwnerOrAdmin} 
+    />
+  )}
+  
+  {/* Existing edit/delete buttons */}
+</div>
+````
+
+Let's also add a visual indicator for locked projects:
+
+````typescript:src/components/projects/project-card.tsx
+// In the ProjectCard component, add a lock indicator near the badges
+
+<div className="flex items-center gap-2">
+  <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+  <Badge variant={project.closed ? "default" : "secondary"}>
+    {project.closed ? "Completed" : "Active"}
+  </Badge>
+  {(percentComplete>100) && (
+    <Badge variant="destructive">
+      Overpaid
+    </Badge>
+  )}
+  {project.locked && (
+    <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+      <Lock className="h-3 w-3 mr-1" />
+      Locked
+    </Badge>
+  )}
+</div>
+````
+
+Finally, update the project detail page to disable the pledge button when the project is locked:
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Update the Pledge button to be disabled when the project is locked
+<Button
+  className="bg-green-800 text-white hover:bg-green-600"
+  onClick={() => {
+    setSelectedPledge(null)
+    setIsPledgeOpen(true)
+  }}
+  disabled={!appUser || project?.locked}
+>
+  Pledge
+</Button>
+
+// Also add a tooltip or a message when hovering over the disabled button
+{project?.locked && (
+  <p className="text-xs text-muted-foreground mt-1">
+    This project is locked and cannot receive new pledges
+  </p>
+)}
+````
+
+These changes will:
+1. Add a lock/unlock button for completed projects that's only visible to the project owner and admins
+2. Show a confirmation dialog before locking or unlocking
+3. Update both the project and all associated pledges when the lock status changes
+4. Add visual indicators to show that a project is locked
+5. Disable the pledge button for locked projects
+
+---
+
+_**User**_
+
+Fix the tooltip implementation on disabled pledge button
+
+---
+
 
 
 ---

@@ -108,6 +108,7 @@ export interface Project {
   fundsSentToOwner: boolean
   bought: boolean
   addedToAssetList: boolean
+  locked: boolean
   deleted?: boolean
   createdAt: string
   updatedAt: string

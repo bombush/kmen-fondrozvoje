@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useProjectBalance } from "@/hooks/use-project-balance"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon } from "lucide-react"
+import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, Lock } from "lucide-react"
 
 interface ProjectCardProps {
   project: Project
@@ -44,6 +44,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
               {(percentComplete>100) && (
                 <Badge variant="destructive">
                   Overpaid
+                </Badge>
+              )}
+              {project.locked && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Locked
                 </Badge>
               )}
             </div>
