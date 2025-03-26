@@ -21,6 +21,7 @@ export type BankStatement = {
   processedAt: string
   status: 'pending' | 'processed' | 'error'
   rawData: string // JSON string of raw bank statement data
+  adapter: string // Name of the adapter used to parse the statement
   timestamp: number // Unix timestamp of the date on the statement (Might not match the createdAt date)
   createdAt: string
   updatedAt: string
