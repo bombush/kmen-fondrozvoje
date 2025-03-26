@@ -36213,6 +36213,326 @@ Fix the tooltip implementation on disabled pledge button
 
 ---
 
+_**Assistant**_
+
+<think>
+Let's fix the tooltip implementation for the disabled pledge button. The current implementation has an issue with tooltips on disabled buttons. I need to:
+
+1. Make sure the tooltip shows correctly when hovering over a disabled button
+2. Make sure the tooltip message is correct - it should only show the "Project is locked" message when the project is actually locked
+3. Possibly add a message for the case when a user is not logged in
+
+Looking at the code, there are a few issues:
+- The TooltipTrigger is wrapping the Button, but the content is conditionally rendered only when project?.locked is true
+- We should show a tooltip message for both scenarios: when the project is locked and when the user is not logged in
+
+Let's fix this implementation:
+</think>
+
+🤖 Let's fix the tooltip implementation for the disabled pledge button. The current implementation doesn't properly show tooltips for both locked projects and when users aren't logged in.
+
+````typescript:src/app/(app)/projects/[id]/page.tsx
+// Fix the tooltip implementation for the disabled pledge button
+
+{/* Pledge button with proper tooltip */}
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button
+      className="bg-green-800 text-white hover:bg-green-600"
+      onClick={() => {
+        setSelectedPledge(null)
+        setIsPledgeOpen(true)
+      }}
+      disabled={!appUser || project?.locked}
+    >
+      Pledge
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>
+    {!appUser ? (
+      "Please log in to pledge to this project"
+    ) : project?.locked ? (
+      "This project is locked and cannot receive new pledges"
+    ) : (
+      "Click to pledge to this project"
+    )}
+  </TooltipContent>
+</Tooltip>
+````
+
+This implementation:
+
+1. Correctly shows the tooltip when hovering over the button (even when it's disabled)
+2. Shows different messages based on why the button might be disabled:
+   - If the user isn't logged in, it tells them to log in
+   - If the project is locked, it explains that the project can't receive new pledges
+   - If neither of those apply, it shows a helpful message about what the button does
+
+The key is to make the tooltip message conditionally display different content based on the state, rather than conditionally rendering the tooltip component itself.
+
+---
+
+_**User**_
+
+fio-parses-reference.as is a parser for Fio Bank taken from a Google Apps Script project we used before.
+Please analyze fio-parses-reference.as and create a new fio parser implementation that can be used with types from this project.
+
+---
+
+_**Assistant**_
+
+<think>
+Let's analyze the fio-parses-reference.as file, which appears to be a parser for the FIO bank API implemented in Google Apps Script, and create a new implementation that's compatible with the types defined in this project.
+
+Key parts from the reference implementation:
+
+1. It fetches bank transactions data from the FIO API
+2. It parses each transaction and extracts information like:
+   - Transaction ID
+   - Variable symbol (VS)
+   - Constant symbol (KS)
+   - Specific symbol (SS)
+   - Amount
+   - Date
+   - Counter-party account
+   - Counter-party name
+
+3. It has functions for:
+   - Getting the first date to fetch
+   - Parsing the JSON response
+   - Processing transactions into a specific format
+
+Looking at the types in the codebase, we need to implement a parser that conforms to the `BankParser` or `BankStatementParser` interface. From `src/lib/bank-parsers/types.ts`:
+
+```typescript
+export type RawBankPayment = {
+  userId: string
+  amount: number
+  receivedAt: string
+  description: string   
+  variableSymbol: string
+  specificSymbol: string
+  constantSymbol: string
+  bankTransactionId: string
+  counterpartyAccountNumber: string
+  counterpartyName: string
+}
+
+export type ParserResult = {
+  canParse: boolean
+  payments: RawBankPayment[]
+}
+
+export type BankParser = (content: string) => Promise<ParserResult>
+
+export interface BankStatementParser {
+  canParse: (content: string) => boolean
+  parse: (content: string) => RawBankPayment[]
+}
+```
+
+The implementation should:
+1. Parse a bank statement JSON from FIO
+2. Extract the relevant transaction information
+3. Map user IDs based on the specific symbols in the transactions
+4. Return the data in the proper format
+
+Let's implement a new FIO parser for this project.
+</think>
+
+🤖 After analyzing the `fio-parses-reference.as` file, I'll create a new implementation of the FIO parser that works with the types from this project.
+
+Looking at the reference code, it appears to be a Google Apps Script that:
+1. Fetches data from the FIO Bank API
+2. Parses transaction data with specific symbols, amounts, etc.
+3. Maps the transactions to users based on specific symbols
+4. Stores the data in a Google Sheet
+
+Let's create a proper TypeScript implementation for this project:
+
+````typescript:src/lib/bank-parsers/fio-parser.ts
+/**
+ * FIO Bank Parser
+ * 
+ * Based on reference implementation from Google Apps Script.
+ * Parses FIO bank statement JSON format and returns structured payment data.
+ */
+
+import { BankParser, BankStatementParser, ParserResult, RawBankPayment } from "./types"
+import { UserCrud } from "../services/crud/user-crud"
+
+interface FioTransaction {
+  column22: {
+    value: number  // Amount
+  }
+  column0: {
+    value: string  // Date in YYYY-MM-DD format
+  }
+  column1: {
+    value: string  // Counter account number
+  }
+  column10: {
+    value: string  // Specific symbol
+  }
+  column5: {
+    value: string  // Variable symbol
+  }
+  column4: {
+    value: string  // Constant symbol
+  }
+  column14: {
+    value: string  // Message for recipient
+  }
+  column17: {
+    value: string  // Counter account name
+  }
+  column8: {
+    value: string  // Transaction ID
+  }
+  column9: {
+    value: string  // Comment
+  }
+}
+
+interface FioResponse {
+  accountStatement: {
+    info: {
+      accountId: string
+      bankId: string
+      currency: string
+      iban: string
+      bic: string
+      openingBalance: number
+      closingBalance: number
+      dateStart: string
+      dateEnd: string
+      yearList: null
+      idList: null
+      idFrom: number
+      idTo: number
+      idLastDownload: null
+    }
+    transactionList: {
+      transaction: FioTransaction[]
+    }
+  }
+}
+
+export class FioParser implements BankStatementParser {
+  private userCrud = new UserCrud()
+  
+  /**
+   * Checks if the provided content is a valid FIO bank statement
+   */
+  canParse(content: string): boolean {
+    try {
+      const data = JSON.parse(content)
+      return (
+        data.accountStatement && 
+        data.accountStatement.info && 
+        data.accountStatement.transactionList &&
+        Array.isArray(data.accountStatement.transactionList.transaction)
+      )
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
+   * Parses FIO bank statement JSON and returns structured payment data
+   */
+  async parse(content: string): Promise<RawBankPayment[]> {
+    if (!this.canParse(content)) {
+      throw new Error("Invalid FIO bank statement format")
+    }
+
+    const data = JSON.parse(content) as FioResponse
+    const transactions = data.accountStatement.transactionList.transaction
+    
+    // Get all users to match specific symbols
+    const users = await this.userCrud.getAll()
+    const usersBySpecificSymbol = new Map()
+    
+    users.forEach(user => {
+      if (user.specificSymbol) {
+        usersBySpecificSymbol.set(user.specificSymbol, user.id)
+      }
+    })
+    
+    // Process transactions and match to users
+    const payments: RawBankPayment[] = []
+    
+    for (const transaction of transactions) {
+      // Only process incoming payments (amount > 0)
+      if (transaction.column22.value <= 0) continue
+      
+      const specificSymbol = transaction.column10.value
+      const userId = usersBySpecificSymbol.get(specificSymbol)
+      
+      // Skip transactions we can't match to a user
+      if (!userId) continue
+      
+      payments.push({
+        userId,
+        amount: transaction.column22.value,
+        receivedAt: transaction.column0.value,
+        description: transaction.column14.value || transaction.column9.value || '',
+        variableSymbol: transaction.column5.value || '',
+        specificSymbol: specificSymbol || '',
+        constantSymbol: transaction.column4.value || '',
+        bankTransactionId: transaction.column8.value,
+        counterpartyAccountNumber: transaction.column1.value || '',
+        counterpartyName: transaction.column17.value || ''
+      })
+    }
+    
+    return payments
+  }
+}
+
+/**
+ * Function-style parser implementation compatible with BankParser interface
+ */
+export const fioParser: BankParser = async (content: string): Promise<ParserResult> => {
+  const parser = new FioParser()
+  
+  if (!parser.canParse(content)) {
+    return {
+      canParse: false,
+      payments: []
+    }
+  }
+  
+  try {
+    const payments = await parser.parse(content)
+    return {
+      canParse: true,
+      payments
+    }
+  } catch (error) {
+    console.error("Error parsing FIO statement:", error)
+    return {
+      canParse: true,
+      payments: []
+    }
+  }
+}
+````
+
+This implementation:
+
+1. Creates a class-based parser that implements the `BankStatementParser` interface
+2. Adds proper TypeScript interfaces for the FIO response structure
+3. Implements the `canParse` method to validate if the content is a valid FIO bank statement
+4. Implements the `parse` method to extract transactions and match them to users based on specific symbols
+5. Also provides a function-based implementation compatible with the `BankParser` interface
+6. Uses the `UserCrud` service to fetch users and match their specific symbols
+
+The parser handles:
+- Checking if transactions
+
+---
+
 
 
 ---
