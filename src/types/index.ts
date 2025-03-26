@@ -20,7 +20,8 @@ export type BankStatement = {
   month: string // YYYY-MM format
   processedAt: string
   status: 'pending' | 'processed' | 'error'
-  payments: string // JSON string of raw bank statement data
+  rawData: string // JSON string of raw bank statement data
+  timestamp: number // Unix timestamp of the date on the statement (Might not match the createdAt date)
   createdAt: string
   updatedAt: string
   deleted?: boolean

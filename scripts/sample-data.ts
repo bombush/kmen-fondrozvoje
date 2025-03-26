@@ -147,7 +147,7 @@ export const generateStatements = (): BankStatement[] => {
       month: '2025-01',
       status: 'processed',
       processedAt: getTimestamp(60),
-      payments: JSON.stringify([]), // This will be populated separately
+      rawData: JSON.stringify([]), // This will be populated separately
       createdAt: getTimestamp(60),
       updatedAt: getTimestamp(60),
     },
@@ -156,7 +156,7 @@ export const generateStatements = (): BankStatement[] => {
       month: '2025-02',
       status: 'processed',
       processedAt: getTimestamp(30),
-      payments: JSON.stringify([]),
+      rawData: JSON.stringify([]),
       createdAt: getTimestamp(30),
       updatedAt: getTimestamp(30),
     },
@@ -165,7 +165,7 @@ export const generateStatements = (): BankStatement[] => {
       month: '2025-03',
       status: 'processed',
       processedAt: getTimestamp(1),
-      payments: JSON.stringify([]),
+      rawData: JSON.stringify([]),
       createdAt: getTimestamp(1),
       updatedAt: getTimestamp(1),
     },
@@ -174,7 +174,7 @@ export const generateStatements = (): BankStatement[] => {
       month: '2025-04',
       status: 'pending',
       processedAt: null as any,
-      payments: JSON.stringify([]),
+      rawData: JSON.stringify([]),
       createdAt: getTimestamp(0),
       updatedAt: getTimestamp(0),
     }

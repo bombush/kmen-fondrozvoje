@@ -14,7 +14,7 @@ import { getPaymentsForMonth, updatePayment, getUserPledges, getMonthsWithPaymen
 export async function processBankStatement(statement: BankStatement): Promise<BankPayment[]> {
   try {
     // Parse raw payment data using appropriate parser
-    const rawPayments = await parseStatement(statement.payments)
+    const rawPayments = await parseStatement(statement.rawData)
     
     // Create payment records with received month as target
     const payments = await Promise.all(
