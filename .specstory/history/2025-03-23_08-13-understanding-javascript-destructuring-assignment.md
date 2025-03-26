@@ -32,6 +32,75 @@ So, in summary, the key name `data` is the original property name from the objec
 
 ---
 
+_**User**_
+
+Add logic to env.ts that loads config data from env.values.ts if it exists. If it does not exist, throw error "config filed does not exist". please create one.
+Also create a basic env.values.ts file with values.
+
+---
+
+_**Assistant**_
+
+🤖
+
+To implement the requested changes, we will modify the `env.ts` file to include logic that checks for the existence of a `env.values.ts` file and loads the configuration data from it. If the file does not exist, it will throw an error. Additionally, I will create a basic `env.values.ts` file with some example values.
+
+### Updated `env.ts`
+Here’s the modified code for `env.ts`:
+
+```typescript:src/config/env.ts
+import { existsSync } from 'fs';
+import { join } from 'path';
+
+// Check if env.values.ts exists
+const envValuesPath = join(__dirname, 'env.values.ts');
+if (!existsSync(envValuesPath)) {
+  throw new Error("config file does not exist");
+}
+
+// Load config data from env.values.ts
+import { APP_CONFIG as ENV_VALUES } from './env.values';
+
+export const APP_CONFIG = {
+  ...ENV_VALUES,
+  readonly: true, // Flag to indicate this is a readonly config
+} as const;
+
+// ... existing code ...
+```
+
+### New `env.values.ts`
+Here’s a basic example of what the `env.values.ts` file could look like:
+
+```typescript:src/config/env.values.ts
+export const APP_CONFIG = {
+  name: 'Kmen Fond Rozvoje',
+  version: '1.0.0',
+  description: 'Application for managing and tracking project funding and allocation',
+  isProduction: false,
+  dbAdapter: 'lowdb',
+  firebase: {
+    projectId: 'your-firebase-project-id',
+    emulatorEnabled: true,
+  },
+  lowdb: {
+    dbPath: './data/db.json',
+  },
+  fio: {
+    apiToken: 'your-api-token',
+  },
+};
+```
+
+### Explanation of Changes
+1. **File Existence Check**: The `env.ts` file now checks if `env.values.ts` exists using `existsSync` from the `fs` module. If it does not exist, an error is thrown.
+2. **Loading Configuration**: If the file exists, it imports the `APP_CONFIG` from `env.values.ts` and merges it with the existing configuration.
+3. **New Configuration File**: The `env.values.ts` file contains example values for the application configuration.
+
+Make sure to adjust the values in `env.values.ts` to fit your actual configuration needs.
+
+---
+
 
 
 ---

@@ -12,7 +12,9 @@
 // UrlFetchApi docs https://developers.google.com/apps-script/reference/url-fetch/url-fetch-app
 
 
-
+//const READONLY_TOKEN="1DOxqyqxzAC3dhG1PaoK25dIKZreY7Mc78gmrOxHXL4ukxDQsXG2X3cnUMYrZ0up" // JD's account to test
+//const READONLY_TOKEN="809H1FRDn0kkwWl4X2LpfJ70ffBbvUf8oysgCR2pmMmOylNqu7r6ngXUXvQPFaeA" // stribro's account to test
+//const READONLY_TOKEN="Cp0rfpMhbYWaFPRiP6bbBP2MeWEquE0xvZdmvItgD18dRGxqUChguldsP3l6AQWH" // production token -  2501801884 / 2010 Jan Kubant
 const READONLY_TOKEN="VERYSECRETTOKEN" 
 const RESPONSE_FORMAT="json"
 const SHEET_NAME = "kickstarter_db"
