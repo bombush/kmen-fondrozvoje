@@ -7,76 +7,99 @@
 
 import { BankParser, BankStatementParser, ParserResult, RawBankPayment } from "./types"
 import { UserCrud } from "../services/crud/user-crud"
+import { BANK_CONFIG } from "@/config"
+
+// Complete type definitions for FIO bank statement format based on reference file
+interface FioColumnData {
+  value: any  // The actual value
+  name: string  // Display name of the field
+  id: number  // Field ID
+}
 
 interface FioTransaction {
-  column22: {
-    value: number  // Amount
-  }
-  column0: {
-    value: string  // Date in YYYY-MM-DD format
-  }
-  column1: {
-    value: string  // Counter account number
-  }
-  column10: {
-    value: string  // Specific symbol
-  }
-  column5: {
-    value: string  // Variable symbol
-  }
-  column4: {
-    value: string  // Constant symbol
-  }
-  column14: {
-    value: string  // Message for recipient
-  }
-  column17: {
-    value: string  // Counter account name
-  }
-  column8: {
-    value: string  // Transaction ID
-  }
-  column9: {
-    value: string  // Comment
-  }
+  // Transaction identification
+  column22?: FioColumnData  // ID pohybu
+  column17?: FioColumnData  // ID pokynu
+  
+  // Transaction details
+  column0?: FioColumnData   // Date (timestamp)
+  column1?: FioColumnData   // Amount
+  column14?: FioColumnData  // Currency
+  
+  // Counter party details
+  column2?: FioColumnData   // Counter account number
+  column10?: FioColumnData  // Counter account name
+  column3?: FioColumnData   // Bank code
+  column12?: FioColumnData  // Bank name
+  
+  // Payment symbols
+  column4?: FioColumnData   // Constant symbol (KS)
+  column5?: FioColumnData   // Variable symbol (VS)
+  column6?: FioColumnData   // Specific symbol (SS)
+  
+  // Additional information
+  column7?: FioColumnData   // User identification
+  column8?: FioColumnData   // Transaction type
+  column9?: FioColumnData   // Performed by
+  column16?: FioColumnData  // Optional field
+  column18?: FioColumnData  // Optional field
+  column25?: FioColumnData  // Comment
+  column26?: FioColumnData  // Optional field
+}
+
+interface FioTransactionList {
+  transaction: FioTransaction[]
+}
+
+interface FioAccountInfo {
+  accountId: string
+  bankId: string
+  currency: string
+  iban: string
+  bic: string
+  openingBalance: number
+  closingBalance: number
+  dateStart: number   // Unix timestamp
+  dateEnd: number     // Unix timestamp
+  yearList: any       // Can be null
+  idList: any         // Can be null
+  idFrom: number
+  idTo: number
+  idLastDownload: number
+}
+
+interface FioAccountStatement {
+  info: FioAccountInfo
+  transactionList: FioTransactionList
 }
 
 interface FioResponse {
-  accountStatement: {
-    info: {
-      accountId: string
-      bankId: string
-      currency: string
-      iban: string
-      bic: string
-      openingBalance: number
-      closingBalance: number
-      dateStart: string
-      dateEnd: string
-      yearList: null
-      idList: null
-      idFrom: number
-      idTo: number
-      idLastDownload: null
-    }
-    transactionList: {
-      transaction: FioTransaction[]
-    }
-  }
+  accountStatement: FioAccountStatement
 }
 
+/**
+ * FIO Bank statement parser
+ */
 export class FioParser implements BankStatementParser {
-  private userCrud = new UserCrud()
+  private userCrud: UserCrud
+  
+  constructor() {
+    this.userCrud = new UserCrud()
+  }
   
   /**
-   * Checks if the provided content is a valid FIO bank statement
+   * Check if the provided content is a FIO bank statement
    */
   canParse(content: string): boolean {
     try {
+      // Parse JSON content
       const data = JSON.parse(content)
+      
+      // Check for FIO bank statement structure
       return (
-        data.accountStatement && 
-        data.accountStatement.info && 
+        data &&
+        data.accountStatement &&
+        data.accountStatement.info &&
         data.accountStatement.transactionList &&
         Array.isArray(data.accountStatement.transactionList.transaction)
       )
@@ -84,53 +107,89 @@ export class FioParser implements BankStatementParser {
       return false
     }
   }
-
+  
   /**
    * Parses FIO bank statement JSON and returns structured payment data
    */
-  async parse(content: string): Promise<RawBankPayment[]> {
+  parse(content: string): RawBankPayment[] {
     if (!this.canParse(content)) {
       throw new Error("Invalid FIO bank statement format")
     }
-
-    const data = JSON.parse(content) as FioResponse
+    
+    // Parse the JSON content
+    const data: FioResponse = JSON.parse(content)
     const transactions = data.accountStatement.transactionList.transaction
     
     // Get all users to match specific symbols
-    const users = await this.userCrud.getAll()
-    const usersBySpecificSymbol = new Map()
-    
-    users.forEach(user => {
-      if (user.specificSymbol) {
-        usersBySpecificSymbol.set(user.specificSymbol, user.id)
-      }
-    })
-    
-    // Process transactions and match to users
     const payments: RawBankPayment[] = []
     
+    // Process each transaction
     for (const transaction of transactions) {
-      // Only process incoming payments (amount > 0)
-      if (transaction.column22.value <= 0) continue
+      // Skip transactions with negative or zero amounts (outgoing payments)
+      const amount = transaction.column1?.value
+      if (!amount || amount <= 0) continue
       
-      const specificSymbol = transaction.column10.value
-      const userId = usersBySpecificSymbol.get(specificSymbol)
+      // Extract the specific symbol if present
+      const specificSymbol = transaction.column6?.value || ""
       
-      // Skip transactions we can't match to a user
-      if (!userId) continue
-      
+      // Map the transaction to a RawBankPayment
       payments.push({
-        userId,
-        amount: transaction.column22.value,
-        receivedAt: transaction.column0.value,
-        description: transaction.column14.value || transaction.column9.value || '',
-        variableSymbol: transaction.column5.value || '',
-        specificSymbol: specificSymbol || '',
-        constantSymbol: transaction.column4.value || '',
-        bankTransactionId: transaction.column8.value,
-        counterpartyAccountNumber: transaction.column1.value || '',
-        counterpartyName: transaction.column17.value || ''
+        userId: "", // Will be filled in later by matching with specificSymbol
+        amount: amount,
+        receivedAt: new Date(transaction.column0?.value).toISOString(),
+        description: this.extractDescription(transaction),
+        variableSymbol: transaction.column5?.value || "",
+        specificSymbol: specificSymbol,
+        constantSymbol: transaction.column4?.value || "",
+        bankTransactionId: transaction.column22?.value?.toString() || "",
+        counterpartyAccountNumber: transaction.column2?.value || "",
+        counterpartyName: transaction.column10?.value || ""
       })
+    }
+    
+    return payments
+  }
+  
+  /**
+   * Extracts a description from the transaction data, combining multiple possible fields
+   */
+  private extractDescription(transaction: FioTransaction): string {
+    // Try multiple fields as potential sources for description
+    const sources = [
+      transaction.column25?.value, // Comment field
+      transaction.column7?.value,  // User identification
+      transaction.column8?.value,  // Transaction type
+      transaction.column9?.value   // Performed by
+    ]
+    
+    // Concatenate all non-empty fields
+    return sources
+      .filter(value => value && typeof value === 'string' && value.trim() !== '')
+      .join(' - ')
+      .trim()
+  }
+  
+  /**
+   * Match users with their specific symbols
+   * This function updates the userId field in the payment objects
+   */
+  async matchUsersToPayments(payments: RawBankPayment[]): Promise<RawBankPayment[]> {
+    // Get all users with their specific symbols
+    const users = await this.userCrud.getAll()
+    const usersBySymbol = new Map()
+    
+    // Create a map of specific symbols to user IDs
+    for (const user of users) {
+      if (user.specificSymbol) {
+        usersBySymbol.set(user.specificSymbol, user.id)
+      }
+    }
+    
+    // Match payments to users based on specific symbol
+    for (const payment of payments) {
+      if (payment.specificSymbol && usersBySymbol.has(payment.specificSymbol)) {
+        payment.userId = usersBySymbol.get(payment.specificSymbol)
+      }
     }
     
     return payments
@@ -151,10 +210,15 @@ export const fioParser: BankParser = async (content: string): Promise<ParserResu
   }
   
   try {
-    const payments = await parser.parse(content)
+    // Parse the raw payments
+    const payments = parser.parse(content)
+    
+    // Match users to payments based on specific symbols
+    const matchedPayments = await parser.matchUsersToPayments(payments)
+    
     return {
       canParse: true,
-      payments
+      payments: matchedPayments
     }
   } catch (error) {
     console.error("Error parsing FIO statement:", error)

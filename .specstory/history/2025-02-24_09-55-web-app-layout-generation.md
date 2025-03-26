@@ -37028,6 +37028,19 @@ This approach leverages TypeScript for type validation while keeping minimal run
 
 ---
 
+_**User**_
+
+Please refer to the fio-reference-statement.json to augment FioResponse type with all possible fields in the statement if any are missing.
+Update the parsing logic accordingly
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
