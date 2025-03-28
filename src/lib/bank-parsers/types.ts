@@ -9,6 +9,7 @@ export type RawBankPayment = {
   bankTransactionId: string
   counterpartyAccountNumber: string
   counterpartyName: string
+  direction: 'in' | 'out'
 }
 
 export type ParserResult = {

@@ -77,6 +77,7 @@ interface FioResponse {
   accountStatement: FioAccountStatement
 }
 
+
 /**
  * FIO Bank statement parser
  */
@@ -127,7 +128,7 @@ export class FioParser implements BankStatementParser {
     for (const transaction of transactions) {
       // Skip transactions with negative or zero amounts (outgoing payments)
       const amount = transaction.column1?.value
-      if (!amount || amount <= 0) continue
+
       
       // Extract the specific symbol if present
       const specificSymbol = transaction.column6?.value || ""
@@ -143,7 +144,8 @@ export class FioParser implements BankStatementParser {
         constantSymbol: transaction.column4?.value || "",
         bankTransactionId: transaction.column22?.value?.toString() || "",
         counterpartyAccountNumber: transaction.column2?.value || "",
-        counterpartyName: transaction.column10?.value || ""
+        counterpartyName: transaction.column10?.value || "",
+        direction: amount > 0 ? 'in' : 'out'
       })
     }
     
