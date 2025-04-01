@@ -27,7 +27,7 @@ import { User, Project, BankStatement, BankPayment, CreditAward, Pledge, History
 
 // Initialize Firebase Admin SDK - alternative method for emulators
 const firebaseConfig = {
-  projectId: 'kmen-fondrozvoje',
+  projectId: 'demo-kmen-fondrozvoje',
 }
 
 function log(message: string, obj?:any) {

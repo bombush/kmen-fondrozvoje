@@ -3,6 +3,23 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": [
+    {
+      "source": "firebase-functions",
+      "codebase": "kmen-fondrozvoje-functions",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
   "emulators": {
     "firestore": {
       "port": 8080
@@ -13,6 +30,9 @@
     },
     "auth": {
       "port": 9099
+    },
+    "functions": {
+      "port": 5002
     }
   }
 }

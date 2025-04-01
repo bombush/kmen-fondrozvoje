@@ -37037,7 +37037,904 @@ Update the parsing logic accordingly
 
 _**Assistant**_
 
+<think>
+Let me analyze the fio-reference-statement.json to identify all the fields that should be in the FioResponse type. I'll need to make sure the FioParser class has complete type definitions that match the actual structure in the JSON file.
 
+Looking at the JSON structure, I can see:
+
+```json
+{"accountStatement":{"info":{...},"transactionList":{"transaction":[...]}}}
+```
+
+The main structure has:
+1. `accountStatement` as the top level object
+2. `info` with account details
+3. `transactionList` containing an array of transactions
+
+Each transaction has multiple columns, with each column having properties like `value`, `name`, and `id`.
+
+From the reference statement, I can see these columns:
+- column22: Transaction ID
+- column0: Date
+- column1: Amount
+- column14: Currency
+- column2: Counter account
+- column10: Counter account name
+- column3: Bank code
+- column12: Bank name
+- column4: Constant symbol (KS)
+- column5: Variable symbol (VS) - often null in the example
+- column6: appears to be optional
+- column7: User identification
+- column16: appears to be optional
+- column8: Transaction type
+- column9: Performed by
+- column18: appears to be optional
+- column25: Comment
+- column26: appears to be optional
+- column17: Order ID
+
+I'll need to update the FioParser with a comprehensive interface that includes all these fields, handling optional ones properly. I'll then update the parsing logic to correctly extract all relevant data from this structure.
+</think>
+
+🤖 After reviewing the `fio-reference-statement.json` file, I'll update the FioResponse type to include all possible fields and improve the parsing logic in the FIO parser.
+
+````typescript:src/lib/bank-parsers/fio-parser.ts
+/**
+ * FIO Bank Parser
+ * 
+ * Based on reference implementation from Google Apps Script.
+ * Parses FIO bank statement JSON format and returns structured payment data.
+ */
+
+import { BankParser, BankStatementParser, ParserResult, RawBankPayment } from "./types"
+import { UserCrud } from "../services/crud/user-crud"
+import { BANK_CONFIG } from "@/config"
+
+// Complete type definitions for FIO bank statement format based on reference file
+interface FioColumnData {
+  value: any  // The actual value
+  name: string  // Display name of the field
+  id: number  // Field ID
+}
+
+interface FioTransaction {
+  // Transaction identification
+  column22?: FioColumnData  // ID pohybu
+  column17?: FioColumnData  // ID pokynu
+  
+  // Transaction details
+  column0?: FioColumnData   // Date (timestamp)
+  column1?: FioColumnData   // Amount
+  column14?: FioColumnData  // Currency
+  
+  // Counter party details
+  column2?: FioColumnData   // Counter account number
+  column10?: FioColumnData  // Counter account name
+  column3?: FioColumnData   // Bank code
+  column12?: FioColumnData  // Bank name
+  
+  // Payment symbols
+  column4?: FioColumnData   // Constant symbol (KS)
+  column5?: FioColumnData   // Variable symbol (VS)
+  column6?: FioColumnData   // Specific symbol (SS)
+  
+  // Additional information
+  column7?: FioColumnData   // User identification
+  column8?: FioColumnData   // Transaction type
+  column9?: FioColumnData   // Performed by
+  column16?: FioColumnData  // Optional field
+  column18?: FioColumnData  // Optional field
+  column25?: FioColumnData  // Comment
+  column26?: FioColumnData  // Optional field
+}
+
+interface FioTransactionList {
+  transaction: FioTransaction[]
+}
+
+interface FioAccountInfo {
+  accountId: string
+  bankId: string
+  currency: string
+  iban: string
+  bic: string
+  openingBalance: number
+  closingBalance: number
+  dateStart: number   // Unix timestamp
+  dateEnd: number     // Unix timestamp
+  yearList: any       // Can be null
+  idList: any         // Can be null
+  idFrom: number
+  idTo: number
+  idLastDownload: number
+}
+
+interface FioAccountStatement {
+  info: FioAccountInfo
+  transactionList: FioTransactionList
+}
+
+interface FioResponse {
+  accountStatement: FioAccountStatement
+}
+
+/**
+ * FIO Bank statement parser
+ */
+export class FioParser implements BankStatementParser {
+  private userCrud: UserCrud
+  
+  constructor() {
+    this.userCrud = new UserCrud()
+  }
+  
+  /**
+   * Check if the provided content is a FIO bank statement
+   */
+  canParse(content: string): boolean {
+    try {
+      // Parse JSON content
+      const data = JSON.parse(content)
+      
+      // Check for FIO bank statement structure
+      return (
+        data &&
+        data.accountStatement &&
+        data.accountStatement.info &&
+        data.accountStatement.transactionList &&
+        Array.isArray(data.accountStatement.transactionList.transaction)
+      )
+    } catch (error) {
+      return false
+    }
+  }
+  
+  /**
+   * Parses FIO bank statement JSON and returns structured payment data
+   */
+  parse(content: string): RawBankPayment[] {
+    if (!this.canParse(content)) {
+      throw new Error("Invalid FIO bank statement format")
+    }
+    
+    // Parse the JSON content
+    const data: FioResponse = JSON.parse(content)
+    const transactions = data.accountStatement.transactionList.transaction
+    
+    // Get all users to match specific symbols
+    const payments: RawBankPayment[] = []
+    
+    // Process each transaction
+    for (const transaction of transactions) {
+      // Skip transactions with negative or zero amounts (outgoing payments)
+      const amount = transaction.column1?.value
+      if (!amount || amount <= 0) continue
+      
+      // Extract the specific symbol if present
+      const specificSymbol = transaction.column6?.value || ""
+      
+      // Map the transaction to a RawBankPayment
+      payments.push({
+        userId: "", // Will be filled in later by matching with specificSymbol
+        amount: amount,
+        receivedAt: new Date(transaction.column0?.value).toISOString(),
+        description: this.extractDescription(transaction),
+        variableSymbol: transaction.column5?.value || "",
+        specificSymbol: specificSymbol,
+        constantSymbol: transaction.column4?.value || "",
+        bankTransactionId: transaction.column22?.value?.toString() || "",
+        counterpartyAccountNumber: transaction.column2?.value || "",
+        counterpartyName: transaction.column10?.value || ""
+      })
+    }
+    
+    return payments
+  }
+  
+  /**
+   * Extracts a description from the transaction data, combining multiple possible fields
+   */
+  private extractDescription(transaction: FioTransaction): string {
+    // Try multiple fields as potential sources for description
+    const sources = [
+      transaction.column25?.value, // Comment field
+      transaction.column7?.value,  // User identification
+      transaction.column8?.value,  // Transaction type
+      transaction.column9?.value   // Performed by
+    ]
+    
+    // Concatenate all non-empty fields
+    return sources
+      .filter(value => value && typeof value === 'string' && value.trim() !== '')
+      .join(' - ')
+      .trim()
+  }
+  
+  /**
+   * Match users with their specific symbols
+   * This function updates the userId field in the payment objects
+   */
+  async matchUsersToPayments(payments: RawBankPayment[]): Promise<RawBankPayment[]> {
+    // Get all users with their specific symbols
+    const users = await this.userCrud.getAll()
+    const usersBySymbol = new Map()
+    
+    // Create a map of specific symbols to user IDs
+    for (const user of users) {
+      if (user.specificSymbol) {
+        usersBySymbol.set(user.specificSymbol, user.id)
+      }
+    }
+    
+    // Match payments to users based on specific symbol
+    for (const payment of payments) {
+      if (payment.specificSymbol && usersBySymbol.has(payment.specificSymbol)) {
+        payment.userId = usersBySymbol.get(payment.specificSymbol)
+      }
+    }
+    
+    return payments
+  }
+}
+
+/**
+ * Function-style parser implementation compatible with BankParser interface
+ */
+export const fioParser: BankParser = async (content: string): Promise<ParserResult> => {
+  const parser = new FioParser()
+  
+  if (!parser.canParse(content)) {
+    return {
+      canParse: false,
+      payments: []
+    }
+  }
+  
+  try {
+    // Parse the raw payments
+    const payments = parser.parse(content)
+    
+    // Match users to payments based on specific symbols
+    const matchedPayments = await parser.matchUsersToPayments(payments)
+    
+    return {
+      canParse: true,
+      payments: matchedPayments
+    }
+  } catch (error) {
+    console.error("Error parsing FIO statement:", error)
+    return {
+      canParse: true,
+      payments: []
+    }
+  }
+}
+````
+
+The key improvements I made:
+
+1. **Complete Type Definitions**:
+   - Created comprehensive interfaces for all FIO statement components
+   - Added proper typing for all column fields from the reference JSON
+   - Made all fields optional since the reference shows some can be null
+
+2. **Enhanced Parsing Logic**:
+   - Improved the `canParse` method to properly validate FIO statement structure
+   - Updated the `parse` method to handle the complete structure
+   - Added a new `extractDescription` method that combines multiple possible fields to get a better description
+
+3. **User Matching Logic**:
+   - Added a `matchUsersToPayments` method to connect payments to users by specific symbol
+   - The function-style parser now includes this matching step
+
+4. **Robustness Improvements**:
+   - Better error handling for JSON parsing failures
+   - Skip negative amount transactions (outgoing payments)
+   - Proper type conversion for dates and IDs
+
+These changes ensure the parser can handle all the fields present in the reference FIO bank statement and properly map them to the application's internal data structure.
+
+---
+
+
+
+---
+
+_**User**_
+
+Create a  bank-connector.ts which will load last bank statement from the bank specified in config, parse the statement using fio parser  and then in a single transaction:
+- persists  the bank statement raw data
+- created BankPayment objects and persists them in the database.
+
+The statement downloaded will be statement since the last downloaded BankStatement's timestamp.
+
+---
+
+_**Assistant**_
+
+<think>
+Alright, I need to create a bank connector that will:
+
+1. Load the latest bank statement from a configured bank (like FIO)
+2. Parse the statement using the fio-parser
+3. In a single transaction:
+   - Persist the bank statement data
+   - Create BankPayment objects and save them to the database
+
+Let's think about how to structure this:
+
+1. First, I'll need to identify the last downloaded statement to know from when to fetch new transactions
+2. Then connect to the bank's API and fetch new transactions
+3. Parse the transactions with the fio-parser
+4. Create a database transaction to store everything properly
+
+For the FIO bank, I see there's a reference to an API token and some functionality in the FIO reference implementation. I'll need to use that to connect to their API.
+
+The general approach will be:
+1. Get the latest BankStatement from our database
+2. Use its timestamp as the starting point for fetching new transactions
+3. Connect to FIO API with the token from config
+4. Get transactions since that timestamp
+5. Parse them using our FIO parser
+6. Store everything in a transaction
+
+Let's create this implementation.
+</think>
+
+🤖 I'll create a `bank-connector.ts` file that will handle downloading the latest bank statement, parsing it, and saving everything to the database in a transaction.
+
+````typescript:src/lib/bank-parsers/bank-connector.ts
+/**
+ * Bank Connector
+ * 
+ * Provides functionality to connect to a bank API, download statements,
+ * parse them, and store the results in the database.
+ */
+
+import { BANK_CONFIG } from "@/config"
+import { BankStatement } from "@/types"
+import { FirebaseAdapter } from "../services/database/firebase-adapter"
+import { fioParser } from "./fio-parser"
+import { runTransaction } from "firebase/firestore"
+import { db } from "../firebase/config"
+import { BankStatementCrud } from "../services/crud/bank-crud"
+import { BankWorkflow } from "../services/workflows/bank-workflow"
+
+const DEFAULT_FIRST_DATE = BANK_CONFIG.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
+
+interface BankConnectorResult {
+  success: boolean
+  message: string
+  statementId?: string
+  paymentCount?: number
+  error?: any
+}
+
+/**
+ * Connects to FIO Bank API and downloads latest statement
+ */
+export async function downloadFioStatement(): Promise<BankConnectorResult> {
+  try {
+    // Get the API token from environment
+    const API_TOKEN = BANK_CONFIG.fio?.apiToken
+    
+    if (!API_TOKEN) {
+      return {
+        success: false,
+        message: "FIO API token not configured"
+      }
+    }
+    
+    // Get the last statement to determine the date range
+    const statementCrud = new BankStatementCrud()
+    const statements = await statementCrud.getAll()
+    
+    // Sort statements by timestamp (descending)
+    const sortedStatements = statements
+      .filter(s => s.adapter === 'fio' && !s.deleted)
+      .sort((a, b) => b.timestamp - a.timestamp)
+    
+    // Determine start date for fetching
+    let fromDate: Date
+    
+    if (sortedStatements.length > 0) {
+      // Get date from the most recent statement
+      fromDate = new Date(sortedStatements[0].timestamp)
+      // Add one day to avoid getting same transactions
+      fromDate.setDate(fromDate.getDate() + 1)
+    } else {
+      // Use default first date if no statements exist
+      fromDate = DEFAULT_FIRST_DATE
+    }
+    
+    // Format date for FIO API (YYYY-MM-DD)
+    const formattedFromDate = fromDate.toISOString().split('T')[0]
+    
+    // Current date as the end date
+    const toDate = new Date()
+    const formattedToDate = toDate.toISOString().split('T')[0]
+    
+    // Construct the FIO API URL
+    const apiUrl = `https://www.fio.cz/ib_api/rest/periods/${API_TOKEN}/${formattedFromDate}/${formattedToDate}/transactions.json`
+    
+    // Fetch statement from FIO API
+    const response = await fetch(apiUrl)
+    
+    if (!response.ok) {
+      throw new Error(`FIO API responded with status ${response.status}: ${response.statusText}`)
+    }
+    
+    const statement = await response.text()
+    
+    // Parse the statement with the FIO parser
+    const parseResult = await fioParser(statement)
+    
+    if (!parseResult.canParse) {
+      return {
+        success: false,
+        message: "Failed to parse FIO statement"
+      }
+    }
+    
+    if (parseResult.payments.length === 0) {
+      return {
+        success: true,
+        message: "No new transactions found",
+        paymentCount: 0
+      }
+    }
+    
+    // Store the statement and payments in a transaction
+    const workflow = new BankWorkflow()
+    const result = await workflow.processStatement({
+      adapter: 'fio',
+      month: toDate.toISOString().substring(0, 7), // YYYY-MM format
+      rawData: statement,
+      timestamp: toDate.getTime(),
+      payments: parseResult.payments
+    })
+    
+    return {
+      success: true,
+      message: `Successfully downloaded and processed ${parseResult.payments.length} transactions`,
+      statementId: result.id,
+      paymentCount: parseResult.payments.length
+    }
+    
+  } catch (error) {
+    console.error("Error downloading FIO statement:", error)
+    return {
+      success: false,
+      message: "Failed to download or process FIO statement",
+      error
+    }
+  }
+}
+
+/**
+ * Downloads a bank statement based on the configured bank adapter
+ * @returns Result of the download operation
+ */
+export async function downloadBankStatement(): Promise<BankConnectorResult> {
+  const supportedBanks = BANK_CONFIG.supportedBanks || ['FIO']
+  
+  // Currently only supporting FIO bank
+  if (supportedBanks.includes('FIO')) {
+    return downloadFioStatement()
+  }
+  
+  return {
+    success: false,
+    message: "No supported bank adapters configured"
+  }
+}
+````
+
+This implementation:
+
+1. **Determines when to fetch from**:
+   - Finds the most recent bank statement 
+   - Uses its timestamp to determine the starting date
+   - If no statements exist, falls back to a configured default date
+
+2. **Connects to FIO Bank API**:
+   - Builds the API URL with date range parameters
+   - Fetches transaction data in JSON format
+   - Handles API errors appropriately
+
+3. **Processes the statement**:
+   - Parses the raw statement using the FIO parser
+   - Checks if parsing was successful and if there are any new transactions
+
+4. **Stores everything in a transaction**:
+   - Uses the BankWorkflow to create a statement record and payment records
+   - All database operations happen within a single transaction for consistency
+
+5. **Returns detailed results**:
+   - Success/failure status
+   - Descriptive message
+   - Count of processed payments
+   - Any errors that occurred
+
+The connector supports extensibility for other banks in the future by checking the `supportedBanks` configuration.
+
+---
+
+_**User**_
+
+IS there any mistake in my .firebaserc file?
+
+---
+
+_**Assistant**_
+
+🤖 To determine if there is a mistake in your `.firebaserc` file, I would need to see the contents of that file. The `.firebaserc` file typically contains configuration settings for Firebase projects, including project aliases and associated project IDs.
+
+Please provide the contents of your `.firebaserc` file, and I can help you identify any potential issues.
+
+---
+
+_**User**_
+
+use the .firebaserc I have in my codebase
+
+---
+
+_**Assistant**_
+
+🤖 Since you haven't provided the contents of your `.firebaserc` file, I'll give you a general structure of what it should look like and common mistakes to check for. 
+
+A typical `.firebaserc` file looks like this:
+
+````json
+{
+  "projects": {
+    "default": "your-project-id",
+    "your-alias": "your-project-id"
+  }
+}
+````
+
+### Common Mistakes to Check For:
+1. **Project ID**: Ensure that the project ID specified in the `.firebaserc` file matches the project ID in your Firebase console.
+2. **Aliases**: If you are using aliases, make sure they are correctly defined and point to the right project IDs.
+3. **JSON Format**: Ensure that the JSON format is correct (e.g., no trailing commas, proper use of quotes).
+4. **Environment Variables**: If you are using environment variables, ensure they are set correctly in your environment.
+
+### Example of a Correct `.firebaserc` File:
+```json
+{
+  "projects": {
+    "default": "demo-kmen-fondrozvoje",
+    "production": "production-project-id",
+    "staging": "staging-project-id"
+  }
+}
+```
+
+If you can provide the actual contents of your `.firebaserc` file, I can help you identify any specific issues.
+
+---
+
+_**User**_
+
+here you go
+
+---
+
+_**Assistant**_
+
+🤖 Your `.firebaserc` file looks correct in terms of structure and format. It specifies a single project under the `default` alias, which is `"demo-kmen-fondrozvoje"`.
+
+### Things to Check:
+1. **Project ID**: Ensure that `"demo-kmen-fondrozvoje"` is the correct project ID as it appears in your Firebase console. You can verify this by logging into the Firebase console and checking the project settings.
+
+2. **Firebase CLI**: Make sure you are using the Firebase CLI that is configured to use this project. You can check your current project by running:
+   ```bash
+   firebase projects:list
+   ```
+
+3. **Environment**: If you are working in different environments (development, staging, production), consider adding more aliases to your `.firebaserc` file for clarity. For example:
+   ```json
+   {
+     "projects": {
+       "default": "demo-kmen-fondrozvoje",
+       "production": "production-project-id",
+       "staging": "staging-project-id"
+     }
+   }
+   ```
+
+4. **Firebase Configuration**: Ensure that your `firebase.json` file is also correctly configured to match the project settings.
+
+### Conclusion:
+If the project ID is correct and you are still facing issues, please provide more context about the specific problems you are encountering (e.g., errors during deployment, issues with Firebase services, etc.), and I can assist you further.
+
+---
+
+_**User**_
+
+But does the project need to exist in the Firebase console when I'm usin the "demo-" prefix?
+
+---
+
+_**Assistant**_
+
+🤖 Yes, when using the Firebase CLI and specifying a project ID (like `"demo-kmen-fondrozvoje"`), that project must exist in the Firebase console. The Firebase CLI interacts with the Firebase services associated with that project ID, and if the project does not exist, you will encounter errors when trying to deploy or interact with Firebase services.
+
+### Key Points:
+1. **Project Creation**: If you are using a project ID with a `"demo-"` prefix, you need to create that project in the Firebase console. You can do this by:
+   - Logging into the [Firebase console](https://console.firebase.google.com/).
+   - Clicking on "Add project" and following the prompts to create a new project with the desired ID.
+
+2. **Emulator Usage**: If you are running Firebase emulators (like Firestore, Authentication, etc.), you can use a project ID that does not exist in the Firebase console. The emulators allow you to test your application locally without needing a real Firebase project. However, you still need to ensure that the project ID you use in your `.firebaserc` file matches the one you specify when starting the emulator.
+
+3. **Environment Configuration**: If you are working with multiple environments (development, staging, production), it's common to have different project IDs for each environment. Ensure that your `.firebaserc` file reflects the correct project IDs for each environment.
+
+### Conclusion:
+If you are using the `"demo-"` prefix, make sure that the project exists in the Firebase console. If you are just testing locally with emulators, you can use any project ID, but it should still be consistent across your configuration files. If you have any specific errors or issues, feel free to share them for further assistance!
+
+---
+
+_**User**_
+
+firebase init emulators says:
+Failed to get Firebase project demo-kmen-fondrozvoje. Please make sure the project exists and your account has permission to access it.
+
+---
+
+_**Assistant**_
+
+🤖 The error message you are encountering indicates that the Firebase CLI is unable to find the project `"demo-kmen-fondrozvoje"` in your Firebase console. Here are some steps to troubleshoot and resolve this issue:
+
+### Steps to Resolve the Issue:
+
+1. **Verify Project Existence**:
+   - Log into the [Firebase console](https://console.firebase.google.com/).
+   - Check if the project `"demo-kmen-fondrozvoje"` exists. If it does not exist, you will need to create it.
+
+2. **Create the Project**:
+   - If the project does not exist, create a new project with the ID `"demo-kmen-fondrozvoje"`:
+     - Click on "Add project" in the Firebase console.
+     - Follow the prompts to create the project.
+
+3. **Check Permissions**:
+   - Ensure that the account you are using to log into the Firebase console has the necessary permissions to access the project. If you are part of a team, check with your Firebase project administrator.
+
+4. **Update `.firebaserc`**:
+   - If you have multiple projects and you want to switch between them, ensure that your `.firebaserc` file is correctly configured to point to the right project. It should look like this:
+     ```json
+     {
+       "projects": {
+         "default": "demo-kmen-fondrozvoje"
+       }
+     }
+     ```
+
+5. **Firebase CLI Authentication**:
+   - Make sure you are authenticated with the Firebase CLI. You can log in using:
+     ```bash
+     firebase login
+     ```
+
+6. **Check Firebase CLI Version**:
+   - Ensure that you are using the latest version of the Firebase CLI. You can update it using:
+     ```bash
+     npm install -g firebase-tools
+     ```
+
+7. **Emulator Configuration**:
+   - If you are trying to run emulators, ensure that your `firebase.json` file is correctly set up to include the emulators you want to run. Here’s an example configuration:
+     ```json
+     {
+       "emulators": {
+         "firestore": {
+           "port": 8080
+         },
+         "auth": {
+           "port": 9099
+         }
+       }
+     }
+     ```
+
+### Conclusion:
+After verifying that the project exists and ensuring you have the correct permissions, try running the command again. If you continue to face issues, please provide any additional error messages or context, and I can assist you further!
+
+---
+
+_**User**_
+
+When running comman 'firebase init emulators' it says:
+Failed to get Firebase project demo-kmen-fondrozvoje. Please make sure the project exists and your account has permission to access it.
+
+---
+
+_**Assistant**_
+
+<think>
+The error is occurring when you try to initialize Firebase emulators with the command `firebase init emulators`. The error message indicates that the Firebase CLI can't find a project named "demo-kmen-fondrozvoje" in your Firebase account.
+
+For working with emulators, there are a couple of approaches:
+
+1. Connect to an existing Firebase project (requires creating the project in Firebase console)
+2. Use a non-existent project ID for local development only
+
+It sounds like you're trying to use the second approach (using a "demo-" prefix), but the Firebase CLI is still trying to validate that the project exists.
+
+Let's consider some solutions:
+
+1. Create an actual Firebase project called "demo-kmen-fondrozvoje" in the Firebase console
+2. Use the `--project` flag with the Firebase CLI to specify a project ID without checking if it exists
+3. Use a different project ID that already exists in your Firebase account
+
+For option 2, you can try:
+
+```bash
+firebase init emulators --project demo-kmen-fondrozvoje
+```
+
+Alternatively, you could try initializing without specifying a project:
+
+```bash
+firebase init emulators --no-project
+```
+
+Or use a project that already exists in your account:
+
+```bash
+firebase projects:list
+```
+This will show you all the projects you have access to, and you can select one of those.
+
+Another approach is to modify the `.firebaserc` file to use a project that exists or remove the project configuration entirely if you're just using emulators locally.
+</think>
+
+🤖 The error occurs because the Firebase CLI is trying to connect to a Firebase project named "demo-kmen-fondrozvoje" that doesn't exist in your Firebase account. For emulator initialization, you have a few options:
+
+### Option 1: Initialize emulators without a project (recommended for local dev)
+```bash
+firebase init emulators --project=demo-kmen-fondrozvoje --no-project
+```
+
+The `--no-project` flag tells Firebase CLI that you're not connecting to an actual project.
+
+### Option 2: Use an existing project 
+First, check your available projects:
+```bash
+firebase projects:list
+```
+
+Then use one of those projects:
+```bash
+firebase init emulators --project=your-existing-project-id
+```
+
+### Option 3: Create a project first
+Go to the Firebase console and create a project with that exact ID, then initialize the emulators.
+
+### Option 4: Update your .firebaserc
+You could temporarily modify your `.firebaserc` to use a different existing project:
+
+```json
+{
+  "projects": {
+    "default": "your-existing-project-id"
+  }
+}
+```
+
+Remember, for local development with emulators, you don't actually need a real Firebase project. All data is stored locally, and the emulators simulate Firebase services entirely on your machine.
+
+After initializing the emulators, make sure to update your `firebase.json` file to include all the emulators you need (Firestore, Auth, etc.) with their respective ports.
+
+---
+
+_**User**_
+
+'firebase use default' doesnt work either:
+
+Error: Invalid project selection, please verify project default exists and you have access.
+
+---
+
+_**Assistant**_
+
+<think>
+It looks like we're still having issues with the Firebase project. Let's try to troubleshoot this step by step.
+
+The issue appears to be that:
+1. The Firebase CLI can't find the "demo-kmen-fondrozvoje" project
+2. The command "firebase use default" is also failing, which suggests a fundamental issue with the project configuration.
+
+Let's explore a few possibilities:
+
+1. The Firebase CLI isn't authenticating properly with your account
+2. You're trying to use a project name that doesn't exist
+3. The .firebaserc file might have incorrect configuration
+
+Let's check what we know:
+- `.firebaserc` specifies "demo-kmen-fondrozvoje" as the default project
+- In `src/lib/firebase/config.ts`, you're also using "demo-kmen-fondrozvoje" as the project ID
+- The script `populate-emulator.ts` also uses "demo-kmen-fondrozvoje"
+
+The most straightforward solutions are:
+
+1. Try creating a new Firebase project with the exact ID "demo-kmen-fondrozvoje" in the Firebase console
+2. Or change the project ID in all relevant files to use an existing project you have access to
+3. Or try initializing Firebase without a specific project (just for local development with emulators)
+
+I suspect the user is trying to use the emulators for local development and doesn't actually need a real Firebase project. Let me provide some guidance on that.
+</think>
+
+🤖 The error messages indicate that the Firebase CLI can't find a project named "demo-kmen-fondrozvoje" in your account. Let's fix this with the simplest approach for emulator use:
+
+## Solution: Initialize Firebase Emulators Without a Project
+
+When using Firebase emulators locally, you don't actually need a real project. Here's how to set it up:
+
+### Step 1: Modify your .firebaserc (Temporary fix)
+```json
+{
+  "projects": {
+    "default": "demo-kmen-fondrozvoje-local"
+  }
+}
+```
+
+### Step 2: Initialize Firebase without requiring a real project
+```bash
+firebase init emulators --project=demo-kmen-fondrozvoje-local
+```
+
+When prompted, select:
+- Firestore emulator (port 8080)
+- Authentication emulator (port 9099)
+- Any other services you need
+
+### Step 3: Update firebase.json
+After initialization, your firebase.json should look something like this:
+
+```json
+{
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    }
+  }
+}
+```
+
+### Step 4: Update your package.json scripts
+Make sure your dev script doesn't try to specify a real project:
+
+```json
+"dev": "concurrently \"firebase emulators:start\" \"./node_modules/.bin/tsx --tsconfig ./tsconfig.scripts.json ./scripts/populate-emulator.ts\" \"next dev --turbopack\"",
+```
+
+### Alternative: Create a Real Firebase Project
+If you specifically need a real project:
+
+1. Go to Firebase console
+2. Create a new project with ID "demo-kmen-fondrozvoje"
+3. Make sure to use the same Google account that you're logged into with Firebase CLI
+
+### Check Firebase CLI Authentication
+You might need to re-authenticate:
+
+```bash
+firebase logout
+firebase login
+```
+
+This approach should allow you to run your emulators locally without needing a real Firebase project, which is ideal for development.
 
 ---
 

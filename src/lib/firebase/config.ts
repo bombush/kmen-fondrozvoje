@@ -5,8 +5,8 @@ const firebaseConfig = {
   // We'll use empty config for emulator
   apiKey: "fake-api-key",
   authDomain: "localhost",
-  projectId: "kmen-fondrozvoje",
-  storageBucket: "kmen-fondrozvoje.appspot.com",
+  projectId: "demo-kmen-fondrozvoje",
+  storageBucket: "demo-kmen-fondrozvoje.appspot.com",
   messagingSenderId: "000000000000",
   appId: "1:000000000000:web:0000000000000000000000"
 };
