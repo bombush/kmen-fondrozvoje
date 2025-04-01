@@ -24,3 +24,10 @@ export const helloWorld = functions.https.onRequest((request, response) => {
     functions.logger.info("Hello logs!", { structuredData: true });
     response.send("Hello from Firebase!");
   });
+
+  export const processBankStatement = functions.https.onRequest((request, response) => {
+    functions.logger.info("Processing bank statement!", { structuredData: true });
+    response.send("Processing bank statement!");
+  });
+  
+  
