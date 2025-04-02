@@ -91,7 +91,7 @@ export class FioParser implements BankStatementParser {
   /**
    * Check if the provided content is a FIO bank statement
    */
-  canParse(content: string): boolean {
+  async canParse(content: string): Promise<boolean> {
     try {
       // Parse JSON content
       const data = JSON.parse(content)
@@ -112,7 +112,7 @@ export class FioParser implements BankStatementParser {
   /**
    * Parses FIO bank statement JSON and returns structured payment data
    */
-  parse(content: string): RawBankPayment[] {
+  async parse(content: string): Promise<RawBankPayment[]> {
     if (!this.canParse(content)) {
       throw new Error("Invalid FIO bank statement format")
     }
@@ -148,8 +148,10 @@ export class FioParser implements BankStatementParser {
         direction: amount > 0 ? 'in' : 'out'
       })
     }
+
+    const paymentsWithUsers = await this.matchUsersToPayments(payments)
     
-    return payments
+    return paymentsWithUsers
   }
   
   /**

@@ -79,6 +79,8 @@ export async function downloadFioStatement(): Promise<BankConnectorResult> {
     }
     
     const statement = await response.text()
+
+    return statement
     
     // Parse the statement with the FIO parser
     const parseResult = await fioParser(statement)

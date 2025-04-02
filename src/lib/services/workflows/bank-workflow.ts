@@ -70,6 +70,26 @@ export class BankWorkflow {
     })
   }
 
+  async processStatementJson(data:string): Promise<BankStatement> {
+     // parse the json
+     
+     // write statement to db
+
+     // process payments
+
+     // update credit allocation for month 
+  }
+
+  async LoadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string, bankParser:BankParser): Promise<boolean> {
+    // parse the json
+
+    // write statement to db
+
+    // process payments
+
+    // update credit allocation for month 
+  }
+
   /**
    * Split a payment into multiple payments with different target months
    * This operation is wrapped in a transaction for data consistency

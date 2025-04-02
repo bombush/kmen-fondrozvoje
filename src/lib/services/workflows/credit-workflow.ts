@@ -59,6 +59,8 @@ export class CreditWorkflow {
     creditAmount: number,
     notes?: string
   ): Promise<CreditAward[]> {
+// @TODO: recalculate credit allocation based on payments for the month and update if awards already exist
+
     try {
       return await runTransaction(db, async (transaction) => {
         // Get all active users

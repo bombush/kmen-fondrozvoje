@@ -20,6 +20,6 @@ export type ParserResult = {
 export type BankParser = (content: string) => Promise<ParserResult>
 
 export interface BankStatementParser {
-  canParse: (content: string) => boolean
-  parse: (content: string) => RawBankPayment[]
+  canParse: (content: string) => Promise<boolean>
+  parse: (content: string) => Promise<RawBankPayment[]>
 } 
