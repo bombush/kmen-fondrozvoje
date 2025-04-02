@@ -17,7 +17,6 @@ export type User = {
 // @TODO: add field for JSON of payments
 export type BankStatement = {
   id: string
-  month: string // YYYY-MM format
   processedAt: string
   status: 'pending' | 'processed' | 'error'
   rawData: string // JSON string of raw bank statement data

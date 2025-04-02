@@ -39,6 +39,8 @@ function validateConfig(config: any): config is EnvConfig {
   return true
 }
 
+let conf: EnvConfig
+
 // Try to load the config values, if they don't exist or are invalid, throw an error
 try {
   if (!ENV_VALUES) {
@@ -48,15 +50,15 @@ try {
   validateConfig(ENV_VALUES)
   
   // If validation passes, create the final config object
-  export const APP_CONFIG: EnvConfig = {
+  conf = {
     readonly: true,
     ...ENV_VALUES
   } as const
   
-  // Export individual config sections for convenience
-  export const BANK_CONFIG = APP_CONFIG.bankConfig
   
 } catch (error) {
   console.error('Configuration error:', error)
   throw new Error('Configuration file env.values.ts is missing or invalid. Please create this file with the required values.')
 }
+
+export const APP_CONFIG = conf

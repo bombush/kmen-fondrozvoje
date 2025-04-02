@@ -29,6 +29,17 @@ export class BankStatementCrud extends BaseCrud<BankStatement> {
       value: month
     }])
   }
+
+  async getLatest(limit = 10): Promise<BankStatement[]> {
+    const statements = await this.query([
+      { field: "deleted", operator: "==", value: false }
+    ]);
+    
+    // Sort by timestamp (most recent first)
+    return statements
+      .sort((a, b) => new Date(b.timestampOfStatement).getTime() - new Date(a.timestampOfStatement).getTime())
+      .slice(0, limit);
+  }
 }
 
 export type SortConfig = {

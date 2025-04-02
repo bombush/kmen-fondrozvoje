@@ -38014,7 +38014,149 @@ export const processBankStatement = functions.https.onRequest((request, response
     timestamp: new Date().toISOString()
   }
 
-  // The
+  // The BankStatement type doesn't have a description property
+  response.send(`Processing bank statement: ${bankStatement.id} Created at: ${bankStatement.createdAt}`);
+});
+```
+
+This fixes both errors by:
+1. Creating the object directly (no `new` keyword)
+2. Using properties that actually exist in the `BankStatement` type
+3. Adding the required `id` property
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Property 'getLatest' does not exist on type 'BankStatementCrud'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+<think>
+The error message tells us that we're trying to use a method called `getLatest()` on the `BankStatementCrud` class, but this method doesn't exist on that class. Looking at the code in `src/lib/bank-parsers/bank-connector.ts`, we see:
+
+```typescript
+// Get the last statement to determine the date range
+const statementCrud = new BankStatementCrud()
+const statements = await statementCrud.getLatest()
+```
+
+We need to either:
+1. Add a `getLatest()` method to the `BankStatementCrud` class, or
+2. Use an existing method that serves a similar purpose.
+
+Let's check what methods are available on `BankStatementCrud`. The error suggests this isn't a standard method of the class.
+
+Given that we want to get the latest bank statements, we should probably implement a method to get all statements sorted by timestamp (or some other relevant field). Then we'll need to sort them to find the most recent one.
+
+The most logical approach would be to add a `getLatest()` method to the `BankStatementCrud` class that returns the most recent statements. This method should probably use the existing query capability of the BaseCrud class and sort by timestamp or creation date.
+</think>
+
+🤖 Looking at the error, the `getLatest()` method is being called on `BankStatementCrud` but doesn't exist. Let's fix this by adding the missing method to the class:
+
+````typescript:src/lib/services/crud/bank-crud.ts
+// Add this method to the BankStatementCrud class
+
+async getLatest(limit = 10): Promise<BankStatement[]> {
+  const statements = await this.query([
+    { field: "deleted", operator: "==", value: false }
+  ]);
+  
+  // Sort by timestamp (most recent first)
+  return statements
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, limit);
+}
+````
+
+This implementation:
+1. Queries non-deleted statements
+2. Sorts them by timestamp (newest first)
+3. Returns the most recent ones up to the specified limit
+
+The method will now return the most recent bank statements which can be used to determine the date range for fetching new transactions.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Declaration or statement expected.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+For the code present, we get this error:
+```
+Declaration or statement expected.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+<think>
+The error "Declaration or statement expected" typically occurs when there's a syntax error in your TypeScript/JavaScript code. Looking at the files provided, let's analyze the potential issues:
+
+1. In src/config/env.ts, there's an issue with the export statement:
+```typescript
+export APP_CONFIG = APP_CONFIG
+```
+
+This is invalid syntax. An export statement should be either:
+- `export const APP_CONFIG = APP_CONFIG;` 
+- `export { APP_CONFIG };`
+
+2. In src/lib/bank-parsers/bank-connector.ts, there seems to be an undefined variable:
+```typescript
+const DEFAULT_FIRST_DATE = EnvConfig.bankConfig.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
+```
+`EnvConfig` isn't defined or imported, it should probably be `APP_CONFIG`.
+
+Also, there's another reference to `BANK_CONFIG` that should be changed to use the correct import.
+
+Let me check the current state of the files to determine the exact fixes needed.
+
+The syntax error is most likely in src/config/index.ts:
+```typescript
+export * from './env
+export * from './navigation'
+```
+
+The first line is missing a closing quote: it should be `export * from './env'`.
+
+Let's provide fixes for these issues.
+</think>
+
+🤖 The issue is in your `src/config/index.ts` file where there's a missing closing quote:
+
+````typescript:src/config/index.ts
+export * from './env'
+export * from './navigation'
+````
+
+Also, in `src/lib/bank-parsers/bank-connector.ts` you need to fix the references:
+
+````typescript:src/lib/bank-parsers/bank-connector.ts
+import { APP_CONFIG } from "@/config"
+
+// Change this line
+const DEFAULT_FIRST_DATE = APP_CONFIG.bankConfig.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
+
+// And further down, change this reference
+const API_TOKEN = APP_CONFIG.fio?.apiToken
+````
+
+These changes will resolve the syntax error and ensure the correct configuration references are used.
 
 ---
 

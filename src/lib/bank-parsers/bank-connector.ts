@@ -5,7 +5,7 @@
  * parse them, and store the results in the database.
  */
 
-import { BANK_CONFIG } from "@/config"
+import { APP_CONFIG } from "@/config"
 import { BankStatement } from "@/types"
 import { FirebaseAdapter } from "../services/database/firebase-adapter"
 import { fioParser } from "./fio-parser"
@@ -14,13 +14,12 @@ import { db } from "../firebase/config"
 import { BankStatementCrud } from "../services/crud/bank-crud"
 import { BankWorkflow } from "../services/workflows/bank-workflow"
 
-const DEFAULT_FIRST_DATE = BANK_CONFIG.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
+const DEFAULT_FIRST_DATE = APP_CONFIG.bankConfig.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
 
 interface BankConnectorResult {
   success: boolean
   message: string
-  statementId?: string
-  paymentCount?: number
+  data?: string
   error?: any
 }
 
@@ -30,30 +29,33 @@ interface BankConnectorResult {
 export async function downloadFioStatement(): Promise<BankConnectorResult> {
   try {
     // Get the API token from environment
-    const API_TOKEN = BANK_CONFIG.fio?.apiToken
+    const API_TOKEN = APP_CONFIG.fio?.apiToken
     
     if (!API_TOKEN) {
       return {
         success: false,
-        message: "FIO API token not configured"
+        message: "FIO API token not configured",
       }
     }
     
     // Get the last statement to determine the date range
     const statementCrud = new BankStatementCrud()
-    const statements = await statementCrud.getAll()
+    const statements = await statementCrud.getLatest()
+    if(statements.length == 0) {
+      // use default date from config if exists or throw error if no date could be determined.
+    }
     
     // Sort statements by timestamp (descending)
     const sortedStatements = statements
       .filter(s => s.adapter === 'fio' && !s.deleted)
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .sort((a, b) => b.timestampOfStatement - a.timestampOfStatement)
     
     // Determine start date for fetching
     let fromDate: Date
     
     if (sortedStatements.length > 0) {
       // Get date from the most recent statement
-      fromDate = new Date(sortedStatements[0].timestamp)
+      fromDate = new Date(sortedStatements[0].timestampOfStatement)
       // Add one day to avoid getting same transactions
       fromDate.setDate(fromDate.getDate() + 1)
     } else {
@@ -79,44 +81,14 @@ export async function downloadFioStatement(): Promise<BankConnectorResult> {
     }
     
     const statement = await response.text()
-
-    return statement
-    
-    // Parse the statement with the FIO parser
-    const parseResult = await fioParser(statement)
-    
-    if (!parseResult.canParse) {
-      return {
-        success: false,
-        message: "Failed to parse FIO statement"
-      }
-    }
-    
-    if (parseResult.payments.length === 0) {
-      return {
-        success: true,
-        message: "No new transactions found",
-        paymentCount: 0
-      }
-    }
-    
-    // Store the statement and payments in a transaction
-    const workflow = new BankWorkflow()
-    const result = await workflow.processStatement({
-      adapter: 'fio',
-      month: toDate.toISOString().substring(0, 7), // YYYY-MM format
-      rawData: statement,
-      timestamp: toDate.getTime(),
-      payments: parseResult.payments
-    })
-    
-    return {
+    const out: BankConnectorResult =  {
       success: true,
-      message: `Successfully downloaded and processed ${parseResult.payments.length} transactions`,
-      statementId: result.id,
-      paymentCount: parseResult.payments.length
+      message: 'Succes',
+      data: statement
     }
-    
+
+    return out
+        
   } catch (error) {
     console.error("Error downloading FIO statement:", error)
     return {
@@ -124,23 +96,5 @@ export async function downloadFioStatement(): Promise<BankConnectorResult> {
       message: "Failed to download or process FIO statement",
       error
     }
-  }
-}
-
-/**
- * Downloads a bank statement based on the configured bank adapter
- * @returns Result of the download operation
- */
-export async function downloadBankStatement(): Promise<BankConnectorResult> {
-  const supportedBanks = BANK_CONFIG.supportedBanks || ['FIO']
-  
-  // Currently only supporting FIO bank
-  if (supportedBanks.includes('FIO')) {
-    return downloadFioStatement()
-  }
-  
-  return {
-    success: false,
-    message: "No supported bank adapters configured"
   }
 }

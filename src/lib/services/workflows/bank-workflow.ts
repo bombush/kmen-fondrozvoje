@@ -3,7 +3,8 @@ import { BankPaymentCrud, BankStatementCrud } from "../crud/bank-crud"
 import { db } from "@/lib/firebase/config"
 import { runTransaction } from "firebase/firestore"
 import { HistoryCrud } from "../crud/history-crud"
-
+import { FioParser } from "@/lib//bank-parsers/fio-parser";
+import { ParserResult } from "@/lib/bank-parsers/types";
 export type CreateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
 
 export type UpdateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
@@ -58,36 +59,42 @@ export class BankWorkflow {
     return this.bankPaymentCrud.getByMonth(month)
   }
 
-  async processStatement(id: string): Promise<BankStatement> {
-    const statement = await this.bankStatementCrud.getById(id)
-    if (!statement) {
-      throw new Error(`Statement ${id} not found`)
+  async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<boolean> {
+    // start transaction
+    // parse the json using fio parser
+    const parser = new FioParser();
+    const bankStatementData: ParserResult = await parser.parse(rawStatement);
+
+    if (!bankStatementData.canParse) {
+      throw new Error(`Error parsing bank statement at timestamp: ${bankStatementData.timestampOfStatement}`);
     }
 
-    return this.bankStatementCrud.update(id, {
+    // write BankStatement to db
+    const bankStatement = await this.createStatement({
+      timestampOfStatement: bankStatementData.timestampOfStatement,
+      rawData: rawStatement,
+      status: 'processed',
       processedAt: new Date().toISOString(),
-      status: 'processed'
-    })
-  }
+      adapter: 'fio'
+    });
 
-  async processStatementJson(data:string): Promise<BankStatement> {
-     // parse the json
-     
-     // write statement to db
+    const payments = bankStatementData.payments;
+    
+    
 
-     // process payments
-
-     // update credit allocation for month 
-  }
-
-  async LoadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string, bankParser:BankParser): Promise<boolean> {
-    // parse the json
-
-    // write statement to db
+    
 
     // process payments
 
+    // commit transaction
+
+    // start transaction
     // update credit allocation for month 
+    // commit transaction
+
+    // @TODO: write error log
+
+    return false;
   }
 
   /**
