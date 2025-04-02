@@ -29,7 +29,7 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
     this.collectionRef = collection(db, collectionName)
   }
 
-  async create(data: Omit<T, "id" | "createdAt" | "updatedAt">): Promise<T> {
+  async create(data: Omit<T, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<T> {
     const now = new Date().toISOString()
     const docData = {
       ...data,
@@ -37,25 +37,48 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
       updatedAt: now
     }
 
-    const docRef = await addDoc(this.collectionRef, docData)
-    return { id: docRef.id, ...docData } as T
+    if (transaction) {
+      // If we have a transaction, use it
+      const docRef = doc(collection(this.db, this.collectionRef.id))
+      transaction.set(docRef, docData)
+      return { id: docRef.id, ...docData } as T
+    } else {
+      // Otherwise use normal addDoc
+      const docRef = await addDoc(this.collectionRef, docData)
+      return { id: docRef.id, ...docData } as T
+    }
   }
 
-  async update(id: string, data: Partial<Omit<T, "id" | "createdAt" | "updatedAt">>): Promise<T> {
+  async update(id: string, data: Partial<Omit<T, "id" | "createdAt" | "updatedAt">>, transaction?: Transaction): Promise<T> {
     const docRef = doc(this.collectionRef, id)
     const updateData = {
       ...data,
       updatedAt: new Date().toISOString()
     }
 
-    await updateDoc(docRef, updateData)
-    const docSnap = await getDoc(docRef)
-    return { id: docSnap.id, ...docSnap.data() } as T
+    if (transaction) {
+      // If we have a transaction, use it
+      transaction.update(docRef, updateData)
+      // Get the current data to merge with updates
+      const docSnap = await getDoc(docRef)
+      return { id: docSnap.id, ...docSnap.data(), ...updateData } as T
+    } else {
+      // Otherwise use normal updateDoc
+      await updateDoc(docRef, updateData)
+      const docSnap = await getDoc(docRef)
+      return { id: docSnap.id, ...docSnap.data() } as T
+    }
   }
 
-  async getById(id: string): Promise<T | null> {
+  async getById(id: string, transaction?: Transaction): Promise<T | null> {
     const docRef = doc(this.collectionRef, id)
-    const docSnap = await getDoc(docRef)
+    
+    let docSnap;
+    if (transaction) {
+      docSnap = await transaction.get(docRef)
+    } else {
+      docSnap = await getDoc(docRef)
+    }
     
     if (!docSnap.exists()) {
       return null
@@ -124,6 +147,6 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
    */
   async executeQuery(queryIn: Query<T>): Promise<T[]> {
     const snapshot = await getDocs(queryIn)
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
   }
 }

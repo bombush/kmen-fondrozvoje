@@ -32,16 +32,15 @@ export const helloWorld = functions.https.onRequest((request, response) => {
     const bankStatement: BankStatement = {
       id: 'test-statement-id',
       adapter: "fio",
-      month: "2023-01",
       status: "pending",
       rawData: "[]",
       processedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      timestamp: new Date().getTime() / 1000
+      timestampOfStatement: new Date().getTime()
     };
 
-    response.send(`Processing bank statement: ${bankStatement.id} Created at: ${bankStatement.timestamp}`);
+    response.send(`Processing bank statement: ${bankStatement.id} Created at: ${bankStatement.timestampOfStatement}`);
   });
   
   

@@ -56,19 +56,19 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     return super.getById(id)
   }
 
-  async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">): Promise<BankPayment> {
+  async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<BankPayment> {
     return super.create({
       ...data,
       deleted: false
-    })
+    }, transaction)
   }
 
-  async update(id: string, data: Partial<BankPayment>): Promise<BankPayment> {
-    return super.update(id, data)
+  async update(id: string, data: Partial<BankPayment>, transaction?: Transaction): Promise<BankPayment> {
+    return super.update(id, data, transaction)
   }
 
-  async softDelete(id: string): Promise<BankPayment> {
-    return this.update(id, { deleted: true })
+  async softDelete(id: string, transaction?: Transaction): Promise<BankPayment> {
+    return this.update(id, { deleted: true }, transaction)
   }
 
   async getByStatementId(statementId: string): Promise<BankPayment[]> {
@@ -191,6 +191,21 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
       // Secondary sort by received date (newest first)
       return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
     });
+  }
+
+  async findBySplitFromId(originalPaymentId: string): Promise<BankPayment[]> {
+    return this.query([
+      {
+        field: "isSplitFromId",
+        operator: "==",
+        value: originalPaymentId
+      },
+      {
+        field: "deleted",
+        operator: "==",
+        value: false
+      }
+    ]);
   }
 }
 // define a type PaymentQueryParams which is a subset of Bank Payment where the explicitly mentioned fields are omited and the rest of fields are optional

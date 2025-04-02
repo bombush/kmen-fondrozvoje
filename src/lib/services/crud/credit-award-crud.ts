@@ -168,9 +168,17 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     const adapter = this.db as FirebaseAdapter<CreditAward>;
     
     // Create query to find all unique targetMonths, sorted ascending
-    const constraints = [
-      { field: "deleted", operator: "==", value: false },
-      { field: "targetMonth", operator: "!=", value: null }
+    const constraints: QueryConstraint[] = [
+      {
+        field: "deleted",
+        operator: "==" as const,
+        value: false
+      },
+      {
+        field: "targetMonth",
+        operator: "!=" as const,
+        value: null
+      }
     ];
     
     let query = adapter.createQueryWithConstraints(constraints);

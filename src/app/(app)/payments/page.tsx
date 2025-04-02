@@ -212,7 +212,7 @@ export default function PaymentsPage() {
           )}
         </Button>
       </div>
-      
+
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-8 w-full" />
@@ -284,8 +284,8 @@ export default function PaymentsPage() {
                   const hasSplits = childPayments.length > 0;
                   
                   return (
-                    <React.Fragment key={payment.id}>
-                      <TableRow 
+                <React.Fragment key={payment.id}>
+                  <TableRow 
                         className={cn(
                           "cursor-pointer transition-colors",
                           isParentPayment(payment) && !expandedPaymentId ? "border-l-2 border-l-primary" : "",
@@ -314,32 +314,32 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="font-medium">
                           {formatMoney(payment.amount)}
-                        </TableCell>
-                        <TableCell className="truncate">{payment.counterpartyName}</TableCell>
-                        <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
-                        <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
+                    </TableCell>
+                    <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                    <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
+                    <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
-                        <TableCell className="text-right">
-                          {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </TableCell>
-                      </TableRow>
+                    <TableCell className="text-right">
+                      {expandedPaymentId === payment.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </TableCell>
+                  </TableRow>
 
-                      {/* Expanded content row */}
-                      {expandedPaymentId === payment.id && (
-                        <TableRow className="bg-muted/50">
+                  {/* Expanded content row */}
+                  {expandedPaymentId === payment.id && (
+                    <TableRow className="bg-muted/50">
                           <TableCell colSpan={7} className="p-0">
-                            <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                   <h3 className="text-sm font-medium text-muted-foreground">Counterparty</h3>
                                   <p>{payment.counterpartyName || 'Not provided'}</p>
                                   <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
                                 </div>
-                                <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
-                                  <p>{payment.message || 'No message'}</p>
-                                </div>
-                              </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                              <p>{payment.message || 'No message'}</p>
+                            </div>
+                          </div>
                               
                               {/* Parent payment section - show when this is a child payment */}
                               {payment.isSplitFromId && (
@@ -370,27 +370,27 @@ export default function PaymentsPage() {
                                   })()}
                                 </div>
                               )}
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
-                                  <p>{payment.variableSymbol || 'Not provided'}</p>
-                                </div>
-                                <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
-                                  <p>{payment.specificSymbol || 'Not provided'}</p>
-                                </div>
-                                <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
-                                  <p>{payment.constantSymbol || 'Not provided'}</p>
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
-                                <p>{payment.bankTransactionId}</p>
-                              </div>
-                              
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                              <p>{payment.variableSymbol || 'Not provided'}</p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                              <p>{payment.specificSymbol || 'Not provided'}</p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                              <p>{payment.constantSymbol || 'Not provided'}</p>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                            <p>{payment.bankTransactionId}</p>
+                          </div>
+                          
                               {/* Child payments section */}
                               {hasSplits && (
                                 <div className="mt-4 border-t pt-4">
@@ -410,12 +410,12 @@ export default function PaymentsPage() {
                               )}
                               
                               {!payment.isSplitFromId && (
-                              <div className="pt-3 flex justify-end">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSplitPayment(payment);
-                                  }}
+                          <div className="pt-3 flex justify-end">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSplitPayment(payment);
+                              }}
                                   className={cn(
                                     "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
                                     hasSplits 
@@ -425,14 +425,14 @@ export default function PaymentsPage() {
                                 >
                                   {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
                                   {hasSplits ? "Edit Split" : "Split Payment"}
-                                </button>
-                              </div>
+                            </button>
+                          </div>
                               )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
                   );
                 })
               )}

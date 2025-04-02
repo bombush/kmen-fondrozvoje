@@ -82,7 +82,7 @@ export class FirestoreBankService implements BankService {
 
       // Create virtual payments
       const virtualPayments = await Promise.all(splits.map(async (split) => {
-        const virtualPayment: Omit<BankPayment, "id"> = {
+        const virtualPayment: Omit<BankPayment, "id" | "createdAt" | "updatedAt"> = {
           statementId: parent.statementId,
           userId: parent.userId,
           amount: split.amount,
@@ -102,7 +102,7 @@ export class FirestoreBankService implements BankService {
         return { id: docRef.id, ...virtualPayment }
       }))
 
-      return virtualPayments
+      return virtualPayments as BankPayment[]
     } catch (error) {
       console.error("Error creating virtual payments:", error)
       throw error

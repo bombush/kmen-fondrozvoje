@@ -200,8 +200,8 @@ export default function PaymentMatrixPage() {
                     return (
                       <td
                         key={tooltipId}
-                        className={cn(
-                          "px-4 py-3 cursor-pointer hover:bg-muted/50",
+                      className={cn(
+                        "px-4 py-3 cursor-pointer hover:bg-muted/50",
                           hasPayments ? "" : "text-muted-foreground"
                         )}
                       >
@@ -217,9 +217,9 @@ export default function PaymentMatrixPage() {
                               className={cn(
                                 "block w-full", 
                                 hasPayments ? "text-green-600 dark:text-green-400" : ""
-                              )}
-                              onClick={() => handleCellClick(month.month, user.id, month.userCredits[user.id] || 0)}
-                            >
+                      )}
+                      onClick={() => handleCellClick(month.month, user.id, month.userCredits[user.id] || 0)}
+                    >
                               {hasPayments ? formatMoney(month.userCredits[user.id]) : '—'}
                             </span>
                           </PopoverTrigger>
@@ -268,7 +268,7 @@ export default function PaymentMatrixPage() {
                                           <CornerUpRight className="h-3 w-3" />
                                           <span>
                                             Part of a larger payment: {formatMoney(parentPayment.amount)}
-                                          </span>
+                        </span>
                                         </div>
                                       )}
                                       
@@ -285,7 +285,7 @@ export default function PaymentMatrixPage() {
                             </PopoverContent>
                           )}
                         </Popover>
-                      </td>
+                    </td>
                     );
                   })}
                 </tr>

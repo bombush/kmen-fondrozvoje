@@ -171,19 +171,19 @@ function UsersPage() {
         return a.name.localeCompare(b.name)
       })
   }, [users, searchTerm])
-  
+
   return (
     <div className="container py-8 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Users</h1>
         <div className="relative w-72">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
+        <Input
             placeholder="Search users..." 
-            className="pl-8"
+          className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        />
         </div>
       </div>
       
@@ -194,25 +194,25 @@ function UsersPage() {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
+      <Table>
+        <TableHeader>
+          <TableRow>
               <TableHead className="w-[300px]">Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Balance</TableHead>
-              <TableHead>Specific Symbol</TableHead>
+            <TableHead>Balance</TableHead>
+            <TableHead>Specific Symbol</TableHead>
               <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
             {filteredUsers.map(user => (
-              <React.Fragment key={user.id}>
-                <TableRow 
+            <React.Fragment key={user.id}>
+              <TableRow 
                   className={`cursor-pointer ${user.isActive === false ? 'text-muted-foreground' : ''}`}
                   onClick={() => toggleExpand(user.id)}
-                >
+              >
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                       {expandedUsers[user.id] ? (
                         <ChevronDown className="h-4 w-4" />
                       ) : (
@@ -223,13 +223,13 @@ function UsersPage() {
                         className="w-3 h-3 rounded-full p-0"
                       />
                       {user.name}
-                    </div>
-                  </TableCell>
+                  </div>
+                </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <UserBalance userId={user.id} />
                   </TableCell>
-                  <TableCell>{user.specificSymbol || "-"}</TableCell>
+                <TableCell>{user.specificSymbol || "-"}</TableCell>
                   <TableCell className="w-10">
                     {(isAdmin || appUser?.id === user.id) && (
                       <DropdownMenu>
@@ -281,51 +281,51 @@ function UsersPage() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="grid grid-cols-2 gap-4">
-                            <div>
+                                  <div>
                               <div className="text-sm font-medium">Status</div>
                               <div>{user.isActive !== false ? "Active" : "Inactive"}</div>
-                            </div>
+                                    </div>
                             <div>
                               <div className="text-sm font-medium">Email</div>
                               <div>{user.email}</div>
-                            </div>
-                            <div>
+                                  </div>
+                                  <div>
                               <div className="text-sm font-medium">Balance</div>
                               <div><UserBalance userId={user.id} /></div>
-                            </div>
+                                    </div>
                             <div>
                               <div className="text-sm font-medium">Specific Symbol</div>
                               <div>{user.specificSymbol || "—"}</div>
-                            </div>
-                            <div>
+                                </div>
+                                  <div>
                               <div className="text-sm font-medium">Variable Symbol</div>
                               <div>{user.variableSymbol || "—"}</div>
-                            </div>
-                            <div>
+                                  </div>
+                                  <div>
                               <div className="text-sm font-medium">Constant Symbol</div>
                               <div>{user.constantSymbol || "—"}</div>
-                            </div>
+                              </div>
                           </CardContent>
                           <CardFooter>
                             {(isAdmin || appUser?.id === user.id) && (
-                              <Button variant="outline" onClick={(e) => {
-                                e.stopPropagation();
-                                startEditing(user);
-                              }}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit User
-                              </Button>
+                            <Button variant="outline" onClick={(e) => {
+                              e.stopPropagation();
+                              startEditing(user);
+                            }}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit User
+                            </Button>
                             )}
                           </CardFooter>
                         </Card>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </React.Fragment>
+          ))}
+        </TableBody>
+      </Table>
       )}
       
       {/* Edit User Dialog */}

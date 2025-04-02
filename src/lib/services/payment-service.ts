@@ -1,4 +1,4 @@
-import { BankPayment } from "@/types"
+import { BankPayment, Pledge } from "@/types"
 import { collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore"
 import { db } from "../firebase/config"
 
@@ -54,7 +54,7 @@ export const getUserPledges = async (userId: string) => {
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }))
+    })) as Pledge[]
   } catch (error) {
     console.error("Error fetching user pledges:", error)
     throw error

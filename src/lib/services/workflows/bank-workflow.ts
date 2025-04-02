@@ -231,18 +231,7 @@ export class BankWorkflow {
     }
 
     // Get existing child payments
-    const existingChildPayments = await this.bankPaymentCrud.query([
-      {
-        field: "isSplitFromId",
-        operator: "==",
-        value: originalPaymentId
-      },
-      {
-        field: "deleted",
-        operator: "==",
-        value: false
-      }
-    ])
+    const existingChildPayments = await this.bankPaymentCrud.findBySplitFromId(originalPaymentId)
 
     const originalDistributedAmount = originalPayment.amount + existingChildPayments.reduce((sum, payment) => sum + payment.amount, 0);
 

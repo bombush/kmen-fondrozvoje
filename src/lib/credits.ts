@@ -155,7 +155,7 @@ export async function calculateUserBalance(userId: string): Promise<number> {
 
   // Subtract pledges
   const pledges = await getUserPledges(userId)
-  const totalPledged = pledges.reduce((sum, pledge) => sum + pledge.amount, 0)
+  const totalPledged = pledges.reduce((sum, pledge) => sum + (pledge.amount || 0), 0)
 
   return totalCredits - totalPledged
 } 

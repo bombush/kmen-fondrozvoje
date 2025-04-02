@@ -7,7 +7,6 @@
 
 import { BankParser, BankStatementParser, ParserResult, RawBankPayment } from "./types"
 import { UserCrud } from "../services/crud/user-crud"
-import { BANK_CONFIG } from "@/config"
 
 // Complete type definitions for FIO bank statement format based on reference file
 interface FioColumnData {
@@ -215,26 +214,29 @@ export const fioParser: BankParser = async (content: string): Promise<ParserResu
   if (!parser.canParse(content)) {
     return {
       canParse: false,
-      payments: []
+      payments: [],
+      timestampOfStatement: new Date().getTime()
     }
   }
   
   try {
     // Parse the raw payments
-    const payments = parser.parse(content)
+    const result = await parser.parse(content)
     
     // Match users to payments based on specific symbols
-    const matchedPayments = await parser.matchUsersToPayments(payments)
+    const matchedPayments = await parser.matchUsersToPayments(result.payments)
     
     return {
       canParse: true,
-      payments: matchedPayments
+      payments: matchedPayments,
+      timestampOfStatement: result.timestampOfStatement
     }
   } catch (error) {
     console.error("Error parsing FIO statement:", error)
     return {
       canParse: true,
-      payments: []
+      payments: [],
+      timestampOfStatement: new Date().getTime()
     }
   }
 } 

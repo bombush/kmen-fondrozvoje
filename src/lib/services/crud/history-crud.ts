@@ -13,8 +13,7 @@ export class HistoryCrud extends BaseCrud<HistoryAction> {
     transaction?: Transaction
   ): Promise<HistoryAction> {
     return this.db.create({
-      ...data,
-      createdAt: new Date().toISOString()
+      ...data
     }, transaction)
   }
 
