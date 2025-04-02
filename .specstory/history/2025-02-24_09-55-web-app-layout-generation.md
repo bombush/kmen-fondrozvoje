@@ -37938,6 +37938,86 @@ This approach should allow you to run your emulators locally without needing a r
 
 ---
 
+_**User**_
+
+For the code present, we get this error:
+```
+'BankStatement' only refers to a type, but is being used as a value here.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+<think>
+Let's focus on fixing the error in the firebase-functions/src/index.ts file. The error says that `BankStatement` is being used as a value but it's actually a type. This means that we're trying to instantiate `BankStatement` with `new BankStatement(...)` but `BankStatement` is a type, not a class constructor.
+
+Looking at the error:
+```
+const bankStatement: BankStatement = new BankStatement({
+```
+
+I need to resolve this issue by providing a proper way to create a BankStatement object.
+
+There are two main approaches to fix this:
+
+1. Create a proper class for BankStatement if it should be instantiable
+2. Create the object directly without using a constructor if BankStatement is just an interface
+
+Let's look at how the BankStatement type is defined in the project. Based on the error message and context, it seems BankStatement is intended to be a type/interface rather than a class. 
+
+The right approach would likely be to just create the object directly:
+
+```typescript
+const bankStatement: BankStatement = {
+  adapter: "fio",
+  description: "Test Bank Statement",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  month: "1",
+  processedAt: null,
+  status: "pending",
+  rawData: "[]",
+  timestamp: new Date().toISOString(),
+  id: "test-statement-id" // This is needed for the BankStatement type
+};
+```
+
+Another issue is the property `description` being referenced later in the code, which the error says doesn't exist on type `BankStatement`. This suggests that either:
+1. The BankStatement type doesn't have a description property
+2. Or we're using the wrong property name
+
+I'll provide a fix that addresses both issues in a clean way.
+</think>
+
+🤖 The error occurs because you're trying to use `BankStatement` as a constructor with `new`, but it's actually just a TypeScript interface/type, not a class.
+
+Here's the fix for the firebase-functions/src/index.ts file:
+
+```typescript:firebase-functions/src/index.ts
+// ...existing imports...
+
+export const processBankStatement = functions.https.onRequest((request, response) => {
+  functions.logger.info("Processing bank statement!", { structuredData: true });
+
+  // Create object directly instead of using "new"
+  const bankStatement: BankStatement = {
+    id: 'test-statement-id', // Add required id property
+    adapter: "fio",
+    month: "2023-01", // Use proper month string format
+    status: "pending",
+    rawData: "[]",
+    processedAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    timestamp: new Date().toISOString()
+  }
+
+  // The
+
+---
+
 
 
 ---
