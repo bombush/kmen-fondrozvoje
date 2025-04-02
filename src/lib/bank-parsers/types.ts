@@ -15,11 +15,12 @@ export type RawBankPayment = {
 export type ParserResult = {
   canParse: boolean
   payments: RawBankPayment[]
+  timestampOfStatement: number
 }
 
 export type BankParser = (content: string) => Promise<ParserResult>
 
 export interface BankStatementParser {
   canParse: (content: string) => Promise<boolean>
-  parse: (content: string) => Promise<RawBankPayment[]>
+  parse: (content: string) => Promise<ParserResult>
 } 
