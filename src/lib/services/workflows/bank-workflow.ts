@@ -26,13 +26,6 @@ export class BankWorkflow {
     private historyCrud: HistoryCrud = new HistoryCrud()
   ) {}
 
-  async createStatement(data: CreateBankStatementInput): Promise<BankStatement> {
-    return this.bankStatementCrud.create({
-      ...data,
-      status: 'pending'
-    })
-  }
-
   async createPayment(data: CreateBankPaymentInput): Promise<BankPayment> {
     return this.bankPaymentCrud.create({
       ...data
@@ -70,12 +63,16 @@ export class BankWorkflow {
     }
 
     // write BankStatement to db
-    const bankStatement = await this.createStatement({
-      timestampOfStatement: bankStatementData.timestampOfStatement,
-      rawData: rawStatement,
-      status: 'processed',
-      processedAt: new Date().toISOString(),
-      adapter: 'fio'
+
+    await runTransaction(db, async (transaction) => {
+      this.bankStatementCrud.create({
+        timestampOfStatement: bankStatementData.timestampOfStatement,
+        rawData: rawStatement,
+        status: 'pending',
+        processedAt: new Date().toISOString(),
+        adapter: 'fio'
+      }, transaction)
+
     });
 
     const payments = bankStatementData.payments;

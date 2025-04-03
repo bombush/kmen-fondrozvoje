@@ -1,1 +1,2 @@
 - what if I set goal smaller than current pledged?
+- transactions should be agnostic of database adapter

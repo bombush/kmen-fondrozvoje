@@ -14,12 +14,12 @@ export class BankStatementCrud extends BaseCrud<BankStatement> {
     return super.getById(id)
   }
 
-  async create(data: Omit<BankStatement, "id" | "createdAt" | "updatedAt">): Promise<BankStatement> {
-    return super.create(data)
+  async create(data: Omit<BankStatement, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<BankStatement> {
+    return super.create(data, transaction)
   }
 
-  async update(id: string, data: Partial<BankStatement>): Promise<BankStatement> {
-    return super.update(id, data)
+  async update(id: string, data: Partial<BankStatement>, transaction?: Transaction): Promise<BankStatement> {
+    return super.update(id, data, transaction )
   }
 
   async getByMonth(month: string): Promise<BankStatement[]> {
