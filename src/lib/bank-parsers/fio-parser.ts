@@ -40,10 +40,10 @@ interface FioTransaction {
   column7?: FioColumnData   // User identification
   column8?: FioColumnData   // Transaction type
   column9?: FioColumnData   // Performed by
-  column16?: FioColumnData  // Optional field
+  column16?: FioColumnData  // Message to the receiver
   column18?: FioColumnData  // Optional field
   column25?: FioColumnData  // Comment
-  column26?: FioColumnData  // Optional field
+  column26?: FioColumnData  // BIC ISO 9362
 }
 
 interface FioTransactionList {
@@ -144,7 +144,8 @@ export class FioParser implements BankStatementParser {
         bankTransactionId: transaction.column22?.value?.toString() || "",
         counterpartyAccountNumber: transaction.column2?.value || "",
         counterpartyName: transaction.column10?.value || "",
-        direction: amount > 0 ? 'in' : 'out'
+        direction: amount > 0 ? 'in' : 'out',
+        message: transaction.column16?.value || ""
       })
     }
 
