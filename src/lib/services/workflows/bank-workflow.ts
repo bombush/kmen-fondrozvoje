@@ -5,6 +5,7 @@ import { runTransaction } from "firebase/firestore"
 import { HistoryCrud } from "../crud/history-crud"
 import { FioParser } from "@/lib//bank-parsers/fio-parser";
 import { ParserResult } from "@/lib/bank-parsers/types";
+import { CreditWorkflow } from "./credit-workflow"
 export type CreateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
 
 export type UpdateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
@@ -23,7 +24,8 @@ export class BankWorkflow {
   constructor(
     private bankStatementCrud: BankStatementCrud = new BankStatementCrud(),
     private bankPaymentCrud: BankPaymentCrud = new BankPaymentCrud(),
-    private historyCrud: HistoryCrud = new HistoryCrud()
+    private historyCrud: HistoryCrud = new HistoryCrud(),
+    private creditWorkflow: CreditWorkflow = new CreditWorkflow()
   ) {}
 
   async createPayment(data: CreateBankPaymentInput): Promise<BankPayment> {
@@ -65,7 +67,7 @@ export class BankWorkflow {
     // write BankStatement to db
 
     await runTransaction(db, async (transaction) => {
-      this.bankStatementCrud.create({
+      const bankStatement = await this.bankStatementCrud.create({
         timestampOfStatement: bankStatementData.timestampOfStatement,
         rawData: rawStatement,
         status: 'pending',
@@ -73,23 +75,32 @@ export class BankWorkflow {
         adapter: 'fio'
       }, transaction)
 
+       // save incoming payments
+      await Promise.all(bankStatementData.payments.map(async (parsedPayment) => {
+        this.bankPaymentCrud.create({
+          statementId: bankStatement.id,
+          userId: parsedPayment.userId,
+          amount: parsedPayment.amount,
+          receivedAt: parsedPayment.receivedAt,
+          targetMonth: parsedPayment.receivedAt,
+          variableSymbol: parsedPayment.variableSymbol,
+          specificSymbol: parsedPayment.specificSymbol,
+          constantSymbol: parsedPayment.constantSymbol,
+          bankTransactionId: parsedPayment.bankTransactionId,
+          counterpartyAccountNumber: parsedPayment.counterpartyAccountNumber,
+          counterpartyName: parsedPayment.counterpartyName,
+          message: parsedPayment.message,
+          comment: ''
+        }, transaction)
+      }))
+
+      // find months in the payments and update credit allocation for each month
+      const months = bankStatementData.payments.map(payment => payment.receivedAt)
+      await Promise.all(months.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
+
     });
 
-    const payments = bankStatementData.payments;
-    
-    
-
-    
-
-    // process payments
-
-    // commit transaction
-
-    // start transaction
-    // update credit allocation for month 
-    // commit transaction
-
-    // @TODO: write error log
+    // @TODO: write log
 
     return false;
   }

@@ -207,6 +207,13 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
       }
     ]);
   }
+
+  async getPaymentsByMonth(month: string): Promise<BankPayment[]> {
+    return this.query([
+      { field: "targetMonth", operator: "==", value: month },
+      { field: "deleted", operator: "==", value: false }
+    ]);
+  }
 }
 // define a type PaymentQueryParams which is a subset of Bank Payment where the explicitly mentioned fields are omited and the rest of fields are optional
 export type BankPaymentsFilterParams = Partial<Omit<BankPayment, "id" | "createdAt" | "updatedAt" | "deleted">>;

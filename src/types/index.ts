@@ -39,8 +39,8 @@ export type BankPayment = {
   counterpartyAccountNumber: string
   counterpartyName: string
   receivedAt: string
-  message: string
-  comment: string
+  message: string // message to the receiver
+  comment: string // internal comment
   isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
   deleted?: boolean

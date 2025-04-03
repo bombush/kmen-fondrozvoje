@@ -26,7 +26,7 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     data: Partial<CreditAward>, 
     transaction?: Transaction
   ): Promise<CreditAward> {
-    return super.update(id, data)
+    return super.update(id, data, transaction)
   }
 
   async softDelete(id: string): Promise<CreditAward> {
@@ -53,6 +53,14 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
   async getByMonth(month: string): Promise<CreditAward[]> {
     return this.query([
       { field: "targetMonth", operator: "==", value: month },
+      { field: "deleted", operator: "==", value: false }
+    ])
+  }
+
+  async getAutomaticAwardsByMonth(month: string): Promise<CreditAward[]> {
+    return this.query([
+      { field: "targetMonth", operator: "==", value: month },
+      { field: "reason", operator: "==", value: "automatic" },
       { field: "deleted", operator: "==", value: false }
     ])
   }

@@ -1,2 +1,5 @@
 - what if I set goal smaller than current pledged?
 - transactions should be agnostic of database adapter
+- CRUD: create in batches
+- general method for calculating credit allocation based on payments
+    - to be used both in the UI and the workflow

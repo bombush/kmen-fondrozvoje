@@ -6,7 +6,8 @@ export interface QueryConstraint {
   value: any
 }
 
-export type DatabaseEntity = User | Project | Pledge | BankStatement | BankPayment | CreditAward | HistoryAction
+export type DatabaseEntity = User | Project | Pledge | BankStatement | BankPayment | CreditAward | HistoryAction 
+// @TODO: make conversion between different representation in DB and the app possible
 
 export interface DatabaseAdapter<T extends DatabaseEntity> {
   create(data: Omit<T, "id" | "createdAt" | "updatedAt">, transaction?: any): Promise<T>

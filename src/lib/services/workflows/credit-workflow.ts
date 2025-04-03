@@ -1,16 +1,19 @@
-import { CreditAward, Pledge, Project, User } from "@/types"
+import { BankPayment, CreditAward, Pledge, Project, User } from "@/types"
 import { CreditAwardCrud } from "../crud/credit-award-crud"
 import { UserCrud } from "../crud/user-crud"
 import { db } from "../../firebase/config"
 import { runTransaction } from "firebase/firestore"
+import { BankPaymentCrud } from "../crud/bank-crud"
 
 export class CreditWorkflow {
   private creditAwardCrud: CreditAwardCrud
   private userCrud: UserCrud
+  private bankPaymentCrud: BankPaymentCrud
 
   constructor() {
     this.creditAwardCrud = new CreditAwardCrud()
     this.userCrud = new UserCrud()
+    this.bankPaymentCrud = new BankPaymentCrud()
   }
 
   /**
@@ -87,6 +90,58 @@ export class CreditWorkflow {
       console.error("Error in awardMonthlyCreditToUsers workflow:", error)
       throw error
     }
+  }
+
+  async updateCreditAllocationBasedOnPayments(month: string) {
+    // Get all payments for the month
+    const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
+
+    // Get all existing automatic credit awards for the month
+    const automaticAwards = await this.creditAwardCrud.getAutomaticAwardsByMonth(month)
+
+    // create a map of total amount received for each user
+    const totalAmountReceivedByUser = payments.reduce((acc: Record<string, number>, payment: BankPayment) => {
+      acc[payment.userId] = acc[payment.userId] || 0
+      acc[payment.userId] += payment.amount
+      return acc
+    }, {})
+
+    // sum all payments for the month
+    const totalAmountReceived = payments.reduce((acc: number, payment: BankPayment) => acc + payment.amount, 0)
+
+    // create a list of users with non-zero amount received
+    const usersWithNonZeroAmountReceived = Object.keys(totalAmountReceivedByUser).filter((userId: string) => totalAmountReceivedByUser[userId] > 0)
+
+    const creditsPerUser = totalAmountReceived / usersWithNonZeroAmountReceived.length
+
+    await runTransaction(db, async (transaction) => {
+        // update or create new credit awards for the month
+        const updatedAwards = automaticAwards.map(async (award) => {
+          return await this.creditAwardCrud.update(
+          award.id, 
+          {
+            amount: creditsPerUser
+          },
+          transaction
+        )
+      })
+
+      // create new awards if not already in the list
+      const newAwards = usersWithNonZeroAmountReceived.filter(userId => !automaticAwards.some(award => award.userId === userId))
+
+      const newlyCreatedAwards = newAwards.map(async (userId) => {
+        return await this.creditAwardCrud.create({
+          userId,
+          amount: creditsPerUser,
+          reason: 'monthly_allocation',
+          targetMonth: month
+        }, transaction)
+      })
+
+        return updatedAwards.concat(newlyCreatedAwards)
+    })
+
+    return 
   }
 
   /**
