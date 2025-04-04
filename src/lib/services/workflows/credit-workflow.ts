@@ -154,28 +154,4 @@ export class CreditWorkflow {
     // Sum up the awards
     return awards.reduce((total, award) => total + award.amount, 0)
   }
-
-  /**
-   * Refund credits from a locked pledge back to a user
-   */
-  async refundPledgeCredits(
-    pledgeId: string,
-    userId: string,
-    amount: number,
-    projectId: string
-  ): Promise<CreditAward> {
-    try {
-      return await this.awardCredits({
-        userId,
-        amount,
-        reason: 'refund',
-        sourceId: pledgeId,
-        sourceType: 'pledge',
-        notes: `Refund from project ${projectId}`
-      })
-    } catch (error) {
-      console.error("Error in refundPledgeCredits workflow:", error)
-      throw error
-    }
-  }
 } 

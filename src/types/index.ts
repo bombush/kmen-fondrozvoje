@@ -52,7 +52,7 @@ export type CreditAward = {
   id: string
   userId: string
   amount: number
-  reason: 'monthly_allocation' | 'admin_award' | 'system' | 'refund'
+  reason: 'monthly_allocation' | 'admin_award'
   sourceId?: string    // Could be projectId, paymentId, etc.
   sourceType?: string  // Could be "project", "payment", etc.
   notes?: string
