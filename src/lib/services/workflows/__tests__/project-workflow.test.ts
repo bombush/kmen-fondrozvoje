@@ -4,11 +4,6 @@ import { PledgeCrud } from '../../crud/pledge-crud'
 import { Project, Pledge } from '@/types'
 import { runTransaction } from 'firebase/firestore'
 
-// Mock Firebase's runTransaction
-jest.mock('firebase/firestore', () => ({
-  runTransaction: jest.fn(async (db, callback) => callback()),
-}))
-
 // Mock the CRUD classes
 jest.mock('../../crud/project-crud')
 jest.mock('../../crud/pledge-crud')
@@ -42,7 +37,11 @@ describe('ProjectWorkflow', () => {
         description: 'A test project',
         goal: 1000,
         ownerId: 'user1',
-        closed: false
+        closed: false,
+        fundsSentToOwner: false,
+        bought: false,
+        addedToAssetList: false,
+        locked: false
       }
       
       const createdProject = {
@@ -50,7 +49,11 @@ describe('ProjectWorkflow', () => {
         ...projectData,
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
-        deleted: false
+        deleted: false,
+        fundsSentToOwner: false,
+        bought: false,
+        addedToAssetList: false,
+        locked: false
       }
       
       mockProjectCrud.create.mockResolvedValue(createdProject)
@@ -77,7 +80,11 @@ describe('ProjectWorkflow', () => {
         closed: false,
         deleted: false,
         createdAt: '2023-01-01',
-        updatedAt: '2023-01-01'
+        updatedAt: '2023-01-01',
+        fundsSentToOwner: false,
+        bought: false,
+        addedToAssetList: false,
+        locked: false
       }
       
       const pledges: Pledge[] = [
@@ -201,7 +208,11 @@ describe('ProjectWorkflow', () => {
         closed: false,
         deleted: false,
         createdAt: '2023-01-01',
-        updatedAt: '2023-01-01'
+        updatedAt: '2023-01-01',
+        fundsSentToOwner: false,
+        bought: false,
+        addedToAssetList: false,
+        locked: false
       }
       
       const pledges: Pledge[] = [

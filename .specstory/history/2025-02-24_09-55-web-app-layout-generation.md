@@ -39050,6 +39050,156 @@ This gives us much better coverage of the different scenarios that could occur i
 
 ---
 
+_**User**_
+
+Help me resolve this  error
+
+---
+
+Help me resolve this  error
+
+---
+
+_**Assistant**_
+
+<think>
+The error is coming from the Firebase setup in your tests:
+
+```
+TypeError: (0 , _firestore.getFirestore) is not a function
+```
+
+This typically happens when there's a mismatch between the actual Firebase code and the mocks you're using in your tests. Let's fix this by updating your jest.setup.ts file to properly mock the Firebase functions.
+
+The key part of the error is that `getFirestore` is not being recognized as a function in your test environment. Since your code imports directly from 'firebase/firestore', we need to ensure that file is properly mocked.
+</think>
+
+🤖 The error is occurring because the Firebase functions aren't properly mocked in the test environment. Let's update the mock setup for Firebase in your Jest configuration:
+
+````typescript:jest.setup.ts
+// Mock Firebase
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+  getFirestore: jest.fn(() => ({})),
+  runTransaction: jest.fn(async (db, callback) => callback()),
+  connectFirestoreEmulator: jest.fn(),
+}));
+
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+}));
+````
+
+The main issue is that `getFirestore` is missing from your Firebase mock. I've added it along with some other functions that might be needed.
+
+If you're still seeing issues, you can also mock the entire Firebase config file directly:
+
+````typescript:src/lib/firebase/__mocks__/config.ts
+export const app = {};
+export const db = {};
+````
+
+Then add this to your test file:
+
+````typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+// Add at the top of the file
+jest.mock('../../../firebase/config', () => ({
+  app: {},
+  db: {},
+}));
+````
+
+This approach bypasses the Firebase initialization completely in your tests, which is often cleaner than trying to mock all the individual Firebase functions.
+
+---
+
+_**User**_
+
+Help mw with this error please
+
+---
+
+_**Assistant**_
+
+<think>
+The test is failing because you're testing the result of `mockUserCrud.getBalance` but checking if `mockUserCrud.calculateBalance` was called. Let's fix the test.
+
+In the test, you're doing:
+```typescript
+// Act
+const result = await mockUserCrud.getBalance(userId)
+
+// Assert
+expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+```
+
+But you should be using the workflow under test, not the mockUserCrud directly:
+
+```typescript
+// Act
+const result = await userWorkflow.getUserBalance(userId)
+
+// Assert
+expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+```
+
+I also see that the test is actually calling `mockUserCrud.getBalance()` directly, but then asserting on `mockUserCrud.calculateBalance()` being called - this suggests there's some confusion about which method is being tested.
+
+Let's fix the test to be consistent:
+</think>
+
+🤖 You're testing the wrong method. The error occurs because you're:
+
+1. Calling `mockUserCrud.getBalance(userId)` directly in your test
+2. But expecting `mockUserCrud.calculateBalance(userId)` to have been called
+
+This is inconsistent. You should either:
+
+1. Test the workflow method and not the CRUD method directly, OR
+2. Make your expectations match the method you're calling
+
+Here's the fix:
+
+````typescript:src/lib/services/workflows/__tests__/user-workflow.test.ts
+describe('getUserBalance', () => {
+  it('should return the user balance', async () => {
+    // Arrange
+    const userId = 'user1'
+    const balance = 500
+    
+    mockUserCrud.calculateBalance.mockResolvedValue(balance)
+    
+    // Act
+    const result = await userWorkflow.getUserBalance(userId)
+    
+    // Assert
+    expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+    expect(result).toBe(balance)
+  })
+})
+````
+
+The key change is to call `userWorkflow.getUserBalance()` instead of `mockUserCrud.getBalance()` since you're testing the workflow, not the CRUD class directly.
+
+---
+
+_**User**_
+
+I;m not sure this is correct. I'm testing if calculateBalance has been called in getBalance internally
+
+---
+
 
 
 ---

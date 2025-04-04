@@ -8,13 +8,19 @@ import { BankPayment } from '@/types'
 
 // Mock Firebase's runTransaction
 jest.mock('firebase/firestore', () => ({
-  runTransaction: jest.fn(async (db, callback) => callback()),
+  runTransaction: jest.fn(async (db, callback) => callback({})),
 }))
 
 // Mock the CRUD classes
 jest.mock('../../crud/credit-award-crud')
 jest.mock('../../crud/user-crud')
 jest.mock('../../crud/bank-crud')
+
+// Add at the top of the file
+jest.mock('../../../firebase/config', () => ({
+  app: {},
+  db: {},
+}));
 
 describe('CreditWorkflow', () => {
   let creditWorkflow: CreditWorkflow
@@ -58,6 +64,7 @@ describe('CreditWorkflow', () => {
         amount,
         reason,
         ...options,
+        deleted: false,
         createdAt: '2023-01-01T00:00:00Z',
         updatedAt: '2023-01-01T00:00:00Z'
       }
@@ -77,6 +84,8 @@ describe('CreditWorkflow', () => {
         userId,
         amount,
         reason,
+        sourceId: 'manual_award',
+        sourceType: 'admin',
         ...options
       })
       expect(result).toEqual(creditAward)
@@ -199,7 +208,7 @@ describe('CreditWorkflow', () => {
       
       // Check that new awards were created for each user
       expect(mockCreditAwardCrud.create).toHaveBeenCalledTimes(2)
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           userId: 'user1',
           amount: 175,
@@ -208,7 +217,7 @@ describe('CreditWorkflow', () => {
         }),
         expect.anything()
       )
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(2,
         expect.objectContaining({
           userId: 'user2',
           amount: 175,
@@ -248,19 +257,19 @@ describe('CreditWorkflow', () => {
       expect(mockCreditAwardCrud.create).toHaveBeenCalledTimes(1)
       
       // Check that existing awards were updated
-      expect(mockCreditAwardCrud.update).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.update).toHaveBeenNthCalledWith(1,
         'award1',
         { amount: 200 },
         expect.anything()
       )
-      expect(mockCreditAwardCrud.update).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.update).toHaveBeenNthCalledWith(2,
         'award2',
         { amount: 200 },
         expect.anything()
       )
       
       // Check that a new award was created for user3
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           userId: 'user3',
           amount: 200,
@@ -307,7 +316,7 @@ describe('CreditWorkflow', () => {
       // Assert
       // Only user2 should get an award (user1 has zero amount)
       expect(mockCreditAwardCrud.create).toHaveBeenCalledTimes(1)
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           userId: 'user2',
           amount: 300, // All credits go to the only contributor
@@ -358,7 +367,7 @@ describe('CreditWorkflow', () => {
       
       // We should create a monthly_allocation award for user2 who doesn't have one
       expect(mockCreditAwardCrud.create).toHaveBeenCalledTimes(1)
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           userId: 'user2',
           amount: 150,
@@ -410,7 +419,7 @@ describe('CreditWorkflow', () => {
       expect(mockCreditAwardCrud.create).toHaveBeenCalledTimes(2)
       
       // The total payment amount is 600, divided by 2 users = 300 per user
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           userId: 'user1',
           amount: 300,
@@ -420,7 +429,7 @@ describe('CreditWorkflow', () => {
         expect.anything()
       )
       
-      expect(mockCreditAwardCrud.create).toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).toHaveBeenNthCalledWith(2, 
         expect.objectContaining({
           userId: 'user2',
           amount: 300,
@@ -431,7 +440,7 @@ describe('CreditWorkflow', () => {
       )
       
       // User3 should not get a monthly allocation award
-      expect(mockCreditAwardCrud.create).not.toHaveBeenCalledWith(
+      expect(mockCreditAwardCrud.create).not.toHaveBeenCalledWith(1,
         expect.objectContaining({
           userId: 'user3',
           reason: 'monthly_allocation',

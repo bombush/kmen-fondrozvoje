@@ -15,11 +15,14 @@ jest.mock('firebase/firestore', () => ({
   where: jest.fn(),
   orderBy: jest.fn(),
   limit: jest.fn(),
-  runTransaction: jest.fn(async (db, callback) => callback()),
+  startAfter: jest.fn(),
+  getFirestore: jest.fn(() => ({})),
+  runTransaction: jest.fn(async (db, callback) => callback({})),
+  connectFirestoreEmulator: jest.fn(),
 }));
 
 jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(),
+  initializeApp: jest.fn(() => ({})),
 }));
 
 jest.mock('firebase/auth', () => ({

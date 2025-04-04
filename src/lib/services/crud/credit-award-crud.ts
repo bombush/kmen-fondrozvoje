@@ -60,7 +60,7 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
   async getAutomaticAwardsByMonth(month: string): Promise<CreditAward[]> {
     return this.query([
       { field: "targetMonth", operator: "==", value: month },
-      { field: "reason", operator: "==", value: "automatic" },
+      { field: "reason", operator: "==", value: "monthly_allocation" },
       { field: "deleted", operator: "==", value: false }
     ])
   }
