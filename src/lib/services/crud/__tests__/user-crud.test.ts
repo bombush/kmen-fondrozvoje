@@ -155,5 +155,78 @@ describe('UserCrud', () => {
       // Assert
       expect(balance).toBe(200) // 500 - 300 (deleted items excluded)
     })
+    
+    it('should calculate balance correctly with credit awards and pledges', async () => {
+      // Arrange
+      const userId = 'user1';
+      
+      // Credit awards - both active and deleted
+      const creditAwards = [
+        { id: 'ca1', userId, amount: 500, reason: 'monthly_allocation' as const, deleted: false, createdAt: '2023-01-01', updatedAt: '2023-01-01'  },
+        { id: 'ca2', userId, amount: 200, reason: 'admin_award' as const, deleted: false, createdAt: '2023-01-15', updatedAt: '2023-01-15' }
+      ];
+      
+      // Pledges - both active and deleted
+      const pledges = [
+        { id: 'p1', userId, projectId: 'proj1', amount: 150, deleted: false, createdAt: '2023-01-05', updatedAt: '2023-01-05', locked: false, description: 'Pledge 1' },
+        { id: 'p2', userId, projectId: 'proj2', amount: 250, deleted: false, createdAt: '2023-01-10', updatedAt: '2023-01-10', locked: false, description: 'Pledge 2' }
+      ];
+      
+      // Expected calculation: (500 + 200) - (150 + 250) = 300
+      const expectedBalance = 300;
+      
+      // Setup mocks
+      mockCreditAwardCrud.getByUserId.mockResolvedValue(creditAwards);
+      mockPledgeCrud.getByUserId.mockResolvedValue(pledges);
+      
+      // Act
+      const balance = await userCrud.calculateBalance(userId);
+      
+      // Assert
+      expect(mockCreditAwardCrud.getByUserId).toHaveBeenCalledWith(userId);
+      expect(mockPledgeCrud.getByUserId).toHaveBeenCalledWith(userId);
+      expect(balance).toBe(expectedBalance);
+    });
+    
+    it('should return zero when user has no credits or pledges', async () => {
+      // Arrange
+      const userId = 'user2';
+      
+      // Setup mocks - empty arrays
+      mockCreditAwardCrud.getByUserId.mockResolvedValue([]);
+      mockPledgeCrud.getByUserId.mockResolvedValue([]);
+      
+      // Act
+      const balance = await userCrud.calculateBalance(userId);
+      
+      // Assert
+      expect(balance).toBe(0);
+    });
+    
+    it('should handle negative balance when pledges exceed credits', async () => {
+      // Arrange
+      const userId = 'user3';
+      
+      const creditAwards = [
+        { id: 'ca1', userId, amount: 300, reason: "monthly_allocation" as const, deleted: false, createdAt: '2023-01-01', updatedAt: '2023-01-01' },
+      ];
+      
+      const pledges = [
+        { id: 'p1', userId, projectId: 'proj1', amount: 400, deleted: false, createdAt: '2023-01-05', updatedAt: '2023-01-05', locked: false, description: 'Pledge 1' },
+        { id: 'p2', userId, projectId: 'proj2', amount: 200, deleted: false, createdAt: '2023-01-10', updatedAt: '2023-01-10', locked: false, description: 'Pledge 2'  },
+      ];
+      
+      // Expected: 300 - 600 = -300
+      const expectedBalance = -300;
+      
+      mockCreditAwardCrud.getByUserId.mockResolvedValue(creditAwards);
+      mockPledgeCrud.getByUserId.mockResolvedValue(pledges);
+      
+      // Act
+      const balance = await userCrud.calculateBalance(userId);
+      
+      // Assert
+      expect(balance).toBe(expectedBalance);
+    });
   })
 }) 

@@ -39200,6 +39200,67 @@ I;m not sure this is correct. I'm testing if calculateBalance has been called in
 
 ---
 
+_**Assistant**_
+
+<think>
+I see what you mean. Let me re-examine the code structure and test:
+
+1. The test is verifying that when `userWorkflow.getUserBalance(userId)` is called, it internally calls `mockUserCrud.calculateBalance(userId)`.
+
+2. So the test structure should be:
+   - Call `userWorkflow.getUserBalance(userId)`
+   - Assert that `mockUserCrud.calculateBalance(userId)` was called as part of the workflow implementation
+   - Assert that the result is what was returned by the mock
+
+3. The error indicates that `mockUserCrud.calculateBalance` is not being called, which could mean:
+   - There's a mismatch between the method name in the test and the actual implementation
+   - The workflow isn't calling the expected CRUD method
+   - There's an issue with the mocking
+
+Let's check the implementation of `userWorkflow.getUserBalance` to confirm what it should be calling:
+</think>
+
+🤖 You're right - let's look at the `user-workflow.ts` file to see what the implementation of `getUserBalance` actually looks like:
+
+````typescript:src/lib/services/workflows/user-workflow.ts
+// This is likely the current implementation
+async getUserBalance(userId: string): Promise<number> {
+  return this.userCrud.calculateBalance(userId);
+}
+````
+
+The issue is that we don't see this method in your `user-workflow.ts` file. There are two possibilities:
+
+1. The method exists with a different name
+2. The method doesn't exist yet and needs to be added
+
+Let's add the method to your `UserWorkflow` class:
+
+````typescript:src/lib/services/workflows/user-workflow.ts
+/**
+ * Get a user's balance
+ */
+async getUserBalance(userId: string): Promise<number> {
+  return this.userCrud.calculateBalance(userId);
+}
+````
+
+This will ensure that when your test calls `userWorkflow.getUserBalance(userId)`, it correctly delegates to `userCrud.calculateBalance(userId)`.
+
+---
+
+_**User**_
+
+Calculate User balance should test both credit awards and pledge as  well as deleted objects
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---
