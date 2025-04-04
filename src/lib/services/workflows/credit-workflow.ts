@@ -148,10 +148,7 @@ export class CreditWorkflow {
    * Calculate a user's current balance based on their credit awards
    */
   async calculateUserBalance(userId: string): Promise<number> {
-    // Get all credit awards for the user
-    const awards = await this.creditAwardCrud.getByUserId(userId)
-    
-    // Sum up the awards
-    return awards.reduce((total, award) => total + award.amount, 0)
+    // Replace the manual calculation with UserCrud's method
+    return this.userCrud.calculateBalance(userId);
   }
 } 

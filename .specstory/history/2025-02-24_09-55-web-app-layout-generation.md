@@ -39257,6 +39257,125 @@ Calculate User balance should test both credit awards and pledge as  well as del
 
 _**Assistant**_
 
+<think>
+Let's think about creating a comprehensive test for calculating user balance that covers:
+1. Credit awards (adding to balance)
+2. Pledges (subtracting from balance)
+3. Deleted items (should be excluded from calculations)
+
+The test should validate that the `calculateBalance` method in `UserCrud` correctly:
+- Adds up all non-deleted credit awards
+- Subtracts all non-deleted pledges
+- Ignores deleted items in both categories
+
+Let's create a test for the `UserCrud.calculateBalance` method:
+</think>
+
+🤖 Let's add a comprehensive test for the `calculateBalance` method in `UserCrud` that includes credit awards, pledges, and properly handles deleted items:
+
+````typescript:src/lib/services/crud/__tests__/user-crud.test.ts
+describe('calculateBalance', () => {
+  it('should calculate balance correctly with credit awards and pledges, excluding deleted items', async () => {
+    // Arrange
+    const userId = 'user1';
+    
+    // Credit awards - both active and deleted
+    const creditAwards = [
+      { id: 'ca1', userId, amount: 500, reason: 'monthly_allocation', deleted: false },
+      { id: 'ca2', userId, amount: 200, reason: 'admin_award', deleted: false },
+      { id: 'ca3', userId, amount: 1000, reason: 'monthly_allocation', deleted: true }, // Should be ignored
+    ];
+    
+    // Pledges - both active and deleted
+    const pledges = [
+      { id: 'p1', userId, projectId: 'proj1', amount: 150, deleted: false },
+      { id: 'p2', userId, projectId: 'proj2', amount: 250, deleted: false },
+      { id: 'p3', userId, projectId: 'proj3', amount: 500, deleted: true }, // Should be ignored
+    ];
+    
+    // Expected calculation: (500 + 200) - (150 + 250) = 300
+    const expectedBalance = 300;
+    
+    // Setup mocks
+    mockCreditAwardCrud.getByUserId.mockResolvedValue(creditAwards);
+    mockPledgeCrud.getByUserId.mockResolvedValue(pledges);
+    
+    // Act
+    const balance = await userCrud.calculateBalance(userId);
+    
+    // Assert
+    expect(mockCreditAwardCrud.getByUserId).toHaveBeenCalledWith(userId);
+    expect(mockPledgeCrud.getByUserId).toHaveBeenCalledWith(userId);
+    expect(balance).toBe(expectedBalance);
+  });
+  
+  it('should return zero when user has no credits or pledges', async () => {
+    // Arrange
+    const userId = 'user2';
+    
+    // Setup mocks - empty arrays
+    mockCreditAwardCrud.getByUserId.mockResolvedValue([]);
+    mockPledgeCrud.getByUserId.mockResolvedValue([]);
+    
+    // Act
+    const balance = await userCrud.calculateBalance(userId);
+    
+    // Assert
+    expect(balance).toBe(0);
+  });
+  
+  it('should handle negative balance when pledges exceed credits', async () => {
+    // Arrange
+    const userId = 'user3';
+    
+    const creditAwards = [
+      { id: 'ca1', userId, amount: 300, reason: 'monthly_allocation', deleted: false },
+    ];
+    
+    const pledges = [
+      { id: 'p1', userId, projectId: 'proj1', amount: 400, deleted: false },
+      { id: 'p2', userId, projectId: 'proj2', amount: 200, deleted: false },
+    ];
+    
+    // Expected: 300 - 600 = -300
+    const expectedBalance = -300;
+    
+    mockCreditAwardCrud.getByUserId.mockResolvedValue(creditAwards);
+    mockPledgeCrud.getByUserId.mockResolvedValue(pledges);
+    
+    // Act
+    const balance = await userCrud.calculateBalance(userId);
+    
+    // Assert
+    expect(balance).toBe(expectedBalance);
+  });
+});
+````
+
+
+This test suite covers:
+
+1. Normal case with credit awards and pledges, properly excluding deleted items
+2. Edge case where user has no credits or pledges
+3. Case where the user's pledges exceed their credits (negative balance)
+
+Each test verifies that:
+- The correct methods are called with the right parameters
+- The calculation logic is correct
+- Deleted items are properly excluded
+
+This will ensure your `calculateBalance` method handles all these scenarios correctly.
+
+---
+
+_**User**_
+
+Use UserCrud to calculate balance everywhere user balance is calculated
+
+---
+
+_**Assistant**_
+
 
 
 ---
