@@ -70,7 +70,7 @@ export class BankWorkflow {
       const bankStatement = await this.bankStatementCrud.create({
         timestampOfStatement: bankStatementData.timestampOfStatement,
         rawData: rawStatement,
-        status: 'pending',
+        status: 'processed',
         processedAt: new Date().toISOString(),
         adapter: 'fio'
       }, transaction)
@@ -93,6 +93,8 @@ export class BankWorkflow {
           comment: ''
         }, transaction)
       }))
+
+      //@TODO: what if this crashes?
 
       // find months in the payments and update credit allocation for each month
       const months = bankStatementData.payments.map(payment => payment.receivedAt)
