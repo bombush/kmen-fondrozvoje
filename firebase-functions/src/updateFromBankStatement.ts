@@ -7,7 +7,7 @@ export const updateFromBankStatement = functions.https.onRequest(async(request, 
     response.send("Hello from Firebase!");
   });
 
-  export const processBankStatement = functions.https.onRequest(async(request, response) => {
+export const processBankStatement = functions.https.onRequest(async(request, response) => {
     functions.logger.info("Processing bank statement!", { structuredData: true });
 
     // load bank statement using fio connector
@@ -16,6 +16,9 @@ export const updateFromBankStatement = functions.https.onRequest(async(request, 
         response.send(`Error downloading bank statement: ${bankStatement.message}`);
         return;
     }
+
+    response.send(`Bank statement loaded: ${bankStatement.data}`);
+    return
 
     // update bank statement using bank workflow
     const bankWorkflow = new BankWorkflow();
