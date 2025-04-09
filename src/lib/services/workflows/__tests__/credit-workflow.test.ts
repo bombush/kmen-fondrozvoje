@@ -1,10 +1,11 @@
 import { CreditWorkflow } from '../credit-workflow'
 import { CreditAwardCrud } from '../../crud/credit-award-crud'
 import { UserCrud } from '../../crud/user-crud'
-import { CreditAward, User } from '@/types'
+import { CreditAward, Pledge, User } from '@/types'
 import { runTransaction } from 'firebase/firestore'
 import { BankPaymentCrud } from '../../crud/bank-crud'
 import { BankPayment } from '@/types'
+import { PledgeCrud } from '../../crud/pledge-crud'
 
 // Mock Firebase's runTransaction
 jest.mock('firebase/firestore', () => ({
@@ -27,7 +28,7 @@ describe('CreditWorkflow', () => {
   let mockCreditAwardCrud: jest.Mocked<CreditAwardCrud>
   let mockUserCrud: jest.Mocked<UserCrud>
   let mockBankPaymentCrud: jest.Mocked<BankPaymentCrud>
-  
+  let mockPledgeCrud: jest.Mocked<PledgeCrud>
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks()
@@ -36,7 +37,10 @@ describe('CreditWorkflow', () => {
     mockCreditAwardCrud = new CreditAwardCrud() as jest.Mocked<CreditAwardCrud>
     mockUserCrud = new UserCrud() as jest.Mocked<UserCrud>
     mockBankPaymentCrud = new BankPaymentCrud() as jest.Mocked<BankPaymentCrud>
-    
+    mockPledgeCrud = new PledgeCrud() as jest.Mocked<PledgeCrud>
+    // @ts-ignore - access private properties for testing
+    mockUserCrud.creditAwardCrud = mockCreditAwardCrud
+  
     // Create workflow with mocked dependencies
     creditWorkflow = new CreditWorkflow()
     // @ts-ignore - access private properties for testing
@@ -45,6 +49,9 @@ describe('CreditWorkflow', () => {
     creditWorkflow.userCrud = mockUserCrud
     // @ts-ignore
     creditWorkflow.bankPaymentCrud = mockBankPaymentCrud
+
+    // @ts-ignore - access private properties for testing
+    creditWorkflow.pledgeCrud = mockPledgeCrud
   })
   
   describe('awardCredits', () => {
@@ -152,15 +159,22 @@ describe('CreditWorkflow', () => {
         { id: 'award1', userId, amount: 100, reason: 'monthly_allocation', createdAt: '2023-01-01', updatedAt: '2023-01-01' },
         { id: 'award2', userId, amount: 50, reason: 'admin_award', createdAt: '2023-01-15', updatedAt: '2023-01-15' }
       ]
-      
+
+      // subtract pledges
+      const pledges: Pledge[] = [
+        { id: 'pledge1', userId, amount: 20, createdAt: '2023-01-01', updatedAt: '2023-01-01', projectId: 'project1', locked: false, description: 'Pledge 1' },
+        { id: 'pledge2', userId, amount: 30, createdAt: '2023-01-15', updatedAt: '2023-01-15', projectId: 'project2', locked: false, description: 'Pledge 2' }
+      ] as Pledge[]
+
       mockCreditAwardCrud.getByUserId.mockResolvedValue(creditAwards)
+      mockPledgeCrud.getByUserId.mockResolvedValue(pledges)
       
       // Act
       const result = await creditWorkflow.calculateUserBalance(userId)
       
       // Assert
-      expect(mockCreditAwardCrud.getByUserId).toHaveBeenCalledWith(userId)
-      expect(result).toBe(150) // 100 + 50
+      expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+      expect(result).toBe(100) // 100 + 50 - 20 - 30
     })
   })
 

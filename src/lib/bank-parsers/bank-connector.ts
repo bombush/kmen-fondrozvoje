@@ -14,7 +14,7 @@ import { db } from "../firebase/config"
 import { BankStatementCrud } from "../services/crud/bank-crud"
 import { BankWorkflow } from "../services/workflows/bank-workflow"
 
-const DEFAULT_FIRST_DATE = APP_CONFIG.bankConfig.defaultFirstDateToFetch || new Date(2022, 9, 1) // Oct 1, 2022
+const DEFAULT_FIRST_DATE = APP_CONFIG.bankConfig.defaultFirstDateToFetch
 
 interface BankConnectorResult {
   success: boolean

@@ -21,6 +21,13 @@ export const updateFromBankStatement = functions.https.onRequest(async(request, 
     const bankWorkflow = new BankWorkflow();
 
     let result = false
+
+    // if empty bankStatement.data, return false
+    if (!bankStatement.data) {
+        response.send(`Empty bank statement data`);
+        return;
+    }
+
     try {
         result = await bankWorkflow.loadPaymentsFromBankStatementAndUpdateCreditAllocation(bankStatement.data || "");
     } catch (error) {

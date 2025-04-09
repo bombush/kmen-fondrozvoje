@@ -55,6 +55,11 @@ export class BankWorkflow {
   }
 
   async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<boolean> {
+    // if empty raw statement, throw error
+    if (!rawStatement) {
+      throw new Error('Empty bank statement')
+    }
+
     // start transaction
     // parse the json using fio parser
     const parser = new FioParser();
@@ -98,6 +103,8 @@ export class BankWorkflow {
 
       // find months in the payments and update credit allocation for each month
       const months = bankStatementData.payments.map(payment => payment.receivedAt)
+
+      // @TODO: allocation history
       await Promise.all(months.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
 
     });

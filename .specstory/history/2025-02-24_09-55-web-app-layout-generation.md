@@ -39376,7 +39376,341 @@ Use UserCrud to calculate balance everywhere user balance is calculated
 
 _**Assistant**_
 
+<think>
+Looking at the provided code, I need to identify where user balance is being calculated to ensure UserCrud's calculateBalance method is used consistently throughout the application.
 
+Some key areas I should check:
+1. The CreditWorkflow class
+2. Any other workflow classes that might calculate user balance
+3. Front-end components that display user balance
+4. API endpoints that might return user balance
+
+Let's start by examining the CreditWorkflow class, which has a method called `calculateUserBalance`:
+
+```typescript
+async calculateUserBalance(userId: string): Promise<number> {
+  // Get all credit awards for the user
+  const awards = await this.creditAwardCrud.getByUserId(userId)
+  
+  // Sum up the awards
+  return awards.reduce((total, award) => total + award.amount, 0)
+}
+```
+
+This implementation is incomplete compared to what should be happening in UserCrud's calculateBalance method. The correct implementation should:
+1. Get all credit awards for the user
+2. Get all pledges for the user 
+3. Return the difference (credits - pledges)
+4. Account for deleted items (which the above doesn't do)
+
+So I should recommend replacing this implementation with a call to userCrud.calculateBalance().
+
+Let me check if there are any other places that might need similar updates.
+</think>
+
+🤖 You should update the `CreditWorkflow` class to use the `UserCrud.calculateBalance` method instead of recalculating it manually. This will ensure consistent balance calculations throughout the application.
+
+Here's how to fix it:
+
+````typescript:src/lib/services/workflows/credit-workflow.ts
+/**
+ * Calculate a user's current balance based on their credit awards
+ */
+async calculateUserBalance(userId: string): Promise<number> {
+  // Replace the manual calculation with UserCrud's method
+  return this.userCrud.calculateBalance(userId);
+}
+````
+
+This change:
+
+1. Ensures balance calculations are consistent across the application
+2. Makes use of the comprehensive balance calculation logic from UserCrud
+3. Automatically handles deleted items, pledges, and credit awards
+4. Follows the DRY (Don't Repeat Yourself) principle
+
+Additionally, make sure you've injected the UserCrud in the constructor:
+
+````typescript:src/lib/services/workflows/credit-workflow.ts
+constructor(
+  private creditAwardCrud: CreditAwardCrud = new CreditAwardCrud(),
+  private userCrud: UserCrud = new UserCrud(),
+  private bankPaymentCrud: BankPaymentCrud = new BankPaymentCrud()
+) {}
+````
+
+This approach centralizes the balance calculation logic in one place, making it easier to maintain and ensuring consistency throughout the application.
+
+---
+
+_**User**_
+
+Help me understand failure in this unit test:
+
+
+---
+
+_**Assistant**_
+
+<think>
+The error shows that `mockUserCrud.getBalance` was never called, but we're expecting it to have been called with `"user1"` as an argument.
+
+Looking at the test and the error, we need to understand what's happening:
+
+1. In the `calculateUserBalance` test, we're trying to test that `creditWorkflow.calculateUserBalance(userId)` correctly calls `userCrud.calculateBalance(userId)`.
+
+2. However, the test is failing with:
+   ```
+   expect(mockUserCrud.getBalance).toHaveBeenCalledWith(userId)
+   ```
+
+3. There seems to be a mismatch in method names. In your test, you're expecting `getBalance` to be called, but in the implementation, you're likely calling `calculateBalance` instead.
+
+Looking at the code, `creditWorkflow.calculateUserBalance` is now calling `this.userCrud.calculateBalance(userId)`, but the test is expecting `mockUserCrud.getBalance` to be called.
+
+So there's a mismatch between:
+- The actual implementation method: `calculateBalance`
+- The method your test is expecting: `getBalance`
+
+To fix this, either:
+
+1. Update the test to expect `calculateBalance` instead of `getBalance`:
+   ```javascript
+   expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+   ```
+
+2. Or, if you want to keep the test as is, modify the implementation to call `getBalance` instead of `calculateBalance`:
+   ```javascript
+   return this.userCrud.getBalance(userId);
+   ```
+
+From what I can see in the code snippets, `calculateBalance` appears to be the correct method name (from the other tests and implementation), so option 1 is likely the right approach.
+</think>
+
+🤖 The test is failing because there's a mismatch between the method name in your test and the actual method in the `UserCrud` class.
+
+In your test, you're expecting:
+```typescript
+expect(mockUserCrud.getBalance).toHaveBeenCalledWith(userId)
+```
+
+But in the `CreditWorkflow` implementation, you're actually calling:
+```typescript
+return this.userCrud.calculateBalance(userId);
+```
+
+There are two ways to fix this:
+
+### Option 1: Update the test to match the implementation
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+// Assert
+expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+expect(result).toBe(150) // 100 + 50
+````
+
+### Option 2: Mock the correct method in the test setup
+
+Before your test, make sure you mock the correct method:
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+// In your beforeEach or test setup
+mockUserCrud.calculateBalance = jest.fn().mockResolvedValue(150); // Mock the return value
+
+// Then in your test
+const result = await creditWorkflow.calculateUserBalance(userId);
+
+// Assert
+expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId);
+expect(result).toBe(150);
+````
+
+The issue is simply that you're checking if `getBalance` was called, but your code is actually calling `calculateBalance`. This happens when method names are changed but tests aren't updated to match.
+
+---
+
+_**User**_
+
+Pleae help me fix this
+
+---
+
+_**Assistant**_
+
+<think>
+Looking at the error message, there's a mismatch between what your test expects and what your code is doing:
+
+1. Your test is expecting `mockUserCrud.getBalance` to be called
+2. But in your actual code, you're calling `this.userCrud.calculateBalance`
+
+The error is saying that `getBalance` was never called, which makes sense because your implementation uses `calculateBalance` instead.
+
+There are a few possible solutions:
+
+1. Update the test to expect `calculateBalance` instead of `getBalance`
+2. Add a mock for the `calculateBalance` method
+3. Rename the method in your implementation to match what the test is expecting
+
+Looking at your code, it seems like you need to update the test to expect `calculateBalance` instead of `getBalance`. Let's fix that:
+</think>
+
+🤖 You're still having an issue because of a mismatch between the method names in your test and implementation. Let's fix this by adding the `calculateBalance` mock and updating your test:
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+describe('calculateUserBalance', () => {
+  it('should calculate the sum of all credit awards for a user', async () => {
+    // Arrange
+    const userId = 'user1'
+    
+    // Mock the calculateBalance method
+    mockUserCrud.calculateBalance = jest.fn().mockResolvedValue(150)
+    
+    // Act
+    const result = await creditWorkflow.calculateUserBalance(userId)
+    
+    // Assert
+    expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId)
+    expect(result).toBe(150) // 100 + 50
+  })
+})
+````
+
+The key issue is that you're expecting `mockUserCrud.calculateBalance` to be called, but the mock for that method hasn't been created. We need to explicitly mock the method by adding:
+
+```typescript
+mockUserCrud.calculateBalance = jest.fn().mockResolvedValue(150)
+```
+
+This creates a mock function for `calculateBalance` that returns a Promise resolving to 150. This is essential because Jest can only track method calls on methods that have been explicitly mocked.
+
+When we call `new UserCrud() as jest.Mocked<UserCrud>`, it doesn't automatically mock all the methods - you need to explicitly mock the ones your test will check with `.toHaveBeenCalledWith()`.
+
+---
+
+_**User**_
+
+Help, please
+
+---
+
+Help, please
+
+---
+
+_**Assistant**_
+
+<think>
+You're having an issue with the Firebase mock in your unit tests. The error shows that when creating a new `PledgeCrud`, it's trying to use the Firebase `collection` function, but it's not properly mocked:
+
+```
+TypeError: (0 , _firestore.collection) is not a function
+```
+
+The issue is that you're mocking some Firebase modules, but not fully covering all the Firebase methods that are being used. In particular, your pledgeCrud is trying to use `collection()` function from Firestore.
+
+Let's update the Firebase mocks in your jest.setup.ts file to include all necessary methods:
+</think>
+
+🤖 The issue is that the PledgeCrud is being created but we haven't properly mocked the Firebase collection function. Let's update our mocks to fix this.
+
+Since there are several issues with the mocking setup, I'll provide a complete solution:
+
+1. First, we need to mock the `PledgeCrud` class properly:
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+// Make sure to include this in your mocks:
+jest.mock('../../crud/pledge-crud')
+````
+
+2. Let's modify your test to use a more complete Firebase mock:
+
+````language=typescript:jest.setup.ts
+// Comprehensive Firebase mock
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(() => ({
+    doc: jest.fn(),
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    get: jest.fn().mockResolvedValue({ docs: [] })
+  })),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn().mockResolvedValue({ docs: [] }),
+  addDoc: jest.fn().mockResolvedValue({ id: 'mock-doc-id' }),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+  getFirestore: jest.fn(() => ({})),
+  runTransaction: jest.fn(async (db, callback) => callback({})),
+  connectFirestoreEmulator: jest.fn()
+}));
+````
+
+3. For your specific test, simplify it by avoiding the creation of actual CRUD instances and focus only on testing the workflow:
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+describe('calculateUserBalance', () => {
+  it('should calculate the sum of all credit awards for a user', async () => {
+    // Arrange
+    const userId = 'user1';
+    
+    // Mock the calculateBalance method directly
+    mockUserCrud.calculateBalance = jest.fn().mockResolvedValue(100);
+    
+    // Act
+    const result = await creditWorkflow.calculateUserBalance(userId);
+    
+    // Assert
+    expect(mockUserCrud.calculateBalance).toHaveBeenCalledWith(userId);
+    expect(result).toBe(100);
+  });
+});
+````
+
+4. Important: Make sure you're not creating real instances of the dependent classes in your tests. Always use mocks:
+
+````language=typescript:src/lib/services/workflows/__tests__/credit-workflow.test.ts
+beforeEach(() => {
+  // Clear all mocks
+  jest.clearAllMocks();
+  
+  // Create mock instances correctly
+  mockCreditAwardCrud = {
+    create: jest.fn(),
+    update: jest.fn(),
+    getByUserId: jest.fn(),
+    getAutomaticAwardsByMonth: jest.fn(),
+    // add other methods as needed
+  } as unknown as jest.Mocked<CreditAwardCrud>;
+  
+  mockUserCrud = {
+    calculateBalance: jest.fn(),
+    getActiveUsers: jest.fn(),
+    // add other methods as needed
+  } as unknown as jest.Mocked<UserCrud>;
+  
+  mockBankPaymentCrud = {
+    getPaymentsByMonth: jest.fn(),
+    // add other methods as needed
+  } as unknown as jest.Mocked<BankPaymentCrud>;
+  
+  // Create workflow with mocked dependencies
+  creditWorkflow = new CreditWorkflow();
+  // @ts-ignore - access private properties for testing
+  creditWorkflow.creditAwardCrud = mockCreditAwardCrud;
+  // @ts-ignore
+  creditWorkflow.userCrud = mockUserCrud;
+  // @ts-ignore
+  creditWorkflow.bankPaymentCrud = mockBankPaymentCrud;
+});
+````
+
+This approach avoids instantiating real objects that would try to use Firebase services, and instead uses pure mocks for testing.
 
 ---
 
