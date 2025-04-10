@@ -93,7 +93,7 @@ export async function downloadFioStatement(): Promise<BankConnectorResult> {
     console.error("Error downloading FIO statement:", error)
     return {
       success: false,
-      message: "Failed to download or process FIO statement",
+      message: `Failed to download or process FIO statement: ${error}`,
       error
     }
   }
