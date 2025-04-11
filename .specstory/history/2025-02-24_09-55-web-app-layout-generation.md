@@ -39991,6 +39991,949 @@ Once you've made these changes, try accessing your test endpoint first to verify
 
 ---
 
+_**User**_
+
+Please create component which will update payments and credits on click.
+Behavior:
+on button click: a popup with progress spinner will open, a request is sent to the fetch-bank-statement. Handle errors. Processin of the bank statement will be done later.
+
+---
+
+_**Assistant**_
+
+<think>
+The user is asking me to create a component that will update payments and credits on click. From the behavior description, I need to create a component that:
+
+1. Has a button that when clicked opens a popup with a progress spinner
+2. Sends a request to the `fetch-bank-statement` API endpoint
+3. Handles errors appropriately
+4. Indicates that processing of the bank statement will be done later
+
+Let me create this component. It should be a client component with:
+
+- A button to trigger the update
+- A Dialog/Modal to show the progress and status
+- Fetch logic to call the API endpoint
+- Error handling
+- Success messaging
+
+I'll call it `UpdatePaymentsButton` and place it in the components folder.
+</think>
+
+🤖 I'll create a component to update payments and credits with a progress spinner that sends a request to the fetch-bank-statement endpoint.
+
+````language=language=typescript:src/components/payments/update-payments-button.tsx
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { formatDate } from "@/lib/utils"
+
+export function UpdatePaymentsButton() {
+  const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ message: string; data?: any } | null>(null)
+  
+  // The date of the last payment to fetch from
+  // This would typically come from your database, but for now we'll use a static date
+  const lastPaymentDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+
+  const handleUpdatePayments = async () => {
+    setOpen(true)
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      // Format the date as YYYY-MM-DD
+      const formattedDate = formatDate(lastPaymentDate.toISOString())
+      
+      // Call the API to fetch bank statement
+      const response = await fetch(`/api/fetch-bank-statement?lastDate=${formattedDate}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch bank statement')
+      }
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch bank statement')
+      }
+      
+      // Success! 
+      setSuccess({
+        message: data.message || "Successfully fetched bank statement",
+        data: data.data
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  return (
+    <>
+      <Button 
+        onClick={handleUpdatePayments}
+        className="flex items-center gap-2"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Update Payments
+      </Button>
+      
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isLoading ? 'Fetching Bank Statement...' : 
+               error ? 'Error' : 
+               'Bank Statement Fetched'}
+            </DialogTitle>
+            <DialogDescription>
+              {isLoading 
+                ? 'Please wait while we fetch the latest transactions from your bank.'
+                : 'The bank statement processing will be handled separately.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-sm text-muted-foreground">Fetching transactions since {formatDate(lastPaymentDate.toISOString())}</p>
+              </div>
+            )}
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {success && (
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription>
+                    {success.message}
+                  </AlertDescription>
+                </Alert>
+                
+                {success.data && success.data.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">Retrieved {success.data.length} new transactions</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      These transactions will be processed in the background. You can check back later to see the updated payments.
+                    </p>
+                  </div>
+                )}
+                
+                {success.data && success.data.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No new transactions were found.</p>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setOpen(false)} 
+              disabled={isLoading}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+````
+
+Now you can use this component anywhere in your application, typically on the payments page. For example, you could add it to the payments page header:
+
+````language=language=typescript:src/app/(app)/payments/page.tsx
+// In your payments page:
+import { UpdatePaymentsButton } from "@/components/payments/update-payments-button"
+
+export default function PaymentsPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Payments</h1>
+        <UpdatePaymentsButton />
+      </div>
+      
+      {/* Rest of your payments page content */}
+    </div>
+  )
+}
+````
+
+This component:
+1. Shows a button with a refresh icon labeled "Update Payments"
+2. When clicked, it opens a dialog with a spinner and fetches the bank statement from your API
+3. It handles errors and shows appropriate error messages
+4. On success, it shows a success message and information about the fetched transactions
+5. Makes it clear that processing will be done separately/later
+
+You might need to adjust the component to fit your specific needs, especially the date from which to fetch new transactions.
+
+---
+
+_**User**_
+
+Add a collapsible window in the popup to show the downloaded formatted data 
+
+---
+
+_**Assistant**_
+
+<think>
+Let's add a collapsible window in the popup to show the downloaded formatted data from the bank statement. We'll use the Collapsible component from Shadcn/UI for this. 
+
+The collapsible section should:
+1. Only appear when data has been successfully downloaded
+2. Show a summary by default with an option to expand to see all transaction details
+3. Format the transaction data in a readable way
+
+First, I need to check if all the necessary UI components are already imported. I'll need to add:
+- Collapsible, CollapsibleContent, CollapsibleTrigger from Shadcn/UI
+- ChevronDown and ChevronUp icons from lucide-react
+
+I'll also create a simple component to display the transaction details in a structured format.
+</think>
+
+🤖 I'll add a collapsible window to show the downloaded formatted data in the popup. Let's enhance the component:
+
+````language=typescript:src/components/payments/update-payments-button.tsx
+// Import additional components for the collapsible section
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { ChevronDown, ChevronUp } from "lucide-react"
+
+// Rest of imports...
+
+export function UpdatePaymentsButton() {
+  // Existing state variables...
+  const [isDataOpen, setIsDataOpen] = useState(false)
+  
+  // Rest of the code...
+  
+  return (
+    <>
+      {/* Existing button... */}
+      
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          {/* Existing DialogHeader... */}
+          
+          <div className="py-4">
+            {/* Existing loading, error states... */}
+            
+            {success && (
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription>
+                    {success.message}
+                  </AlertDescription>
+                </Alert>
+                
+                {success.data && success.data.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">Retrieved {success.data.length} new transactions</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      These transactions will be processed in the background. You can check back later to see the updated payments.
+                    </p>
+                    
+                    {/* Collapsible section for transaction data */}
+                    <Collapsible 
+                      open={isDataOpen} 
+                      onOpenChange={setIsDataOpen}
+                      className="mt-4 border rounded-md"
+                    >
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-sm font-medium text-left">
+                        <span>Transaction Details</span>
+                        {isDataOpen ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="p-4 pt-0 border-t">
+                        <div className="max-h-96 overflow-y-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-muted sticky top-0">
+                              <tr>
+                                <th className="p-2">Date</th>
+                                <th className="p-2">Amount</th>
+                                <th className="p-2">From</th>
+                                <th className="p-2">Message</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {success.data.map((transaction: any, index: number) => (
+                                <tr key={index} className="border-b">
+                                  <td className="p-2">{formatDate(transaction.date)}</td>
+                                  <td className="p-2 font-medium">
+                                    {new Intl.NumberFormat('en-US', {
+                                      style: 'currency',
+                                      currency: 'USD', // Adjust based on your currency
+                                    }).format(transaction.amount)}
+                                  </td>
+                                  <td className="p-2">{transaction.sender || transaction.accountName || 'Unknown'}</td>
+                                  <td className="p-2">{transaction.message || transaction.note || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
+                
+                {/* Existing empty data check... */}
+              </div>
+            )}
+          </div>
+          
+          {/* Existing DialogFooter... */}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+````
+
+Now we need to make sure the Collapsible component is available. If you haven't added it yet, let's create it:
+
+````language=typescript:src/components/ui/collapsible.tsx
+"use client"
+
+import * as React from "react"
+import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
+
+const Collapsible = CollapsiblePrimitive.Root
+
+const CollapsibleTrigger = CollapsiblePrimitive.Trigger
+
+const CollapsibleContent = CollapsiblePrimitive.Content
+
+export {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+}
+````
+
+Make sure to install the necessary Shadcn component:
+
+```
+npx shadcn add collapsible
+```
+
+This enhancement:
+
+1. Adds a collapsible section that only appears when transaction data is successfully fetched
+2. Shows a clean table with the transaction details when expanded
+3. Has a scrollable container with a fixed header for better navigation of many transactions
+4. Formats the date and currency amounts for better readability
+5. Includes appropriate visual indicators (chevron icons) for the collapsed/expanded state
+
+The layout is responsive and will work well on both desktop and mobile devices.
+
+---
+
+_**User**_
+
+The returned data is a json and I want to display it as such: as a formatted json
+
+---
+
+_**Assistant**_
+
+<think>
+Ah, I understand. Instead of displaying the transaction data in a table format, you want to display the raw JSON in a formatted way. This is useful for debugging and for developers to understand the exact structure of the data coming from the API.
+
+Let's modify the collapsible section to:
+1. Display the entire JSON response in a formatted, syntax-highlighted way
+2. Make it readable with proper indentation
+3. Allow for copy/paste functionality
+
+For this, we could:
+1. Use a simple pre/code block with JSON.stringify(data, null, 2) for formatting
+2. Could add syntax highlighting if desired, though that might require an additional library
+3. Add a "Copy" button to easily copy the JSON
+
+Let's implement this approach.
+</think>
+
+🤖 Let's modify the component to display the data as formatted JSON instead of a table:
+
+````language=typescript:src/components/payments/update-payments-button.tsx
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, AlertCircle, CheckCircle2, Copy, ClipboardCheck } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { formatDate } from "@/lib/utils"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { ChevronDown, ChevronUp } from "lucide-react"
+
+export function UpdatePaymentsButton() {
+  const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ message: string; data?: any } | null>(null)
+  const [isDataOpen, setIsDataOpen] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
+  
+  // The date of the last payment to fetch from
+  // This would typically come from your database, but for now we'll use a static date
+  const lastPaymentDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+
+  const handleUpdatePayments = async () => {
+    setOpen(true)
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
+    setIsCopied(false)
+    
+    try {
+      // Format the date as YYYY-MM-DD
+      const formattedDate = formatDate(lastPaymentDate.toISOString())
+      
+      // Call the API to fetch bank statement
+      const response = await fetch(`/api/fetch-bank-statement?lastDate=${formattedDate}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch bank statement')
+      }
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch bank statement')
+      }
+      
+      // Success! 
+      setSuccess({
+        message: data.message || "Successfully fetched bank statement",
+        data: data.data
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const copyToClipboard = () => {
+    if (success?.data) {
+      navigator.clipboard.writeText(JSON.stringify(success.data, null, 2))
+        .then(() => {
+          setIsCopied(true)
+          setTimeout(() => setIsCopied(false), 2000)
+        })
+        .catch(err => console.error('Failed to copy: ', err))
+    }
+  }
+  
+  return (
+    <>
+      <Button 
+        onClick={handleUpdatePayments}
+        className="flex items-center gap-2"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Update Payments
+      </Button>
+      
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {isLoading ? 'Fetching Bank Statement...' : 
+               error ? 'Error' : 
+               'Bank Statement Fetched'}
+            </DialogTitle>
+            <DialogDescription>
+              {isLoading 
+                ? 'Please wait while we fetch the latest transactions from your bank.'
+                : 'The bank statement processing will be handled separately.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-sm text-muted-foreground">Fetching transactions since {formatDate(lastPaymentDate.toISOString())}</p>
+              </div>
+            )}
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {success && (
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription>
+                    {success.message}
+                  </AlertDescription>
+                </Alert>
+                
+                {success.data && success.data.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">Retrieved {success.data.length} new transactions</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      These transactions will be processed in the background. You can check back later to see the updated payments.
+                    </p>
+                    
+                    <Collapsible 
+                      open={isDataOpen} 
+                      onOpenChange={setIsDataOpen}
+                      className="mt-4 border rounded-md"
+                    >
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-sm font-medium text-left">
+                        <span>JSON Response Data</span>
+                        {isDataOpen ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="border-t">
+                        <div className="flex justify-end p-2 bg-muted">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={copyToClipboard}
+                            className="flex items-center gap-1 text-xs"
+                          >
+                            {isCopied ? (
+                              <>
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5" />
+                                Copy JSON
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto p-4 bg-muted/50">
+                          <pre className="text-xs whitespace-pre-wrap break-all font-mono">
+                            {JSON.stringify(success.data, null, 2)}
+                          </pre>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
+                
+                {success.data && success.data.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No new transactions were found.</p>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setOpen(false)} 
+              disabled={isLoading}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+````
+
+This update:
+
+1. Changes the collapsible section to display formatted JSON instead of a table
+2. Uses `<pre>` with proper formatting via `JSON.stringify(success.data, null, 2)` for readability
+3. Adds a copy button to easily copy the JSON data to clipboard
+4. Provides visual feedback when copying (changes the icon and text)
+5. Sets proper styles for the JSON display area:
+   - Monospace font for code readability
+   - Scrollable area with max height
+   - Word wrapping to handle long lines
+   - Background color for better visibility
+   - Proper padding and spacing
+
+This approach gives you a cleaner view of the exact JSON response from your API, which is helpful for development and debugging.
+
+---
+
+_**User**_
+
+I would like to make the JSON more human readable
+
+---
+
+_**Assistant**_
+
+<think>
+To make the JSON more human-readable in this component, we can improve on the current JSON display in several ways:
+
+1. Add syntax highlighting for JSON with different colors for keys, values, strings, etc.
+2. Format dates in a more readable way
+3. Possibly process specific fields with custom formatting
+4. Make it more visually appealing
+
+Let's think about the best approach:
+
+The simplest solution would be to use a JSON formatter/highlighter library. Options include:
+- react-json-view
+- react-json-pretty
+- react-syntax-highlighter
+
+Alternatively, we could build a custom JSON renderer that handles special cases like dates, numbers, etc.
+
+Since we want to keep the solution lightweight and avoid adding too many dependencies, I'll implement a simple custom solution that:
+1. Enhances the styling of the JSON without requiring a full library
+2. Formats dates and numbers more readably
+3. Makes keys and values visually distinct
+
+The approach will involve:
+1. Parsing the JSON
+2. Pre-processing certain values (like dates)
+3. Using CSS to style different parts of the JSON
+</think>
+
+🤖 I'll create a more human-readable JSON display by adding syntax highlighting and formatting specific data types:
+
+````language=language=typescript:src/components/payments/update-payments-button.tsx
+// Keep all existing imports and add:
+import React from "react";
+
+// Add this new custom JSON formatter component
+function PrettyJSON({ data }: { data: any }) {
+  // Process the data to make it more readable
+  const processValue = (value: any): any => {
+    // If value looks like a date string, format it nicely
+    if (typeof value === 'string' && 
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+      return new Date(value).toLocaleString();
+    }
+    
+    // Format currency values nicely
+    if (typeof value === 'number' && 
+        (data.some((item: any) => item.amount === value || item.originalAmount === value))) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'CZK', // Adjust based on your currency
+      }).format(value);
+    }
+    
+    return value;
+  };
+
+  const renderJson = (obj: any, indent: number = 0): JSX.Element => {
+    if (Array.isArray(obj)) {
+      return (
+        <div className="pl-4">
+          [
+          {obj.map((item, index) => (
+            <React.Fragment key={index}>
+              <div style={{ marginLeft: `${indent + 2}rem` }}>
+                {renderJson(item, indent + 1)}
+                {index < obj.length - 1 ? "," : ""}
+              </div>
+            </React.Fragment>
+          ))}
+          <div style={{ marginLeft: `${indent}rem` }}>]</div>
+        </div>
+      );
+    } else if (obj !== null && typeof obj === 'object') {
+      return (
+        <div className="pl-4">
+          {"{"}
+          {Object.entries(obj).map(([key, value], index, array) => (
+            <div key={key} style={{ marginLeft: `${indent + 2}rem` }}>
+              <span className="text-blue-500 dark:text-blue-400">"{key}"</span>: 
+              <span className="ml-1">
+                {renderPrimitive(value)}
+                {index < array.length - 1 ? "," : ""}
+              </span>
+            </div>
+          ))}
+          <div style={{ marginLeft: `${indent}rem` }}>{"}"}</div>
+        </div>
+      );
+    } else {
+      return renderPrimitive(obj);
+    }
+  };
+
+  const renderPrimitive = (value: any): JSX.Element => {
+    const processed = processValue(value);
+    
+    if (processed === null) return <span className="text-gray-500">null</span>;
+    if (typeof processed === 'undefined') return <span className="text-gray-500">undefined</span>;
+    if (typeof processed === 'boolean') 
+      return <span className="text-purple-500 dark:text-purple-400">{processed.toString()}</span>;
+    if (typeof processed === 'number') 
+      return <span className="text-green-600 dark:text-green-400">{processed}</span>;
+    if (typeof processed === 'string') {
+      // Check if it's a formatted date
+      if (processed !== value) {
+        return <span className="text-green-600 dark:text-green-400">"{processed}"</span>;
+      }
+      return <span className="text-amber-600 dark:text-amber-400">"{processed}"</span>;
+    }
+    
+    // For complex objects or arrays, recurse
+    return renderJson(processed, 1);
+  };
+
+  return (
+    <div className="font-mono text-xs">
+      {renderJson(data)}
+    </div>
+  );
+}
+
+// Modify the existing component
+export function UpdatePaymentsButton() {
+  // Keep existing state and functions
+  
+  return (
+    <>
+      {/* Keep existing button and dialog structure */}
+      
+      {/* Replace only the JSON display section: */}
+      <CollapsibleContent className="border-t">
+        <div className="flex justify-end p-2 bg-muted">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={copyToClipboard}
+            className="flex items-center gap-1 text-xs"
+          >
+            {isCopied ? (
+              <>
+                <ClipboardCheck className="h-3.5 w-3.5" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                Copy JSON
+              </>
+            )}
+          </Button>
+        </div>
+        <div className="max-h-96 overflow-y-auto p-4 bg-muted/50">
+          {/* Replace the pre element with our custom component */}
+          <PrettyJSON data={success.data} />
+        </div>
+      </CollapsibleContent>
+    </>
+  );
+}
+````
+
+This implementation:
+
+1. Creates a custom `PrettyJSON` component that intelligently formats the JSON
+2. Applies syntax highlighting with different colors for:
+   - Keys (blue)
+   - Strings (amber/orange)
+   - Numbers (green)
+   - Booleans (purple)
+   - Special values (gray)
+3. Automatically detects and formats:
+   - ISO date strings into localized dates
+   - Currency values with proper formatting
+4. Maintains proper indentation and structure
+5. Uses colors that work in both light and dark themes
+
+The result is much more readable than raw JSON, making it easier to scan and understand the transaction data while still preserving all the original information.
+
+---
+
+_**User**_
+
+The data overflows the container now
+
+---
+
+_**Assistant**_
+
+<think>
+The issue is that the JSON display is overflowing its container. I need to fix the styling to properly contain the formatted JSON output. The problem might be with how the PrettyJSON component is rendering and how the styling is applied.
+
+Here are the possible issues:
+1. The fixed margin/padding styles might be causing overflow
+2. Long text might not be wrapping properly
+3. The nested structure might be too deeply indented
+
+Let's adjust the PrettyJSON component to better handle the container width:
+</think>
+
+🤖 Let's fix the overflow issue in the PrettyJSON component by improving the styling and ensuring proper text wrapping:
+
+````language=language=typescript:src/components/payments/update-payments-button.tsx
+function PrettyJSON({ data }: { data: any }) {
+  const processValue = (value: any): any => {
+    if (typeof value === 'string' && 
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+      return new Date(value).toLocaleString();
+    }
+    
+    if (typeof value === 'number' && 
+        (data.some((item: any) => item.amount === value || item.originalAmount === value))) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'CZK',
+      }).format(value);
+    }
+    
+    return value;
+  };
+
+  const renderJson = (obj: any, indent: number = 0): JSX.Element => {
+    if (Array.isArray(obj)) {
+      return (
+        <div className="pl-2">
+          [
+          {obj.map((item, index) => (
+            <React.Fragment key={index}>
+              <div className="ml-2">
+                {renderJson(item, indent + 1)}
+                {index < obj.length - 1 ? "," : ""}
+              </div>
+            </React.Fragment>
+          ))}
+          <div>]</div>
+        </div>
+      );
+    } else if (obj !== null && typeof obj === 'object') {
+      return (
+        <div className="pl-2">
+          {"{"}
+          {Object.entries(obj).map(([key, value], index, array) => (
+            <div key={key} className="ml-2 flex flex-wrap">
+              <span className="text-blue-500 dark:text-blue-400 whitespace-nowrap">"{key}"</span>
+              <span className="mx-1">:</span>
+              <span className="flex-1 min-w-0 break-all">
+                {renderPrimitive(value)}
+                {index < array.length - 1 ? "," : ""}
+              </span>
+            </div>
+          ))}
+          <div>{"}"}</div>
+        </div>
+      );
+    } else {
+      return renderPrimitive(obj);
+    }
+  };
+
+  const renderPrimitive = (value: any): JSX.Element => {
+    const processed = processValue(value);
+    
+    if (processed === null) return <span className="text-gray-500">null</span>;
+    if (typeof processed === 'undefined') return <span className="text-gray-500">undefined</span>;
+    if (typeof processed === 'boolean') 
+      return <span className="text-purple-500 dark:text-purple-400">{processed.toString()}</span>;
+    if (typeof processed === 'number') 
+      return <span className="text-green-600 dark:text-green-400">{processed}</span>;
+    if (typeof processed === 'string') {
+      if (processed !== value) {
+        return <span className="text-green-600 dark:text-green-400 break-all">"{processed}"</span>;
+      }
+      return <span className="text-amber-600 dark:text-amber-400 break-all">"{processed}"</span>;
+    }
+    
+    return renderJson(processed, 1);
+  };
+
+  return (
+    <div className="font-mono text-xs overflow-x-auto">
+      {renderJson(data)}
+    </div>
+  );
+}
+````
+
+Let's also adjust the container styling:
+
+````language=language=typescript:src/components/payments/update-payments-button.tsx
+// Inside the UpdatePaymentsButton component, update the container:
+<div className="max-h-96 overflow-auto p-4 bg-muted/50">
+  <PrettyJSON data={success.data} />
+</div>
+````
+
+The key changes are:
+
+1. Replaced fixed indentation (`style={{ marginLeft: ${indent}rem }}`) with simpler classes (`ml-2`, `pl-2`)
+2. Added `flex flex-wrap` to the key-value container for better wrapping
+3. Added `break-all` and `whitespace-nowrap` classes for better text handling:
+   - Property keys don't wrap (staying on one line)
+   - Long string values can break anywhere to avoid overflow
+4. Added `overflow-x-auto` to the root container to allow horizontal scrolling when needed
+5. Changed `overflow-y-auto` to `overflow-auto` in the parent container to enable both horizontal and vertical scrolling
+
+These changes will ensure that:
+1. Long text values wrap properly instead of overflowing
+2. The nested structure uses more controlled indentation
+3. If content is still too wide, a horizontal scrollbar appears
+4. The overall layout is more flexible and adapts to the container width
+
+---
+
 
 
 ---

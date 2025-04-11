@@ -48,6 +48,7 @@ import { SortConfig } from "@/lib/services/crud/bank-crud"
 import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UpdatePaymentsButton } from "@/components/payments/update-payments-button"
 
 export default function PaymentsPage() {
   // State for filtering and UI
@@ -161,7 +162,10 @@ export default function PaymentsPage() {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Payment List</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Payments</h1>
+        <UpdatePaymentsButton />
+      </div>
       
       <div className="flex flex-col sm:flex-row gap-4 items-end">
         <div className="w-full sm:w-64">
