@@ -1,30 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { downloadFioStatement } from "@/lib/bank-parsers/bank-connector";
+import { downloadFioStatement, downloadFioStatementFromDate } from "@/lib/bank-parsers/bank-connector";
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow";
 import admin from 'firebase-admin';
 
-
-/**
- * TODO> change whole process>
- * Frontend: find the last date of existing bank statement
- * Backend: download bank statement Fio from that date and send back to frontend
- * Frontend: parse the bank statement and reallocate credits
- */
-
-// Initialize Firebase Admin once (outside the handler)
-// This prevents re-initialization on each request
-const firebaseAdmin = admin.apps.length 
-  ? admin.app() 
-  : admin.initializeApp({
-      // For emulator, we don't need credentials
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'kmen-fondrozvoje',
-    });
-
-// Configure emulator if in development
-if (process.env.NODE_ENV === 'development') {
-  process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-  console.log('Using Firestore emulator');
-}
 
 async function authCheck(request: NextRequest): Promise<admin.auth.UserRecord | null> {
   try {
@@ -44,9 +22,28 @@ async function authCheck(request: NextRequest): Promise<admin.auth.UserRecord | 
   }
 }
 
+// take in GET parameter: last date of existing bank statement (YYYY-MM-DD)
+// download bank statement from that date
+// return bank statement as JSON
 export async function GET(request: NextRequest) {
   console.log("Processing update-credits request");
+  const lastDateParam = request.nextUrl.searchParams.get("lastDate");
+  if (!lastDateParam) {
+    return NextResponse.json({ 
+      error: "Last date parameter is required" 
+    }, { status: 400 });
+  }
+  
+  // parse lastDate to Date
+  const lastDate = new Date(lastDateParam);
+  // check if lastDateDate is valid
+  if (isNaN(lastDate.getTime())) {
+    return NextResponse.json({ 
+      error: "Invalid date format" 
+    }, { status: 400 });
+  }
 
+  console.log("Last date:", lastDate);
   try {
     // Optional auth check (commenting out for now to make testing easier)
     // const user = await authCheck(request);
@@ -55,7 +52,7 @@ export async function GET(request: NextRequest) {
     // }
 
     // Download bank statement using connector
-    const bankStatement = await downloadFioStatement();
+    const bankStatement = await downloadFioStatementFromDate(lastDate);
     if (!bankStatement.success) {
       return NextResponse.json({ 
         error: `Error downloading bank statement: ${bankStatement.message}` 
@@ -69,17 +66,14 @@ export async function GET(request: NextRequest) {
       }, { status: 200 });
     }
 
-    // Update bank statement using bank workflow
-    const bankWorkflow = new BankWorkflow();
-    const result = await bankWorkflow.loadPaymentsFromBankStatementAndUpdateCreditAllocation(bankStatement.data);
-
     return NextResponse.json({ 
       success: true,
-      message: "Successfully processed bank statement and updated credit allocations" 
+      data: bankStatement.data,
+      message: "Succesfully downloaded bank statement" 
     }, { status: 200 });
     
   } catch (error) {
-    console.error("Error in update-credits route:", error);
+    console.error("Error downloading bank statement:", error);
     return NextResponse.json({ 
       error: `Error processing request: ${error instanceof Error ? error.message : String(error)}` 
     }, { status: 500 });

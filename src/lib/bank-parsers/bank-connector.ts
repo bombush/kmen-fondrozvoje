@@ -23,8 +23,44 @@ interface BankConnectorResult {
   error?: any
 }
 
+export async function downloadFioStatementFromDate(date: Date): Promise<BankConnectorResult> {
+  const apiToken = APP_CONFIG.fio?.apiToken
+  if (!apiToken) {
+    return {
+      success: false,
+      message: "FIO API token not configured",
+    }
+  }
+  // download statement from FIO API until given date 
+  
+  // Format date for FIO API (YYYY-MM-DD)
+  const formattedFromDate = date.toISOString().split('T')[0]
+    
+  // Current date as the end date
+  const toDate = new Date()
+  const formattedToDate = toDate.toISOString().split('T')[0]
+  
+
+  // Construct the FIO API URL
+  const apiUrl = `https://www.fio.cz/ib_api/rest/periods/${apiToken}/${formattedFromDate}/${formattedToDate}/transactions.json`
+  
+  // Fetch statement from FIO API
+  const response = await fetch(apiUrl)
+  
+  if (!response.ok) {
+    throw new Error(`FIO API responded with status ${response.status}: ${response.statusText}`)
+  }
+
+  return {
+    success: true,
+    message: 'Succes',
+    data: await response.text()
+  }
+}
+
 /**
  * Connects to FIO Bank API and downloads latest statement
+ * @TODO: remove this function and use downloadFioStatementFromDate instead
  */
 export async function downloadFioStatement(): Promise<BankConnectorResult> {
   try {
