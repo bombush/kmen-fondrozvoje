@@ -1,5 +1,6 @@
 "use client"
 
+import { JSX } from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, AlertCircle, CheckCircle2, Copy, ClipboardCheck } from "lucide-react"
