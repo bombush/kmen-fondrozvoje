@@ -22,6 +22,10 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react"
 import React from "react"
 
+import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
+
+const bankWorkflow = new BankWorkflow()
+
 function PrettyJSON({ data }: { data: any }) {
   const processValue = (value: any): any => {
     if (typeof value === 'string' && 
@@ -108,7 +112,7 @@ export function UpdatePaymentsButton() {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<{ message: string; data?: any } | null>(null)
+  const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number } | null>(null)
   const [isDataOpen, setIsDataOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   
@@ -125,10 +129,12 @@ export function UpdatePaymentsButton() {
     
     try {
       // Format the date as YYYY-MM-DD
-      const formattedDate = formatDate(lastPaymentDate.toISOString())
+      // log date as ISO string to console
+      console.log(lastPaymentDate)
+      console.log("Last payment date:", lastPaymentDate.toISOString())
       
       // Call the API to fetch bank statement
-      const response = await fetch(`/api/fetch-bank-statement?lastDate=${formattedDate}`)
+      const response = await fetch(`/api/fetch-bank-statement?lastDate=${lastPaymentDate.toISOString()}`)
       
       if (!response.ok) {
         const errorData = await response.json()
@@ -141,12 +147,16 @@ export function UpdatePaymentsButton() {
         throw new Error(data.message || 'Failed to fetch bank statement')
       }
       
+      const result = await bankWorkflow.loadPaymentsFromBankStatementAndUpdateCreditAllocation(data.data)
+      
       // Success! 
       setSuccess({
         message: data.message || "Successfully fetched bank statement",
-        data: data.data
+        data: data.data,
+        paymentsProcessed: result.paymentsProcessed
       })
     } catch (err) {
+      console.error("Error updating payments:", err)
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setIsLoading(false)

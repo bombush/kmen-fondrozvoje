@@ -54,7 +54,10 @@ export class BankWorkflow {
     return this.bankPaymentCrud.getByMonth(month)
   }
 
-  async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<boolean> {
+  
+  async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<{
+    paymentsProcessed: number
+  }> {
     // if empty raw statement, throw error
     if (!rawStatement) {
       throw new Error('Empty bank statement')
@@ -111,7 +114,9 @@ export class BankWorkflow {
 
     // @TODO: write log
 
-    return false;
+    return {
+      paymentsProcessed: bankStatementData.payments.length
+    }
   }
 
   /**

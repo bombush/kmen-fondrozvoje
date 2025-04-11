@@ -43,7 +43,9 @@ export async function downloadFioStatementFromDate(date: Date): Promise<BankConn
 
   // Construct the FIO API URL
   const apiUrl = `https://www.fio.cz/ib_api/rest/periods/${apiToken}/${formattedFromDate}/${formattedToDate}/transactions.json`
-  
+  console.log("Apiurl:  ", apiUrl)
+
+
   // Fetch statement from FIO API
   const response = await fetch(apiUrl)
   

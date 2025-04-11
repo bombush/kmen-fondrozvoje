@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }, { status: 400 });
   }
 
-  console.log("Last date:", lastDate);
+  console.log("Last date rcvd:", lastDate);
   try {
     // Optional auth check (commenting out for now to make testing easier)
     // const user = await authCheck(request);

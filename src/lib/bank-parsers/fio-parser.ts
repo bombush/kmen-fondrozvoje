@@ -131,12 +131,28 @@ export class FioParser implements BankStatementParser {
       
       // Extract the specific symbol if present
       const specificSymbol = transaction.column6?.value || ""
+
+      console.log(transaction.column0?.value)
+
+      // split date in the following YYYY-MM-DD+0100
+      const dateParts = transaction.column0?.value.split('+')[0].split('-')
+      const year = dateParts[0]
+      const month = dateParts[1]
+      const day = dateParts[2]
+
+      // parse date in this format YYYY-MM-DD+0100 to Date object
+      const receivedDate = new Date(year, month - 1, day)
+      console.log(receivedDate,year,month,day)
+      console.log("Received date: ", receivedDate)
+
+      const formattedDate = receivedDate.toISOString()
+
       
       // Map the transaction to a RawBankPayment
       payments.push({
         userId: "", // Will be filled in later by matching with specificSymbol
         amount: amount,
-        receivedAt: new Date(transaction.column0?.value).toISOString(),
+        receivedAt: formattedDate,
         description: this.extractDescription(transaction),
         variableSymbol: transaction.column5?.value || "",
         specificSymbol: specificSymbol,
