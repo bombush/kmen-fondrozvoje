@@ -102,10 +102,11 @@ export default function CreditsPage() {
     }
   })
 
-  const getUserName = (userId: string) => {
-    const user = users?.find(user => user.id === userId)
-    return user?.name || userId
-  }
+  const getUserName = useCallback((userId: string | undefined) => {
+    if (!userId) return 'Unknown';
+    const user = users?.find(u => u.id === userId);
+    return user ? user.name : 'Unknown';
+  }, [users]);
   
   // Setup intersection observer for infinite scrolling
   useEffect(() => {
@@ -246,12 +247,13 @@ export default function CreditsPage() {
             </TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead>Recipient</TableHead>
+                <TableHead className="font-medium">Amount</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Month</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead>Awarded By</TableHead>
                 {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -275,6 +277,7 @@ export default function CreditsPage() {
                     <TableCell>{formatDate(award.createdAt)}</TableCell>
                     <TableCell>{award.targetMonth || '-'}</TableCell>
                     <TableCell className="max-w-xs truncate">{award.notes || '-'}</TableCell>
+                    <TableCell>{award.sourceId ? getUserName(award.sourceId) : 'System'}</TableCell>
                     <TableCell>
                       {isAdmin && award.reason !== 'monthly_allocation' && (
                         <Button 

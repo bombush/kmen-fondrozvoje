@@ -39,7 +39,7 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
   const [amount, setAmount] = useState("")
   const [reason, setReason] = useState("admin_award")
   const [targetMonth, setTargetMonth] = useState("")
-  const [notes, setNotes] = useState("")
+  const [notes, setNotes] = useState('')
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -86,7 +86,7 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
         amount: parseFloat(amount),
         reason: reason as any,
         targetMonth: targetMonth === "null" ? undefined : targetMonth,
-        notes: notes || undefined,
+        notes,
         sourceType: "admin",
         sourceId: appUser?.id
       })
