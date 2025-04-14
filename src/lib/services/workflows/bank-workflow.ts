@@ -90,7 +90,7 @@ export class BankWorkflow {
           userId: parsedPayment.userId,
           amount: parsedPayment.amount,
           receivedAt: parsedPayment.receivedAt,
-          targetMonth: parsedPayment.receivedAt,
+          targetMonth: parsedPayment.receivedAt.substring(0, 7),
           variableSymbol: parsedPayment.variableSymbol,
           specificSymbol: parsedPayment.specificSymbol,
           constantSymbol: parsedPayment.constantSymbol,
