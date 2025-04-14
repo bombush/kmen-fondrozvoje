@@ -7,7 +7,8 @@ export type RawBankPayment = {
   specificSymbol: string
   constantSymbol: string
   bankTransactionId: string
-  counterpartyAccountNumber: string
+  counterpartyAccountNumber: string,
+  counterpartyBankCode: string,
   counterpartyName: string
   direction: 'in' | 'out'
   message: string

@@ -159,6 +159,7 @@ export class FioParser implements BankStatementParser {
         constantSymbol: transaction.column4?.value || "",
         bankTransactionId: transaction.column22?.value?.toString() || "",
         counterpartyAccountNumber: transaction.column2?.value || "",
+        counterpartyBankCode: transaction.column3?.value || "",
         counterpartyName: transaction.column10?.value || "",
         direction: amount > 0 ? 'in' : 'out',
         message: transaction.column16?.value || ""

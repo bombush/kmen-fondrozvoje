@@ -95,7 +95,7 @@ export class BankWorkflow {
           specificSymbol: parsedPayment.specificSymbol,
           constantSymbol: parsedPayment.constantSymbol,
           bankTransactionId: parsedPayment.bankTransactionId,
-          counterpartyAccountNumber: parsedPayment.counterpartyAccountNumber,
+          counterpartyAccountNumber: `${parsedPayment.counterpartyAccountNumber}/${parsedPayment.counterpartyBankCode}`,
           counterpartyName: parsedPayment.counterpartyName,
           message: parsedPayment.message,
           comment: ''
