@@ -40934,6 +40934,748 @@ These changes will ensure that:
 
 ---
 
+_**User**_
+
+@page.tsx @types 
+Create add project functionality
+
+---
+
+_**Assistant**_
+
+<think>
+The user wants to add a new feature to create projects. Let's analyze what we need to implement:
+
+1. Create functionality for the "New Project" button on the Projects page
+2. Create a form for adding a new project
+3. Implement the backend logic to save the new project
+
+Looking at the existing code, I notice there are a few relevant files:
+
+- `src/app/(app)/projects/page.tsx` - This has the "New Project" button
+- `src/components/projects/project-form.tsx` - This seems to be a form component for projects
+- `src/lib/services/project-service.ts` - This has functions for CRUD operations on projects
+- `src/lib/services/crud/project-crud.ts` - This has the CRUD operations for projects
+- `src/hooks/use-projects.ts` - This likely has hooks for working with projects
+
+Let's create the implementation:
+
+1. First, we'll update the "New Project" button to open a dialog with the project form
+2. Then we'll ensure the project form works for creating new projects
+3. We'll hook up the form submission to save the project
+</think>
+
+🤖 I'll implement the Add Project functionality by creating a dialog that appears when clicking the "New Project" button, with a form to create a new project.
+
+Let's start with updating the Projects page and creating a new project dialog component:
+
+````typescript:src/app/(app)/projects/page.tsx
+/**
+ * Projects page
+ * List of projects with search and status filters
+ */
+"use client"
+
+import { useState } from "react"
+import { useFilteredProjects } from "@/hooks/use-filtered-projects"
+import { ProjectCard } from "@/components/projects/project-card"
+import { ProjectFilters } from "@/components/projects/project-filters"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { useUndoDeleteProject } from "@/hooks/use-projects"
+import { Project } from "@/types"
+import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AddProjectDialog } from "@/components/projects/add-project-dialog"
+
+export default function ProjectsPage() {
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all")
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [fundsSentFilter, setFundsSentFilter] = useState<boolean | null>(null)
+  const [boughtFilter, setBoughtFilter] = useState<boolean | null>(null)
+  const [assetListFilter, setAssetListFilter] = useState<boolean | null>(null)
+  const { projects, isLoading } = useFilteredProjects(
+    search, 
+    statusFilter, 
+    showDeleted,
+    fundsSentFilter,
+    boughtFilter,
+    assetListFilter
+  )
+  const { mutateAsync: undoDelete } = useUndoDeleteProject()
+
+  const handleUndoDelete = async (project: Project) => {
+    try {
+      await undoDelete(project.id)
+      toast.success("Project restored", {
+        description: `${project.name} has been restored.`,
+      })
+    } catch (error) {
+      toast.error("Error", {
+        description: "Failed to restore project.",
+      })
+    }
+  }
+
+  if (isLoading) return <div>Loading...</div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between">
+        <h1 className="text-2xl font-bold">Projects</h1>
+        <AddProjectDialog />
+      </div>
+
+      {/* Rest of the component stays the same */}
+      
+      <div className="flex items-center justify-between">
+        <ProjectFilters
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+        />
+        
+        <div className="flex items-center space-x-2">
+          <Switch 
+            id="show-deleted" 
+            checked={showDeleted} 
+            onCheckedChange={setShowDeleted} 
+          />
+          <Label htmlFor="show-deleted">Show deleted projects</Label>
+        </div>
+      </div>
+
+      {/* Rest of component remains unchanged */}
+    </div>
+  )
+}
+````
+
+Now, let's create the `AddProjectDialog` component:
+
+````typescript:src/components/projects/add-project-dialog.tsx
+"use client"
+
+import { useState } from "react"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { ProjectForm } from "@/components/projects/project-form"
+import { PlusCircle } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { ProjectWorkflow } from "@/lib/services/workflows/project-workflow"
+import { toast } from "sonner"
+import { useAuth } from "@/contexts/auth-context"
+
+export function AddProjectDialog() {
+  const [open, setOpen] = useState(false)
+  const { appUser } = useAuth()
+  const queryClient = useQueryClient()
+  const projectWorkflow = new ProjectWorkflow()
+  
+  const { mutate: createProject, isPending } = useMutation({
+    mutationFn: async (data: any) => {
+      return projectWorkflow.createProject({
+        ...data,
+        ownerId: appUser?.id || "",
+        locked: false,
+        closed: false,
+        fundsSentToOwner: false,
+        bought: false,
+        addedToAssetList: false
+      })
+    },
+    onSuccess: (newProject) => {
+      toast.success("Project created", {
+        description: `${newProject.name} has been created successfully.`
+      })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      setOpen(false)
+    },
+    onError: (error: Error) => {
+      toast.error("Error creating project", {
+        description: error.message
+      })
+    }
+  })
+
+  // Empty project template for new project
+  const emptyProject = {
+    name: "",
+    description: "",
+    goal: 0,
+    ownerId: appUser?.id || "",
+    closed: false,
+    fundsSentToOwner: false,
+    bought: false,
+    addedToAssetList: false,
+    locked: false
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New Project
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Create New Project</DialogTitle>
+          <DialogDescription>
+            Add a new project to the system. Fill in the project details below.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <ProjectForm 
+          project={emptyProject} 
+          onSubmit={createProject}
+          isLoading={isPending}
+          mode="create"
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+````
+
+Now, let's make sure the `ProjectForm` component properly handles creating new projects. Since I see from the provided files that this component already exists, I'll need to update it to support both creation and editing modes:
+
+````typescript:src/components/projects/project-form.tsx
+"use client"
+
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Loader2 } from "lucide-react"
+import { Project } from "@/types"
+
+interface ProjectFormProps {
+  project: Partial<Project>
+  onSubmit: (data: any) => void
+  isLoading: boolean
+  mode?: 'create' | 'edit'
+}
+
+export function ProjectForm({ project, onSubmit, isLoading, mode = 'edit' }: ProjectFormProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    goal: 0,
+    ownerId: '',
+    fundsSentToOwner: false,
+    bought: false,
+    addedToAssetList: false,
+    locked: false,
+    closed: false
+  })
+
+  useEffect(() => {
+    if (project) {
+      setFormData({
+        name: project.name || '',
+        description: project.description || '',
+        goal: project.goal || 0,
+        ownerId: project.ownerId || '',
+        fundsSentToOwner: project.fundsSentToOwner || false,
+        bought: project.bought || false,
+        addedToAssetList: project.addedToAssetList || false,
+        locked: project.locked || false,
+        closed: project.closed || false
+      })
+    }
+  }, [project])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'goal' ? parseFloat(value) : value
+    }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Project Name</Label>
+        <Input
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          rows={5}
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="goal">Funding Goal</Label>
+        <Input
+          id="goal"
+          name="goal"
+          type="number"
+          min="0"
+          step="0.01"
+          value={formData.goal}
+          onChange={handleChange}
+          required
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          The target amount needed for this project
+        </p>
+      </div>
+      
+      {/* Administrative fields - only show for existing projects in edit mode */}
+      {mode === 'edit' && project.id && (
+        <div className="space-y-4 border rounded-md p-4 mt-6">
+          <h3 className="font-medium">Administrative Status</h3>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="fundsSentToOwner" 
+              checked={formData.fundsSentToOwner}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, fundsSentToOwner: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="fundsSentToOwner"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Funds Sent To Owner
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when funds have been transferred to the project owner
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="bought" 
+              checked={formData.bought}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, bought: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="bought"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Item Purchased
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the project item has been purchased
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="addedToAssetList" 
+              checked={formData.addedToAssetList}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, addedToAssetList: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="addedToAssetList"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Added to Asset List
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the item has been added to the organization's asset list
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="closed" 
+              checked={formData.closed}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, closed: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="closed"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Project Completed
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the project has been fully completed
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <Button type="submit" disabled={isLoading} className="mt-6">
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {mode === 'create' ? 'Creating...' : 'Saving...'}
+          </>
+        ) : (
+          mode === 'create' ? 'Create Project' : 'Save Project'
+        )}
+      </Button>
+    </form>
+  )
+}
+````
+
+Finally, let's make sure the ProjectWorkflow class has the necessary functionality to support creating projects:
+
+````typescript:src/lib/services/workflows/project-workflow.ts
+import { Project, Pledge } from "@/types"
+import { ProjectCrud } from "../crud/project-crud"
+import { PledgeCrud } from "../crud/pledge-crud"
+
+export class ProjectWorkflow {
+  private projectCrud: ProjectCrud
+  private pledgeCrud: PledgeCrud
+
+  constructor() {
+    this.projectCrud = new ProjectCrud()
+    this.pledgeCrud = new PledgeCrud()
+  }
+
+  /**
+   * Create a new project
+   */
+  async createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "deleted">): Promise<Project> {
+    // Set defaults for any missing fields
+    const projectData = {
+      ...data,
+      locked: data.locked ?? false,
+      closed: data.closed ?? false,
+      fundsSentToOwner: data.fundsSentToOwner ?? false,
+      bought: data.bought ?? false,
+      addedToAssetList: data.addedToAssetList ?? false
+    }
+    
+    return this.projectCrud.create(projectData)
+  }
+
+  // ... existing methods ...
+}
+````
+
+With these changes, your application will now have the ability to create new projects:
+1. The "New Project" button opens a dialog with a form
+2. The form allows users to input project details
+3. On submission, the project is created and saved to the database
+4. The projects list refreshes to show the newly created project
+5. A success toast notifies the user of the successful creation
+
+The form handles all the necessary fields for a new project, and differentiates between create and edit modes to show appropriate controls and button text.
+
+---
+
+_**User**_
+
+Add URL to project display and project dialog
+
+---
+
+_**Assistant**_
+
+<think>
+I notice that the request is to add URL functionality to project display and project dialog. The user already has the add project dialog, project form, and related components set up, but they want to enhance the project model and UI to include a URL field.
+
+First, let's check if the URL field is already in the Project type. If not, I'll need to update it. Then I'll need to:
+
+1. Update the project form to include a URL input field
+2. Make sure the project workflow supports this field
+3. Update any displays to show the URL
+
+The main files I'll likely need to modify are:
+- src/types/index.ts (to update the Project type if needed)
+- src/components/projects/project-form.tsx (to add URL input field)
+- src/components/projects/project-card.tsx (to display the URL)
+- src/components/projects/add-project-dialog.tsx (to make sure the empty project includes URL field)
+
+Let's proceed with these changes.
+</think>
+
+🤖 I'll add URL functionality to both the project display and dialog forms. Let's start by updating the necessary components:
+
+1. First, let's add a URL field to the project form:
+
+````language=typescript:src/components/projects/project-form.tsx
+// Inside the ProjectForm component, in the form's state initialization
+const [formData, setFormData] = useState({
+  name: '',
+  description: '',
+  goal: 0,
+  url: '', // Added URL field
+  ownerId: '',
+  fundsSentToOwner: false,
+  bought: false,
+  addedToAssetList: false,
+  locked: false,
+  closed: false
+})
+
+useEffect(() => {
+  if (project) {
+    setFormData({
+      name: project.name || '',
+      description: project.description || '',
+      goal: project.goal || 0,
+      url: project.url || '', // Added URL field
+      ownerId: project.ownerId || '',
+      fundsSentToOwner: project.fundsSentToOwner || false,
+      bought: project.bought || false,
+      addedToAssetList: project.addedToAssetList || false,
+      locked: project.locked || false,
+      closed: project.closed || false
+    })
+  }
+}, [project])
+
+// Then add the URL input field within the form, after the description field
+<form onSubmit={handleSubmit} className="space-y-4">
+  {/* Existing name field */}
+  
+  {/* Existing description field */}
+  
+  <div>
+    <Label htmlFor="url">Project URL</Label>
+    <Input
+      id="url"
+      name="url"
+      type="url"
+      value={formData.url}
+      onChange={handleChange}
+      placeholder="https://example.com"
+    />
+    <p className="text-xs text-muted-foreground mt-1">
+      Optional link to product or more information
+    </p>
+  </div>
+  
+  {/* Existing goal field */}
+  
+  {/* Rest of the form */}
+````
+
+2. Now let's update the empty project template in the AddProjectDialog:
+
+````language=typescript:src/components/projects/add-project-dialog.tsx
+// Empty project template for new project
+const emptyProject = {
+  name: "",
+  description: "",
+  goal: 0,
+  url: "", // Added URL field
+  ownerId: appUser?.id || "",
+  closed: false,
+  fundsSentToOwner: false,
+  bought: false,
+  addedToAssetList: false,
+  locked: false
+}
+````
+
+3. Next, let's update the ProjectCard to display the URL if available:
+
+````language=typescript:src/components/projects/project-card.tsx
+import { ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+// Inside the ProjectCard component
+// Add this below the description section:
+{project.url && (
+  <div className="mt-2">
+    <Button 
+      variant="link" 
+      asChild 
+      className="h-auto p-0 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+    >
+      <a href={project.url} target="_blank" rel="noopener noreferrer">
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>View Link</span>
+      </a>
+    </Button>
+  </div>
+)}
+````
+
+4. Last, let's ensure our Project type includes the URL field:
+
+````language=typescript:src/types/index.ts
+export interface Project extends DatabaseEntity {
+  name: string
+  description: string
+  goal: number
+  url?: string // Add URL field (optional)
+  ownerId: string
+  locked: boolean
+  closed: boolean
+  fundsSentToOwner: boolean
+  bought: boolean
+  addedToAssetList: boolean
+}
+````
+
+These changes will:
+1. Add a URL field to the Project form for both creation and editing
+2. Include the URL field in the empty project template
+3. Display the URL as a clickable link in the project card
+4. Update the Project type to include the URL field
+
+The URL will be optional, allowing users to provide external links to products, documentation, or other relevant resources for their projects.
+
+---
+
+_**User**_
+
+@page.tsx Add project url 
+
+---
+
+_**Assistant**_
+
+<think>
+Based on the request, it seems the user wants to:
+1. Add a URL field to the project display in the project card component
+2. The user already has URL added to the form components (ProjectForm and AddProjectDialog) and to the Types definition
+
+From the edits provided, I can see that:
+- The Project type in `src/types/index.ts` already has the URL field added
+- The project form in `src/components/projects/project-form.tsx` already has the URL field input
+- The empty project template in `src/components/projects/add-project-dialog.tsx` already has the URL field initialized
+- However, the user didn't want my previous suggestion for the `project-card.tsx` component, as they removed that edit
+
+So I should focus on implementing a better way to display the URL in the project card component.
+
+Looking at the user's hint "@page.tsx Add project url", it seems like they want me to update the URL display in the project detail page rather than in the card itself.
+</think>
+
+🤖 I'll add the project URL to the project details page. Let's update the project details page to display the URL if available:
+
+````language=typescript:src/app/(app)/projects/[id]/page.tsx
+// In the project details page, let's add a section to display the URL
+// Add this in the details section, after the project description
+
+<div className="space-y-6">
+  {/* Existing name and description */}
+  
+  {/* Add URL section */}
+  {project.url && (
+    <div>
+      <h3 className="text-sm font-medium leading-none mb-2">Project Link</h3>
+      <Button 
+        variant="outline" 
+        asChild 
+        className="flex items-center gap-2"
+      >
+        <a 
+          href={project.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-primary"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Visit Project Website
+        </a>
+      </Button>
+      <p className="text-xs text-muted-foreground mt-1">
+        {project.url}
+      </p>
+    </div>
+  )}
+  
+  {/* Existing status indicators */}
+</div>
+````
+
+Let's also add the URL to the ProjectCard component to make it visible in the project list:
+
+````language=typescript:src/components/projects/project-card.tsx
+import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, Lock, ExternalLink } from "lucide-react"
+
+export function ProjectCard({ project }: ProjectCardProps) {
+  // Existing code...
+  
+  return (
+    <Link href={`/projects/${project.id}`}>
+      <Card className="transition-colors hover:bg-muted/50 h-full flex flex-col">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {project.name}
+              {/* Add URL indicator if present */}
+              {project.url && (
+                <ExternalLink className="inline-block ml-2 h-4 w-4 text-muted-foreground" />
+              )}
+            </CardTitle>
+            
+            {/* Status indicators */}
+          </div>
+        </CardHeader>
+        
+        {/* Rest of card content */}
+      </Card>
+    </Link>
+  )
+}
+````
+
+This implementation:
+
+1. Adds the URL as a clickable button in the project details page
+2. Shows the full URL as small text below the button for transparency
+3. Adds a small external link icon next to the project name in the card view if a URL is present
+4. Ensures both implementations are clean and minimal
+
+The external link icon in the card is subtle but gives users an immediate visual cue that the project has an associated website, while the full implementation on the details page provides a clear way to access the external resource.
+
+---
+
+_**User**_
+
+What clas should i giva an <a> element to be blue with underline? What is the basic class for links in this project?
+
+---
+
 
 
 ---

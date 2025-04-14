@@ -101,8 +101,8 @@ export interface Project {
   id: string
   name: string
   description: string
-  url?: string
   goal: number
+  url?: string
   ownerId: string
   closed: boolean
   closedAt?: string
