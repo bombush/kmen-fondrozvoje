@@ -17,13 +17,16 @@ const parseCsobRow = (row: string): RawBankPayment => {
     constantSymbol: "",
     bankTransactionId: "",
     counterpartyAccountNumber: "",
-    counterpartyName: ""
+    counterpartyBankCode: "",
+    counterpartyName: "",
+    direction: "in",
+    message: ""
   }
 }
 
 export const csobParser: BankParser = async (content: string) => {
   if (!await isCsobFormat(content)) {
-    return { canParse: false, payments: [] }
+    return { canParse: false, payments: [], timestampOfStatement: 0 }
   }
 
   // Process rows in parallel, but field parsing is synchronous
@@ -32,6 +35,7 @@ export const csobParser: BankParser = async (content: string) => {
 
   return {
     canParse: true,
-    payments
+    payments,
+    timestampOfStatement: 0
   }
 } 
