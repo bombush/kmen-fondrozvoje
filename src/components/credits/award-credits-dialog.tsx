@@ -26,12 +26,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { User } from "@/types"
 import { CreditWorkflow } from "@/lib/services/workflows/credit-workflow"
+import { useAuth } from "@/contexts/auth-context"
 
 interface AwardCreditsDialogProps {
   users: User[]
 }
 
 export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
+  const { appUser } = useAuth()
   const [open, setOpen] = useState(false)
   const [userId, setUserId] = useState("")
   const [amount, setAmount] = useState("")
@@ -86,7 +88,7 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
         targetMonth: targetMonth === "null" ? undefined : targetMonth,
         notes: notes || undefined,
         sourceType: "admin",
-        sourceId: "manual_award"
+        sourceId: appUser?.id
       })
     },
     onSuccess: () => {
@@ -195,29 +197,6 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin_award">Admin Award</SelectItem>
-                <SelectItem value="monthly_allocation">Monthly Allocation</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-                <SelectItem value="refund">Refund</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="month">Target Month (Optional)</Label>
-            <Select 
-              value={targetMonth} 
-              onValueChange={setTargetMonth}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a month" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">No specific month</SelectItem>
-                {monthOptions.map(month => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>
