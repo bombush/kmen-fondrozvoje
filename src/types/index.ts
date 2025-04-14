@@ -41,6 +41,7 @@ export type BankPayment = {
   counterpartyAccountNumber: string //including bank code
   counterpartyName: string
   receivedAt: string
+  receivedAtTimestamp: number
   message: string // message to the receiver
   comment: string // internal comment
   isSplitFromId?: string // References parent payment if this is a virtual split

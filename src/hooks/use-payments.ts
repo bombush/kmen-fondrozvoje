@@ -46,3 +46,11 @@ export function usePayments(config: PaymentsQueryConfig) {
     )
   })
 }
+
+export function useLastPayment() {
+  const bankPaymentCrud = new BankPaymentCrud()
+  return useQuery({
+    queryKey: ['lastPayment'],
+    queryFn: () => bankPaymentCrud.getLastPayment()
+  })
+}

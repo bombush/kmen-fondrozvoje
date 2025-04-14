@@ -116,9 +116,13 @@ export function UpdatePaymentsButton() {
   const [isDataOpen, setIsDataOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   
+  
   // The date of the last payment to fetch from
   // This would typically come from your database, but for now we'll use a static date
-  const lastPaymentDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  //const lastPaymentDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+
+  // get last payment date as the date of last payment received
+  const lastPaymentDate = await b
 
   const handleUpdatePayments = async () => {
     setOpen(true)

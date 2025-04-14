@@ -98,6 +98,7 @@ export class BankWorkflow {
             userId: parsedPayment.userId,
             amount: parsedPayment.amount,
             receivedAt: parsedPayment.receivedAt,
+            receivedAtTimestamp: new Date(parsedPayment.receivedAt).getTime(),
             targetMonth: parsedPayment.receivedAt.substring(0, 7),
             variableSymbol: parsedPayment.variableSymbol,
             specificSymbol: parsedPayment.specificSymbol,
@@ -185,24 +186,13 @@ export class BankWorkflow {
       const childPayments: BankPayment[] = []
       
       for (const split of splits) {
-        const childPayment: CreateBankPaymentInput = {
-          statementId: originalPayment.statementId,
-          userId: originalPayment.userId,
+
+        const childPayment : CreateBankPaymentInput = {...originalPayment,
           amount: split.amount,
-          variableSymbol: originalPayment.variableSymbol,
-          specificSymbol: originalPayment.specificSymbol,
-          constantSymbol: originalPayment.constantSymbol,
-          bankTransactionId: originalPayment.bankTransactionId,
-          counterpartyAccountNumber: originalPayment.counterpartyAccountNumber,
-          counterpartyName: originalPayment.counterpartyName,
-          receivedAt: originalPayment.receivedAt,
-          message: originalPayment.message,
+          targetMonth: split.targetMonth,
           comment: `Split from payment ${originalPaymentId}`,
           isSplitFromId: originalPaymentId,
-          targetMonth: split.targetMonth,
           deleted: false,
-          myAccountNumber: originalPayment.myAccountNumber,
-          myBankCode: originalPayment.myBankCode
         }
         
         const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
@@ -311,25 +301,13 @@ export class BankWorkflow {
           await this.bankPaymentCrud.update(existingChild.id, updatedChild, transaction)
           childPayments.push(updatedChild)
         } else {
-          // Create new child
-          const childPayment: CreateBankPaymentInput = {
-            statementId: originalPayment.statementId,
-            userId: originalPayment.userId,
+
+          const childPayment : CreateBankPaymentInput = {...originalPayment,
             amount: split.amount,
-            variableSymbol: originalPayment.variableSymbol,
-            specificSymbol: originalPayment.specificSymbol,
-            constantSymbol: originalPayment.constantSymbol,
-            bankTransactionId: originalPayment.bankTransactionId,
-            counterpartyAccountNumber: originalPayment.counterpartyAccountNumber,
-            counterpartyName: originalPayment.counterpartyName,
-            receivedAt: originalPayment.receivedAt,
-            message: originalPayment.message,
+            targetMonth: split.targetMonth,
             comment: `Split from payment ${originalPaymentId}`,
             isSplitFromId: originalPaymentId,
-            targetMonth: split.targetMonth,
             deleted: false,
-            myAccountNumber: originalPayment.myAccountNumber,
-            myBankCode: originalPayment.myBankCode
           }
           
           const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
