@@ -147,9 +147,7 @@ export class FioParser implements BankStatementParser {
 
       const formattedDate = receivedDate.toISOString()
 
-      
-      // Map the transaction to a RawBankPayment
-      payments.push({
+      const payment: RawBankPayment = {
         userId: "", // Will be filled in later by matching with specificSymbol
         amount: amount,
         receivedAt: formattedDate,
@@ -162,8 +160,13 @@ export class FioParser implements BankStatementParser {
         counterpartyBankCode: transaction.column3?.value || "",
         counterpartyName: transaction.column10?.value || "",
         direction: amount > 0 ? 'in' : 'out',
-        message: transaction.column16?.value || ""
-      })
+        message: transaction.column16?.value || "",
+        accountNumber: data.accountStatement.info.accountId,
+        bankCode: data.accountStatement.info.bankId
+      }
+      console.log("payment::: ", payment)
+
+      payments.push(payment)
     }
 
     const paymentsWithUsers = await this.matchUsersToPayments(payments)
