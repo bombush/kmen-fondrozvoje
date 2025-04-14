@@ -7,6 +7,8 @@ export type User = {
   specificSymbol?:string
   variableSymbol?: string
   constantSymbol?: string
+  bankCode?: string
+  accountNumber?: string
   isActive: boolean
   createdAt: string
   updatedAt: string

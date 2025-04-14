@@ -294,6 +294,9 @@ function UsersPage() {
                               <div><UserBalance userId={user.id} /></div>
                                     </div>
                             <div>
+                              <div className="text-sm font-medium">Account Number</div>
+                              <div>{user.accountNumber && user.bankCode ? `${user.accountNumber}/${user.bankCode}` : "—"}</div>
+                                
                               <div className="text-sm font-medium">Specific Symbol</div>
                               <div>{user.specificSymbol || "—"}</div>
                                 </div>
