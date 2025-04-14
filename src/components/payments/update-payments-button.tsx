@@ -23,6 +23,7 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import React from "react"
 
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
+import { useLastPayment } from "@/hooks/use-payments"
 
 const bankWorkflow = new BankWorkflow()
 
@@ -115,14 +116,13 @@ export function UpdatePaymentsButton() {
   const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number } | null>(null)
   const [isDataOpen, setIsDataOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
+  const lastPayment = useLastPayment()
   
   
   // The date of the last payment to fetch from
   // This would typically come from your database, but for now we'll use a static date
   //const lastPaymentDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
-
-  // get last payment date as the date of last payment received
-  const lastPaymentDate = await b
+  const lastPaymentDate = lastPayment ? new Date(lastPayment.receivedAt) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
   const handleUpdatePayments = async () => {
     setOpen(true)
@@ -134,7 +134,8 @@ export function UpdatePaymentsButton() {
     try {
       // Format the date as YYYY-MM-DD
       // log date as ISO string to console
-      console.log(lastPaymentDate)
+      console.log("last payment", lastPayment)
+      console.log("last payment date", lastPaymentDate)
       console.log("Last payment date:", lastPaymentDate.toISOString())
       
       // Call the API to fetch bank statement

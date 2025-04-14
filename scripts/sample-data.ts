@@ -9,10 +9,16 @@ import {
 } from '../src/types'
 
 // Generate timestamp for a date offset in days
-const getTimestamp = (daysOffset = 0) => {
+const getDateISOString = (daysOffset = 0) => {
   const date = new Date()
   date.setDate(date.getDate() - daysOffset)
   return date.toISOString()
+}
+
+const getTimestamp = (daysOffset = 0) => {
+  const date = new Date()
+  date.setDate(date.getDate() - daysOffset)
+  return date.getTime()
 }
 
 // Generate sample users
@@ -69,8 +75,8 @@ export const generateUsers = () => {
     specificSymbol: `${parseInt(user.uid.split('-')[1]) * 1000000000}`,
     variableSymbol: `${parseInt(user.uid.split('-')[1]) * 2000000000}`,
     constantSymbol: '0308',
-    createdAt: getTimestamp(90),
-    updatedAt: getTimestamp(90)
+    createdAt: getDateISOString(90),
+    updatedAt: getDateISOString(90)
   }))
   
   return { authUsers, userDocs }
@@ -87,8 +93,8 @@ export const generateProjects = (users: User[]): Project[] => {
       goal: 10000,
       ownerId: users[1].id,
       closed: false,
-      createdAt: getTimestamp(60),
-      updatedAt: getTimestamp(60),
+      createdAt: getDateISOString(60),
+      updatedAt: getDateISOString(60),
       deleted: false
     },
     {
@@ -98,8 +104,8 @@ export const generateProjects = (users: User[]): Project[] => {
       goal: 5000,
       ownerId: users[2].id,
       closed: false,
-      createdAt: getTimestamp(45),
-      updatedAt: getTimestamp(45),
+      createdAt: getDateISOString(45),
+      updatedAt: getDateISOString(45),
       deleted: false
     },
     {
@@ -109,9 +115,9 @@ export const generateProjects = (users: User[]): Project[] => {
       goal: 3000,
       ownerId: users[3].id,
       closed: true,
-      closedAt: getTimestamp(10),
-      createdAt: getTimestamp(30),
-      updatedAt: getTimestamp(10),
+      closedAt: getDateISOString(10),
+      createdAt: getDateISOString(30),
+      updatedAt: getDateISOString(10),
       deleted: false
     },
     {
@@ -121,8 +127,8 @@ export const generateProjects = (users: User[]): Project[] => {
       goal: 8000,
       ownerId: users[2].id,
       closed: false,
-      createdAt: getTimestamp(20),
-      updatedAt: getTimestamp(20),
+      createdAt: getDateISOString(20),
+      updatedAt: getDateISOString(20),
       deleted: false
     },
     {
@@ -132,8 +138,8 @@ export const generateProjects = (users: User[]): Project[] => {
       goal: 2000,
       ownerId: users[1].id,
       closed: false,
-      createdAt: getTimestamp(15),
-      updatedAt: getTimestamp(5),
+      createdAt: getDateISOString(15),
+      updatedAt: getDateISOString(5),
       deleted: true
     }
   ]
@@ -146,28 +152,28 @@ export const generateStatements = (): BankStatement[] => {
       id: 'stmt-2025-01',
       month: '2025-01',
       status: 'processed',
-      processedAt: getTimestamp(60),
+      processedAt: getDateISOString(60),
       rawData: JSON.stringify([]), // This will be populated separately
-      createdAt: getTimestamp(60),
-      updatedAt: getTimestamp(60),
+      createdAt: getDateISOString(60),
+      updatedAt: getDateISOString(60),
     },
     {
       id: 'stmt-2025-02',
       month: '2025-02',
       status: 'processed',
-      processedAt: getTimestamp(30),
+      processedAt: getDateISOString(30),
       rawData: JSON.stringify([]),
-      createdAt: getTimestamp(30),
-      updatedAt: getTimestamp(30),
+      createdAt: getDateISOString(30),
+      updatedAt: getDateISOString(30),
     },
     {
       id: 'stmt-2025-03',
       month: '2025-03',
       status: 'processed',
-      processedAt: getTimestamp(1),
+      processedAt: getDateISOString(1),
       rawData: JSON.stringify([]),
-      createdAt: getTimestamp(1),
-      updatedAt: getTimestamp(1),
+      createdAt: getDateISOString(1),
+      updatedAt: getDateISOString(1),
     },
     {
       id: 'stmt-2025-04',
@@ -175,8 +181,8 @@ export const generateStatements = (): BankStatement[] => {
       status: 'pending',
       processedAt: null as any,
       rawData: JSON.stringify([]),
-      createdAt: getTimestamp(0),
-      updatedAt: getTimestamp(0),
+      createdAt: getDateISOString(0),
+      updatedAt: getDateISOString(0),
     }
   ]
 }
@@ -203,15 +209,16 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
     bankTransactionId: `bank-${id}`,
     counterpartyAccountNumber: '123456789/0100',
     counterpartyName: users.find(u => u.id === userId)?.name || 'Unknown',
-    receivedAt: getTimestamp(daysAgo),
+    receivedAt: getDateISOString(daysAgo),
     message: `Payment from ${users.find(u => u.id === userId)?.name}`,
     comment: `Monthly contribution for ${targetMonth}`,
     targetMonth: targetMonth,
     deleted: false,
-    createdAt: getTimestamp(daysAgo),
-    updatedAt: getTimestamp(daysAgo),
+    createdAt: getDateISOString(daysAgo),
+    updatedAt: getDateISOString(daysAgo),
     myAccountNumber: '123456789',
-    myBankCode: '0308'
+    myBankCode: '0308',
+    receivedAtTimestamp: getTimestamp(daysAgo)
   })
 
   // Create regular payments
@@ -255,8 +262,8 @@ export const generateCreditAwards = (users: User[]): CreditAward[] => {
         reason: 'monthly_allocation' as const,
         targetMonth: '2025-01',
         notes: 'Monthly credit allocation for January 2025',
-        createdAt: getTimestamp(60),
-        updatedAt: getTimestamp(60),
+        createdAt: getDateISOString(60),
+        updatedAt: getDateISOString(60),
         deleted: false
       },
       {
@@ -266,8 +273,8 @@ export const generateCreditAwards = (users: User[]): CreditAward[] => {
         reason: 'monthly_allocation' as const,
         targetMonth: '2025-02',
         notes: 'Monthly credit allocation for February 2025',
-        createdAt: getTimestamp(30),
-        updatedAt: getTimestamp(30),
+        createdAt: getDateISOString(30),
+        updatedAt: getDateISOString(30),
         deleted: false
       },
       {
@@ -277,8 +284,8 @@ export const generateCreditAwards = (users: User[]): CreditAward[] => {
         reason: 'monthly_allocation' as const,
         targetMonth: '2025-03',
         notes: 'Monthly credit allocation for March 2025',
-        createdAt: getTimestamp(1),
-        updatedAt: getTimestamp(1),
+        createdAt: getDateISOString(1),
+        updatedAt: getDateISOString(1),
         deleted: false
       }
     ])),
@@ -290,8 +297,8 @@ export const generateCreditAwards = (users: User[]): CreditAward[] => {
       amount: 2000,
       reason: 'admin_award' as const,
       notes: 'Bonus for community engagement',
-      createdAt: getTimestamp(15),
-      updatedAt: getTimestamp(15),
+      createdAt: getDateISOString(15),
+      updatedAt: getDateISOString(15),
       deleted: false
     },
     {
@@ -300,8 +307,8 @@ export const generateCreditAwards = (users: User[]): CreditAward[] => {
       amount: 1500,
       reason: 'admin_award' as const,
       notes: 'Award for organizing workshops',
-      createdAt: getTimestamp(10),
-      updatedAt: getTimestamp(10),
+      createdAt: getDateISOString(10),
+      updatedAt: getDateISOString(10),
       deleted: false
     }
   ]
@@ -319,8 +326,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[0].id,
       amount: 3000,
       locked: false,
-      createdAt: getTimestamp(50),
-      updatedAt: getTimestamp(50),
+      createdAt: getDateISOString(50),
+      updatedAt: getDateISOString(50),
       deleted: false,
       description: 'Supporting community garden'
     },
@@ -330,8 +337,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[0].id,
       amount: 2000,
       locked: false,
-      createdAt: getTimestamp(48),
-      updatedAt: getTimestamp(48),
+      createdAt: getDateISOString(48),
+      updatedAt: getDateISOString(48),
       deleted: false,
       description: 'For community garden tools'
     },
@@ -343,8 +350,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[1].id,
       amount: 1500,
       locked: false,
-      createdAt: getTimestamp(40),
-      updatedAt: getTimestamp(40),
+      createdAt: getDateISOString(40),
+      updatedAt: getDateISOString(40),
       deleted: false,
       description: 'Supporting tech education'
     },
@@ -354,8 +361,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[1].id,
       amount: 2500,
       locked: false,
-      createdAt: getTimestamp(38),
-      updatedAt: getTimestamp(38),
+      createdAt: getDateISOString(38),
+      updatedAt: getDateISOString(38),
       deleted: false,
       description: 'For programming equipment'
     },
@@ -367,8 +374,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[2].id,
       amount: 1000,
       locked: true, // Locked because project is closed
-      createdAt: getTimestamp(25),
-      updatedAt: getTimestamp(10),
+      createdAt: getDateISOString(25),
+      updatedAt: getDateISOString(10),
       deleted: false,
       description: 'For cleanup supplies'
     },
@@ -378,8 +385,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[2].id,
       amount: 2000,
       locked: true, // Locked because project is closed
-      createdAt: getTimestamp(22),
-      updatedAt: getTimestamp(10),
+      createdAt: getDateISOString(22),
+      updatedAt: getDateISOString(10),
       deleted: false,
       description: 'Supporting trail maintenance'
     },
@@ -391,8 +398,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[3].id,
       amount: 3000,
       locked: false,
-      createdAt: getTimestamp(18),
-      updatedAt: getTimestamp(18),
+      createdAt: getDateISOString(18),
+      updatedAt: getDateISOString(18),
       deleted: false,
       description: 'Supporting local artists'
     },
@@ -404,8 +411,8 @@ export const generatePledges = (users: User[], projects: Project[]): Pledge[] =>
       projectId: projects[3].id,
       amount: 1000,
       locked: false,
-      createdAt: getTimestamp(17),
-      updatedAt: getTimestamp(12),
+      createdAt: getDateISOString(17),
+      updatedAt: getDateISOString(12),
       deleted: true,
       description: 'Canceled pledge'
     }
@@ -445,7 +452,7 @@ export const generateHistoryActions = (
         before: { description: 'Create a garden.' },
         after: { description: projects[0].description }
       },
-      createdAt: getTimestamp(55)
+      createdAt: getDateISOString(55)
     },
     
     // Project closing history
@@ -458,7 +465,7 @@ export const generateHistoryActions = (
         before: { closed: false },
         after: { closed: true, closedAt: projects[2].closedAt }
       },
-      createdAt: projects[2].closedAt || getTimestamp(10)
+      createdAt: projects[2].closedAt || getDateISOString(10)
     },
     
     // Pledge creation history
@@ -499,7 +506,7 @@ export const generateHistoryActions = (
       data: {
         after: { id: 'stmt-2025-01', status: 'processed' }
       },
-      createdAt: getTimestamp(60)
+      createdAt: getDateISOString(60)
     },
     {
       id: 'history-statement-process-002',
@@ -509,7 +516,7 @@ export const generateHistoryActions = (
       data: {
         after: { id: 'stmt-2025-02', status: 'processed' }
       },
-      createdAt: getTimestamp(30)
+      createdAt: getDateISOString(30)
     },
     {
       id: 'history-statement-process-003',
@@ -519,7 +526,7 @@ export const generateHistoryActions = (
       data: {
         after: { id: 'stmt-2025-03', status: 'processed' }
       },
-      createdAt: getTimestamp(1)
+      createdAt: getDateISOString(1)
     },
     
     // Payment split action
@@ -538,7 +545,7 @@ export const generateHistoryActions = (
           ]
         }
       },
-      createdAt: getTimestamp(4)
+      createdAt: getDateISOString(4)
     },
     
     // Credit awards
@@ -555,7 +562,7 @@ export const generateHistoryActions = (
           notes: 'Bonus for community engagement'
         }
       },
-      createdAt: getTimestamp(15)
+      createdAt: getDateISOString(15)
     }
   ]
 } 

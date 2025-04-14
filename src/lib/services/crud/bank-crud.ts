@@ -130,13 +130,6 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     return this.query(query)
   }
 
-  async getLastPayment(): Promise<BankPayment | null> {
-    throw new Error("Not implemented")
-    
-    const payments = await this.getFiltered({})
-    return payments[0] || null
-  }
-
   async getFiltered(
     params: BankPaymentsFilterParams, 
     includeDeleted = false,
