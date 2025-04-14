@@ -87,6 +87,7 @@ import { Badge } from "@/components/ui/badge"
 import { User } from "@/types"
 import { UpdateUserInput } from "@/lib/services/workflows/user-workflow"
 import { toast } from "sonner"
+import { AddUserDialog } from "@/components/users/add-user-dialog"
 
 function UsersPage() {
   const { isAdmin, appUser } = useAuth()
@@ -176,17 +177,23 @@ function UsersPage() {
 
   return (
     <div className="container py-8 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold">Users</h1>
-        <div className="relative w-72">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        
+        {/* Display Add User button only for admins */}
+        {isAdmin && (
+          <AddUserDialog />
+        )}
+      </div>
+      
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-            placeholder="Search users..." 
-          className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search users by name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
         />
-        </div>
       </div>
       
       {isLoading ? (

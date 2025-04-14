@@ -60,6 +60,178 @@ Would you like me to explain how to implement a specific authentication pattern 
 
 ---
 
+_**User**_
+
+ @page.tsx Add a CreateUser button to top right and a create dialog
+
+---
+
+_**Assistant**_
+
+<think>
+I need to add a "Create User" button to the top right of the page and implement a create user dialog. Let's look at what I need to do:
+
+1. Add a "Create User" button next to the search box in the header
+2. Create a dialog for user creation similar to the edit dialog
+3. Add state for the new user dialog
+4. Add functionality to create a new user
+
+The current page already has:
+- Edit user dialog
+- Delete user dialog
+- User list
+- Search functionality
+
+I need to:
+1. Add a state for the create dialog open/closed state
+2. Add a state for the new user data
+3. Add a mutation hook for creating a user (assuming it exists like `useUpdateUser`)
+4. Add the create user button to the header
+5. Add the create user dialog component
+
+Let me create my edits:
+</think>
+
+🤖 Here's how to add a Create User button and dialog to the users page:
+
+```typescript:src/app/(app)/users/page.tsx
+// ... existing code ...
+
+function UsersPage() {
+  const { isAdmin, appUser } = useAuth()
+  const { data: users = [], isLoading } = useUsers(true)
+  const updateUserMutation = useUpdateUser()
+  const deleteUserMutation = useDeleteUser()
+  const createUserMutation = useCreateUser() // Add this hook
+  
+  // State
+  const [searchTerm, setSearchTerm] = useState("")
+  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({})
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [userToEdit, setUserToEdit] = useState<User | null>(null)
+  const [editedUserData, setEditedUserData] = useState<UpdateUserInput>({})
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [newUserData, setNewUserData] = useState<CreateUserInput>({
+    name: "",
+    email: "",
+    specificSymbol: "",
+    variableSymbol: "",
+    constantSymbol: "",
+    bankCode: "",
+    accountNumber: "",
+    isActive: true
+  })
+  
+  // ... existing code ...
+  
+  // Create new user
+  const createUser = async () => {
+    try {
+      await createUserMutation.mutateAsync(newUserData)
+      setCreateDialogOpen(false)
+      setNewUserData({
+        name: "",
+        email: "",
+        specificSymbol: "",
+        variableSymbol: "",
+        constantSymbol: "",
+        bankCode: "",
+        accountNumber: "",
+        isActive: true
+      })
+      toast.success("User created successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to create user")
+    }
+  }
+  
+  // ... existing code ...
+
+  return (
+    <div className="container py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Users</h1>
+        <div className="flex items-center gap-4">
+          <div className="relative w-72">
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search users..." 
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {isAdmin && (
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              Create User
+            </Button>
+          )}
+        </div>
+      </div>
+      
+      {/* ... existing code ... */}
+      
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Name</Label>
+              <Input 
+                id="create-name" 
+                value={newUserData.name || ''} 
+                onChange={(e) => setNewUserData({...newUserData, name: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email</Label>
+              <Input 
+                id="create-email" 
+                type="email"
+                value={newUserData.email || ''} 
+                onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-accountNumber">Account Number</Label>
+              <Input 
+                id="create-accountNumber" 
+                value={newUserData.accountNumber || ''} 
+                onChange={(e) => setNewUserData({...newUserData, accountNumber: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-bankCode">Bank Code</Label>
+              <Input 
+                id="create-bankCode" 
+                value={newUserData.bankCode || ''} 
+                onChange={(e) => setNewUserData({...newUserData, bankCode: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-specificSymbol">Specific Symbol</Label>
+              <Input 
+                id="create-specificSymbol" 
+                value={newUserData.specificSymbol || ''} 
+                onChange={(e) => setNewUserData({...newUserData, specificSymbol: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor
+
+---
+
 
 
 ---

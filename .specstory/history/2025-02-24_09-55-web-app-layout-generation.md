@@ -41943,6 +41943,85 @@ How can I resolve this? If you propose a fix, please make it concise.
 
 _**Assistant**_
 
+<think>
+The error is occurring because the `BankPayment` type requires `myAccountNumber` and `myBankCode` fields, but these fields are missing when creating new bank payments in the `loadPaymentsFromBankStatementAndUpdateCreditAllocation` method.
+
+Looking at the code snippet and the error message, it seems that we need to add these fields when creating a new bank payment.
+
+We also need to modify the method to check for existing payments before creating new ones, using the `bankTransactionId` to identify duplicates.
+
+The basic steps for the solution would be:
+
+1. Before creating a payment, check if a payment with the same `bankTransactionId` already exists
+2. Add the missing `myAccountNumber` and `myBankCode` fields to the payment creation
+
+Let's modify the `loadPaymentsFromBankStatementAndUpdateCreditAllocation` method to implement these changes.
+</think>
+
+🤖 Let's fix the missing fields error and prevent duplicate payments:
+
+````language=typescript:src/lib/services/workflows/bank-workflow.ts
+async loadPaymentsFromBankStatementAndUpdateCreditAllocation(bankStatementData: BankStatementData, transaction?: Transaction) {
+  // Create statement
+  const bankStatement = await this.bankStatementCrud.create({
+    bankId: bankStatementData.bankId,
+    accountNumber: bankStatementData.accountNumber,
+    dateFrom: bankStatementData.dateFrom,
+    dateTo: bankStatementData.dateTo,
+    currency: bankStatementData.currency,
+    openingBalance: bankStatementData.openingBalance,
+    closingBalance: bankStatementData.closingBalance,
+    statementNumber: bankStatementData.statementNumber
+  }, transaction)
+
+  // Save incoming payments, but first check if they already exist
+  await Promise.all(bankStatementData.payments.map(async (parsedPayment) => {
+    // Check if payment with this bankTransactionId already exists
+    const existingPayments = await this.bankPaymentCrud.query([
+      where("bankTransactionId", "==", parsedPayment.bankTransactionId)
+    ]);
+    
+    if (existingPayments.length === 0) {
+      // Only create payment if it doesn't exist
+      this.bankPaymentCrud.create({
+        statementId: bankStatement.id,
+        userId: parsedPayment.userId,
+        amount: parsedPayment.amount,
+        receivedAt: parsedPayment.receivedAt,
+        targetMonth: parsedPayment.receivedAt.substring(0, 7),
+        variableSymbol: parsedPayment.variableSymbol,
+        specificSymbol: parsedPayment.specificSymbol,
+        constantSymbol: parsedPayment.constantSymbol,
+        bankTransactionId: parsedPayment.bankTransactionId,
+        counterpartyAccountNumber: `${parsedPayment.counterpartyAccountNumber}/${parsedPayment.counterpartyBankCode}`,
+        counterpartyName: parsedPayment.counterpartyName,
+        message: parsedPayment.message,
+        comment: '',
+        myAccountNumber: bankStatementData.accountNumber, // Add missing field
+        myBankCode: bankStatementData.bankId // Add missing field - using bankId as bankCode
+      }, transaction)
+    }
+  }))
+
+  // Rest of the method remains unchanged
+}
+````
+
+This solution:
+1. Queries for existing payments with the same `bankTransactionId` 
+2. Only creates new payments if no matching payment exists
+3. Adds the required `myAccountNumber` and `myBankCode` fields
+
+---
+
+_**User**_
+
+@page.tsx Add a Create User button only accessible to admins to top right 
+
+---
+
+_**Assistant**_
+
 
 
 ---
