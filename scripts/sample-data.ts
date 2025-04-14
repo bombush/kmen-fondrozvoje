@@ -190,7 +190,7 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
     userId: string, 
     amount: number, 
     daysAgo: number,
-    targetMonth?: string,
+    targetMonth: string,
     isSplitFromId?: string
   ): BankPayment => ({
     id,
@@ -205,11 +205,13 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
     counterpartyName: users.find(u => u.id === userId)?.name || 'Unknown',
     receivedAt: getTimestamp(daysAgo),
     message: `Payment from ${users.find(u => u.id === userId)?.name}`,
-    comment: `Monthly contribution for ${targetMonth || statements.find(s => s.id === statementId)?.month}`,
-    targetMonth: targetMonth || statements.find(s => s.id === statementId)?.month,
+    comment: `Monthly contribution for ${targetMonth}`,
+    targetMonth: targetMonth,
     deleted: false,
     createdAt: getTimestamp(daysAgo),
-    updatedAt: getTimestamp(daysAgo)
+    updatedAt: getTimestamp(daysAgo),
+    myAccountNumber: '123456789',
+    myBankCode: '0308'
   })
 
   // Create regular payments
@@ -231,11 +233,11 @@ export const generatePayments = (statements: BankStatement[], users: User[]): Ba
   ]
   
   // Add a parent payment for split demo
-  const parentPayment = createPayment('pay-split-parent', 'stmt-2025-03', users[1].id, 5000, 5)
+  const parentPayment = createPayment('pay-split-parent', 'stmt-2025-02', users[1].id, 5000, 5, '2025-02')
   
   // Add split payments
-  const splitPayment1 = createPayment('pay-split-child-1', 'stmt-2025-03', users[1].id, 3000, 4, '2025-03', 'pay-split-parent')
-  const splitPayment2 = createPayment('pay-split-child-2', 'stmt-2025-03', users[1].id, 2000, 4, '2025-04', 'pay-split-parent')
+  const splitPayment1 = createPayment('pay-split-child-1', 'stmt-2025-02', users[1].id, 3000, 4, '2025-03', 'pay-split-parent')
+  const splitPayment2 = createPayment('pay-split-child-2', 'stmt-2025-02', users[1].id, 2000, 4, '2025-04', 'pay-split-parent')
   
   // Combine all payments
   return [...payments, parentPayment, splitPayment1, splitPayment2]
