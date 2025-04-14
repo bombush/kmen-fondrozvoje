@@ -54,6 +54,7 @@ export function AddProjectDialog() {
     name: "",
     description: "",
     goal: 0,
+    url: "",
     ownerId: appUser?.id || "",
     closed: false,
     fundsSentToOwner: false,

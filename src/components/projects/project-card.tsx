@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useProjectBalance } from "@/hooks/use-project-balance"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, Lock } from "lucide-react"
+import { BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, Lock, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface ProjectCardProps {
   project: Project
@@ -37,7 +38,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-lg font-bold">{project.name}</CardTitle>
+              <CardTitle className="text-lg font-bold">
+                {project.name}
+                {project.url && (
+                  <ExternalLink className="inline-block ml-2 h-4 w-4 text-muted-foreground" />
+                )}
+              </CardTitle>
               <Badge variant={project.closed ? "default" : "secondary"}>
                 {project.closed ? "Completed" : "Active"}
               </Badge>

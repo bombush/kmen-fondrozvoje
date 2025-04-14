@@ -21,6 +21,7 @@ export function ProjectForm({ project, onSubmit, isLoading, mode = 'edit' }: Pro
     name: '',
     description: '',
     goal: 0,
+    url: '',
     ownerId: '',
     fundsSentToOwner: false,
     bought: false,
@@ -35,6 +36,7 @@ export function ProjectForm({ project, onSubmit, isLoading, mode = 'edit' }: Pro
         name: project.name || '',
         description: project.description || '',
         goal: project.goal || 0,
+        url: project.url || '',
         ownerId: project.ownerId || '',
         fundsSentToOwner: project.fundsSentToOwner || false,
         bought: project.bought || false,
@@ -81,6 +83,21 @@ export function ProjectForm({ project, onSubmit, isLoading, mode = 'edit' }: Pro
           rows={5}
           required
         />
+      </div>
+      
+      <div>
+        <Label htmlFor="url">Project URL</Label>
+        <Input
+          id="url"
+          name="url"
+          type="url"
+          value={formData.url}
+          onChange={handleChange}
+          placeholder="https://example.com"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Optional link to product or more information
+        </p>
       </div>
       
       <div>

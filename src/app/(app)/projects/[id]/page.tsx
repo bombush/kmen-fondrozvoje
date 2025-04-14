@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Project } from "@/types"
-import { AlertTriangle, Pencil, Clock, CheckCircle, Users, BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, XCircle } from "lucide-react"
+import { AlertTriangle, Pencil, Clock, CheckCircle, Users, BanknoteIcon, ShoppingCartIcon, ClipboardListIcon, XCircle, ExternalLink } from "lucide-react"
 import { MotionFade } from "@/components/ui/motion-fade"
 import { toast } from "sonner"
 import { useProjectPledges } from "@/hooks/use-project-pledges"
@@ -386,6 +386,18 @@ export default function ProjectPage() {
               </div>
               <p>{project.description}</p>
 
+              {project.url && (
+                <div>
+                  <a 
+                      href={project.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      {project.url}
+                    </a>
+                </div>
+              )}
 
               <div>Goal: {project.goal}</div>
               <div className="space-y-2">
@@ -395,18 +407,6 @@ export default function ProjectPage() {
                 ) : <span>{currentAmount}</span>
                 }
               </div>
-              {project.url && (
-                <div>
-                  <a 
-                    href={project.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline"
-                  >
-                    Project URL
-                  </a>
-                </div>
-              )}
               
               <div className="mt-6 border rounded-md p-4">
                 <h3 className="font-medium mb-4">Project Status</h3>
