@@ -120,6 +120,8 @@ function UsersPage() {
       specificSymbol: user.specificSymbol,
       variableSymbol: user.variableSymbol,
       constantSymbol: user.constantSymbol,
+      bankCode: user.bankCode,
+      accountNumber: user.accountNumber,
       isActive: user.isActive !== false
     })
     setEditDialogOpen(true)
@@ -296,7 +298,8 @@ function UsersPage() {
                             <div>
                               <div className="text-sm font-medium">Account Number</div>
                               <div>{user.accountNumber && user.bankCode ? `${user.accountNumber}/${user.bankCode}` : "—"}</div>
-                                
+                                </div>
+                              <div>
                               <div className="text-sm font-medium">Specific Symbol</div>
                               <div>{user.specificSymbol || "—"}</div>
                                 </div>
@@ -350,32 +353,37 @@ function UsersPage() {
                 onChange={(e) => setEditedUserData({...editedUserData, name: e.target.value})}
               />
             </div>
-            
-            
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                value={editedUserData.email || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="accountNumber">Account Number</Label>
+              <Input 
+                id="accountNumber" 
+                value={editedUserData.accountNumber || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, accountNumber: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bankCode">Bank Code</Label>
+              <Input 
+                id="bankCode" 
+                value={editedUserData.bankCode || ''} 
+                onChange={(e) => setEditedUserData({...editedUserData, bankCode: e.target.value})}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="specificSymbol">Specific Symbol</Label>
               <Input 
                 id="specificSymbol" 
                 value={editedUserData.specificSymbol || ''} 
                 onChange={(e) => setEditedUserData({...editedUserData, specificSymbol: e.target.value})}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="variableSymbol">Variable Symbol</Label>
-              <Input 
-                id="variableSymbol" 
-                value={editedUserData.variableSymbol || ''} 
-                onChange={(e) => setEditedUserData({...editedUserData, variableSymbol: e.target.value})}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="constantSymbol">Constant Symbol</Label>
-              <Input 
-                id="constantSymbol" 
-                value={editedUserData.constantSymbol || ''} 
-                onChange={(e) => setEditedUserData({...editedUserData, constantSymbol: e.target.value})}
               />
             </div>
             

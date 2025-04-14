@@ -76,7 +76,9 @@ export const generateUsers = () => {
     variableSymbol: `${parseInt(user.uid.split('-')[1]) * 2000000000}`,
     constantSymbol: '0308',
     createdAt: getDateISOString(90),
-    updatedAt: getDateISOString(90)
+    updatedAt: getDateISOString(90),
+    bankCode: `${Math.floor(Math.random() * 10000)}`,
+    accountNumber: `${Math.floor(Math.random() * 10000000000)}`
   }))
   
   return { authUsers, userDocs }
@@ -95,7 +97,11 @@ export const generateProjects = (users: User[]): Project[] => {
       closed: false,
       createdAt: getDateISOString(60),
       updatedAt: getDateISOString(60),
-      deleted: false
+      deleted: false,
+      fundsSentToOwner: false,
+      bought: false,
+      addedToAssetList: false,
+      locked: false
     },
     {
       id: 'project-002',
