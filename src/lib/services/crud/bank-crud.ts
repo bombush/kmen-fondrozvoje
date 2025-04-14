@@ -116,6 +116,20 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     ])
   }
 
+  async getByBankTransaction(bankTransactionId: string, bankAccountNumber: string, bankCode: string, includeDeleted?: boolean): Promise<BankPayment[]> {
+    const query = [
+      {field: "bankTransactionId", operator: "==", value: bankTransactionId },
+      {field: "myAccountNumber", operator: "==", value: bankAccountNumber },
+      {field: "myBankCode", operator: "==", value: bankCode},
+    ] as QueryConstraint[]  
+
+    if(!includeDeleted) {
+      query.push({ field: "deleted", operator: "==", value: false })
+    }
+
+    return this.query(query)
+  }
+
   async getFiltered(
     params: BankPaymentsFilterParams, 
     includeDeleted = false,

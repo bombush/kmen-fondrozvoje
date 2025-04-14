@@ -6,6 +6,8 @@ import { HistoryCrud } from "../crud/history-crud"
 import { FioParser } from "@/lib//bank-parsers/fio-parser";
 import { ParserResult } from "@/lib/bank-parsers/types";
 import { CreditWorkflow } from "./credit-workflow"
+import { where } from "firebase/firestore"
+
 export type CreateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
 
 export type UpdateBankStatementInput = Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>
@@ -53,7 +55,6 @@ export class BankWorkflow {
   async getPaymentsByMonth(month: string): Promise<BankPayment[]> {
     return this.bankPaymentCrud.getByMonth(month)
   }
-
   
   async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<{
     paymentsProcessed: number
@@ -85,21 +86,31 @@ export class BankWorkflow {
 
        // save incoming payments
       await Promise.all(bankStatementData.payments.map(async (parsedPayment) => {
-        this.bankPaymentCrud.create({
-          statementId: bankStatement.id,
-          userId: parsedPayment.userId,
-          amount: parsedPayment.amount,
-          receivedAt: parsedPayment.receivedAt,
-          targetMonth: parsedPayment.receivedAt.substring(0, 7),
-          variableSymbol: parsedPayment.variableSymbol,
-          specificSymbol: parsedPayment.specificSymbol,
-          constantSymbol: parsedPayment.constantSymbol,
-          bankTransactionId: parsedPayment.bankTransactionId,
-          counterpartyAccountNumber: `${parsedPayment.counterpartyAccountNumber}/${parsedPayment.counterpartyBankCode}`,
-          counterpartyName: parsedPayment.counterpartyName,
-          message: parsedPayment.message,
-          comment: ''
-        }, transaction)
+        // Check if payment with this bankTransactionId already exists
+        const existingPayments = 
+          await this.bankPaymentCrud.getByBankTransaction(
+            parsedPayment.bankTransactionId, parsedPayment.accountNumber, parsedPayment.bankCode)
+        
+        if (existingPayments.length === 0) {
+          // Only create payment if it doesn't exist
+          this.bankPaymentCrud.create({
+            statementId: bankStatement.id,
+            userId: parsedPayment.userId,
+            amount: parsedPayment.amount,
+            receivedAt: parsedPayment.receivedAt,
+            targetMonth: parsedPayment.receivedAt.substring(0, 7),
+            variableSymbol: parsedPayment.variableSymbol,
+            specificSymbol: parsedPayment.specificSymbol,
+            constantSymbol: parsedPayment.constantSymbol,
+            bankTransactionId: parsedPayment.bankTransactionId,
+            counterpartyAccountNumber: `${parsedPayment.counterpartyAccountNumber}/${parsedPayment.counterpartyBankCode}`,
+            counterpartyName: parsedPayment.counterpartyName,
+            message: parsedPayment.message,
+            comment: '',
+            myAccountNumber: parsedPayment.accountNumber,
+            myBankCode: parsedPayment.bankCode
+          }, transaction)
+        }
       }))
 
       //@TODO: what if this crashes?
@@ -189,7 +200,9 @@ export class BankWorkflow {
           comment: `Split from payment ${originalPaymentId}`,
           isSplitFromId: originalPaymentId,
           targetMonth: split.targetMonth,
-          deleted: false
+          deleted: false,
+          myAccountNumber: originalPayment.myAccountNumber,
+          myBankCode: originalPayment.myBankCode
         }
         
         const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)
@@ -314,7 +327,9 @@ export class BankWorkflow {
             comment: `Split from payment ${originalPaymentId}`,
             isSplitFromId: originalPaymentId,
             targetMonth: split.targetMonth,
-            deleted: false
+            deleted: false,
+            myAccountNumber: originalPayment.myAccountNumber,
+            myBankCode: originalPayment.myBankCode
           }
           
           const createdPayment = await this.bankPaymentCrud.create(childPayment, transaction)

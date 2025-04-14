@@ -35,8 +35,10 @@ export type BankPayment = {
   variableSymbol: string
   specificSymbol: string
   constantSymbol: string
+  myAccountNumber: string
+  myBankCode: string
   bankTransactionId: string // ID of the transaction in the bank statement
-  counterpartyAccountNumber: string
+  counterpartyAccountNumber: string //including bank code
   counterpartyName: string
   receivedAt: string
   message: string // message to the receiver

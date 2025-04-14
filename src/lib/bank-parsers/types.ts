@@ -2,7 +2,9 @@ export type RawBankPayment = {
   userId: string
   amount: number
   receivedAt: string
-  description: string   
+  description: string
+  accountNumber: string
+  bankCode: string
   variableSymbol: string
   specificSymbol: string
   constantSymbol: string
