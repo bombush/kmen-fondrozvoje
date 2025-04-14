@@ -1,15 +1,107 @@
-import { Checkbox } from "@/components/ui/checkbox"
+"use client"
 
-// Inside your form component
-const ProjectForm = ({ project, onSubmit, isLoading }) => {
-  // Existing form code...
-  
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Loader2 } from "lucide-react"
+import { Project } from "@/types"
+
+interface ProjectFormProps {
+  project: Partial<Project>
+  onSubmit: (data: any) => void
+  isLoading: boolean
+  mode?: 'create' | 'edit'
+}
+
+export function ProjectForm({ project, onSubmit, isLoading, mode = 'edit' }: ProjectFormProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    goal: 0,
+    ownerId: '',
+    fundsSentToOwner: false,
+    bought: false,
+    addedToAssetList: false,
+    locked: false,
+    closed: false
+  })
+
+  useEffect(() => {
+    if (project) {
+      setFormData({
+        name: project.name || '',
+        description: project.description || '',
+        goal: project.goal || 0,
+        ownerId: project.ownerId || '',
+        fundsSentToOwner: project.fundsSentToOwner || false,
+        bought: project.bought || false,
+        addedToAssetList: project.addedToAssetList || false,
+        locked: project.locked || false,
+        closed: project.closed || false
+      })
+    }
+  }, [project])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'goal' ? parseFloat(value) : value
+    }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
   return (
-    <form onSubmit={handleSubmit}>
-      {/* Existing form fields... */}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Project Name</Label>
+        <Input
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+        />
+      </div>
       
-      {/* Add these new fields - only show for existing projects */}
-      {project?.id && (
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          rows={5}
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="goal">Funding Goal</Label>
+        <Input
+          id="goal"
+          name="goal"
+          type="number"
+          min="0"
+          step="0.01"
+          value={formData.goal}
+          onChange={handleChange}
+          required
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          The target amount needed for this project
+        </p>
+      </div>
+      
+      {/* Administrative fields - only show for existing projects in edit mode */}
+      {mode === 'edit' && project.id && (
         <div className="space-y-4 border rounded-md p-4 mt-6">
           <h3 className="font-medium">Administrative Status</h3>
           
@@ -75,18 +167,38 @@ const ProjectForm = ({ project, onSubmit, isLoading }) => {
               </p>
             </div>
           </div>
+          
+          <div className="flex items-start space-x-2">
+            <Checkbox 
+              id="closed" 
+              checked={formData.closed}
+              onCheckedChange={(checked) => 
+                setFormData({...formData, closed: checked === true})
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="closed"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Project Completed
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Mark when the project has been fully completed
+              </p>
+            </div>
+          </div>
         </div>
       )}
       
-      {/* Submit button */}
       <Button type="submit" disabled={isLoading} className="mt-6">
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Saving...
+            {mode === 'create' ? 'Creating...' : 'Saving...'}
           </>
         ) : (
-          "Save Project"
+          mode === 'create' ? 'Create Project' : 'Save Project'
         )}
       </Button>
     </form>

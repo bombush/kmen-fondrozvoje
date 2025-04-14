@@ -1,4 +1,4 @@
-import { Project } from "@/types"
+import { Project, Pledge } from "@/types"
 import { ProjectCrud } from "../crud/project-crud"
 import { PledgeCrud } from "../crud/pledge-crud"
 import { db } from "../../firebase/config"
@@ -14,20 +14,20 @@ export class ProjectWorkflow {
   }
 
   /**
-   * Creates a new project and initializes its funding state
+   * Create a new project
    */
-  async createProject(
-    data: Omit<Project, "id" | "createdAt" | "updatedAt" | "deleted" | "currentAmount">
-  ): Promise<Project> {
-    try {
-      const project = await this.projectCrud.create({
-        ...data
-      })
-      return project
-    } catch (error) {
-      console.error("Error in createProject workflow:", error)
-      throw error
+  async createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "deleted">): Promise<Project> {
+    // Set defaults for any missing fields
+    const projectData = {
+      ...data,
+      locked: data.locked ?? false,
+      closed: data.closed ?? false,
+      fundsSentToOwner: data.fundsSentToOwner ?? false,
+      bought: data.bought ?? false,
+      addedToAssetList: data.addedToAssetList ?? false
     }
+    
+    return this.projectCrud.create(projectData)
   }
 
   /**

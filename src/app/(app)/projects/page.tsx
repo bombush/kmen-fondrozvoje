@@ -15,6 +15,7 @@ import { useUndoDeleteProject } from "@/hooks/use-projects"
 import { Project } from "@/types"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AddProjectDialog } from "@/components/projects/add-project-dialog"
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("")
@@ -53,7 +54,7 @@ export default function ProjectsPage() {
     <div className="space-y-4">
       <div className="flex justify-between">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Button>New Project</Button>
+        <AddProjectDialog />
       </div>
 
       <div className="flex items-center justify-between">
