@@ -29,7 +29,7 @@
 import React, { useState, useMemo } from "react"
 import { BankPayment } from "@/types"
 import { toast } from "sonner"
-import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye, ArrowUpDown, CornerUpRight } from "lucide-react"
+import { ChevronDown, ChevronUp, Split, GitMerge, GitBranch, CornerDownRight, EyeOff, Eye, ArrowUpDown, CornerUpRight, UserCircle2 } from "lucide-react"
 import { formatMoney, formatDate, formatDateSql } from "@/lib/utils"
 import {
   Table,
@@ -43,14 +43,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { usePayments, PaymentsQueryConfig } from "@/hooks/use-payments"
+import { usePayments, PaymentsQueryConfig, useUpdatePayment } from "@/hooks/use-payments"
 import { SortConfig } from "@/lib/services/crud/bank-crud"
 import { PaymentSplitDialog } from "@/components/bank/payment-split-dialog"
 import { Input } from "@/components/ui/input"
+import { useUsers } from "@/hooks/use-users"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UpdatePaymentsButton } from "@/components/payments/update-payments-button"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function PaymentsPage() {
+  const { isAdmin } = useAuth()
   // State for filtering and UI
   const [search, setSearch] = useState("")
   const [monthFilter, setMonthFilter] = useState("all")
@@ -72,6 +75,12 @@ export default function PaymentsPage() {
   
   // Fetch all payments with sorting
   const { data: allPayments, isLoading, error, refetch } = usePayments(queryConfig)
+  
+  // Get users for dropdown
+  const { data: users = [] } = useUsers(true)
+  
+  // Update payment mutation
+  const updatePaymentMutation = useUpdatePayment()
   
   // Function to handle sorting
   const handleSort = (field: keyof BankPayment) => {
@@ -160,6 +169,44 @@ export default function PaymentsPage() {
     return null;
   };
   
+  // Handle user assignment change
+  const handleUserChange = async (paymentId: string, userId: string) => {
+    try {
+      const paymentToUpdate = allPayments.find(p => p.id === paymentId)
+      if (!paymentToUpdate) return
+      
+      // If "unassigned" is selected, set userId to null
+      const updatedPayment = {
+        ...paymentToUpdate,
+        userId: userId === "unassigned" ? null : userId
+      }
+      
+      await updatePaymentMutation.mutateAsync({
+        id: paymentId,
+        data: updatedPayment
+      })
+      
+      toast.success("User assignment updated", {
+        description: userId === "unassigned" 
+          ? "Payment is now unassigned"
+          : `Payment assigned to ${getUserNameById(userId)}`
+      })
+      
+      // Refresh the data
+      refetch()
+    } catch (error) {
+      toast.error("Failed to update user assignment", {
+        description: error instanceof Error ? error.message : "Unknown error"
+      })
+    }
+  }
+  
+  // Get user name by ID
+  const getUserNameById = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    return user ? user.name : "Not assigned"
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -251,6 +298,9 @@ export default function PaymentsPage() {
                     <SortIndicator field="counterpartyName" />
                   </button>
                 </TableHead>
+                <TableHead>
+                  Assigned to
+                </TableHead>
                 <TableHead>Account Number</TableHead>
                 <TableHead>
                   <button 
@@ -320,6 +370,7 @@ export default function PaymentsPage() {
                           {formatMoney(payment.amount)}
                     </TableCell>
                     <TableCell className="truncate">{payment.counterpartyName}</TableCell>
+                    <TableCell className="text-muted-foreground">{payment.userId ? getUserNameById(payment.userId) : '-'}</TableCell>
                     <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
                     <TableCell>{payment.targetMonth || 'Unassigned'}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDateSql(payment.receivedAt)}</TableCell>
@@ -330,25 +381,28 @@ export default function PaymentsPage() {
 
                   {/* Expanded content row */}
                   {expandedPaymentId === payment.id && (
-                    <TableRow className="bg-muted/50">
-                          <TableCell colSpan={7} className="p-0">
-                        <div className="p-4 space-y-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={6} className="p-0">
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <h4 className="font-medium mb-2">Transaction Details</h4>
+                              <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <h3 className="text-sm font-medium text-muted-foreground">Counterparty</h3>
+                                  <h5 className="text-sm font-medium text-muted-foreground">Counterparty</h5>
                                   <p>{payment.counterpartyName || 'Not provided'}</p>
                                   <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
                                 </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
-                              <p>{payment.message || 'No message'}</p>
-                            </div>
-                          </div>
+                                <div>
+                                  <h5 className="text-sm font-medium text-muted-foreground">Message</h5>
+                                  <p>{payment.message || 'No message'}</p>
+                                </div>
+                              </div>
                               
                               {/* Parent payment section - show when this is a child payment */}
                               {payment.isSplitFromId && (
                                 <div className="mt-4 border-t pt-4">
-                                  <h3 className="text-sm font-medium mb-3">Is child payment of</h3>
+                                  <h5 className="text-sm font-medium mb-3">Is child payment of</h5>
                                   {allPayments && (() => {
                                     const parentPayment = allPayments.find(p => p.id === payment.isSplitFromId);
                                     if (!parentPayment) return <p className="text-sm text-muted-foreground">Parent payment not found</p>;
@@ -374,64 +428,34 @@ export default function PaymentsPage() {
                                   })()}
                                 </div>
                               )}
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
-                              <p>{payment.variableSymbol || 'Not provided'}</p>
                             </div>
+                            
                             <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
-                              <p>{payment.specificSymbol || 'Not provided'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
-                              <p>{payment.constantSymbol || 'Not provided'}</p>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
-                            <p>{payment.bankTransactionId}</p>
-                          </div>
-                          
-                              {/* Child payments section */}
-                              {hasSplits && (
-                                <div className="mt-4 border-t pt-4">
-                                  <h3 className="text-sm font-medium mb-3">Split Payments</h3>
-                                  <div className="space-y-2">
-                                    {childPayments.map(child => (
-                                      <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
-                                        <CornerDownRight size={16} className="text-muted-foreground" />
-                                        <div className="font-semibold">{formatMoney(child.amount)}</div>
-                                        <div className="text-muted-foreground ml-4">
-                                          Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {!payment.isSplitFromId && (
-                          <div className="pt-3 flex justify-end">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSplitPayment(payment);
-                              }}
-                                  className={cn(
-                                    "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
-                                    hasSplits 
-                                      ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
-                                      : "bg-primary/10 text-primary hover:bg-primary/20"
-                                  )}
+                              <h4 className="font-medium mb-2">User Assignment</h4>
+                              <div className="flex items-center gap-2">
+                                <UserCircle2 className="h-5 w-5 text-primary" />
+                                <Select
+                                  value={payment.userId || "unassigned"}
+                                  onValueChange={(value) => handleUserChange(payment.id, value)}
+                                  disabled={!isAdmin}
                                 >
-                                  {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
-                                  {hasSplits ? "Edit Split" : "Split Payment"}
-                            </button>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select user">
+                                      {payment.userId ? getUserNameById(payment.userId) : "Not assigned"}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="unassigned">Not assigned</SelectItem>
+                                    {users.map(user => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        {user.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
                           </div>
-                              )}
                         </div>
                       </TableCell>
                     </TableRow>

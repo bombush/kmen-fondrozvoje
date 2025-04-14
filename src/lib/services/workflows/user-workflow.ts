@@ -80,6 +80,8 @@ export class UserWorkflow {
   /**
    * Delete a user (for admin purposes only)
    * This will soft-delete the user and all their pledges
+   * 
+   * @TODO:  do not delete locked pledges
    */
   async deleteUser(userId: string): Promise<void> {
     try {
