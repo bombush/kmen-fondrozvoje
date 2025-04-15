@@ -97,6 +97,102 @@ describe('UserWorkflow', () => {
       expect(mockUserCrud.create).toHaveBeenCalledWith(userData)
       expect(result).toEqual(createdUser)
     })
+    
+    it('should create a new user with unique email and specific symbol', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'unique@example.com',
+        role: 'user' as const,
+        specificSymbol: 'UNIQUE123'
+      }
+      
+      const createdUser = {
+        id: 'user1',
+        ...userData,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that no users with this email or specific symbol exist
+      mockUserCrud.getByEmail.mockResolvedValue(null)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(null)
+      mockUserCrud.create.mockResolvedValue(createdUser)
+      
+      // Act
+      const result = await userWorkflow.createUser(userData)
+      
+      // Assert
+      expect(mockUserCrud.getByEmail).toHaveBeenCalledWith(userData.email)
+      expect(mockUserCrud.getBySpecificSymbol).toHaveBeenCalledWith(userData.specificSymbol)
+      expect(mockUserCrud.create).toHaveBeenCalledWith({
+        ...userData,
+        isActive: true
+      })
+      expect(result).toEqual(createdUser)
+    })
+    
+    it('should throw an error when email already exists', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'existing@example.com',
+        role: 'user' as const,
+        specificSymbol: 'UNIQUE123'
+      }
+      
+      const existingUser = {
+        id: 'existing1',
+        name: 'Existing User',
+        email: 'existing@example.com',
+        role: 'user' as const,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that a user with this email already exists
+      mockUserCrud.getByEmail.mockResolvedValue(existingUser as User)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(null)
+      
+      // Act & Assert
+      await expect(userWorkflow.createUser(userData)).rejects.toThrow(
+        'A user with this email already exists'
+      )
+      expect(mockUserCrud.create).not.toHaveBeenCalled()
+    })
+    
+    it('should throw an error when specific symbol already exists', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'unique@example.com',
+        role: 'user' as const,
+        specificSymbol: 'EXISTING123'
+      }
+      
+      const existingUser = {
+        id: 'existing1',
+        name: 'Existing User',
+        email: 'different@example.com',
+        role: 'user' as const,
+        specificSymbol: 'EXISTING123',
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that a user with this specific symbol already exists
+      mockUserCrud.getByEmail.mockResolvedValue(null)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(existingUser as User)
+      
+      // Act & Assert
+      await expect(userWorkflow.createUser(userData)).rejects.toThrow(
+        'A user with this specific symbol already exists'
+      )
+      expect(mockUserCrud.create).not.toHaveBeenCalled()
+    })
   })
   
   
