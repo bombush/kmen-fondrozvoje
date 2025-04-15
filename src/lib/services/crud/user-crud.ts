@@ -22,6 +22,33 @@ export class UserCrud extends BaseCrud<User> {
   }
 
   async create(data: Omit<User, "id" | "createdAt" | "updatedAt">): Promise<User> {
+    // the following mus be unique: email, specific symbol, variable symbol and constnt symbol
+    const existingUser = await this.getByEmail(data.email)
+    if (existingUser) {
+      throw new Error("Email already exists")
+    }
+
+    if (data.specificSymbol) {
+      const existingUserBySpecificSymbol = await this.getBySpecificSymbol(data.specificSymbol)
+      if (existingUserBySpecificSymbol) {
+        throw new Error("Specific symbol already exists")
+      }
+    }
+
+    if (data.variableSymbol) {
+      const existingUserByVariableSymbol = await this.getByVariableSymbol(data.variableSymbol)
+      if (existingUserByVariableSymbol) {
+        throw new Error("Variable symbol already exists")
+      }
+    }
+    
+    if (data.constantSymbol) {
+      const existingUserByConstantSymbol = await this.getByConstantSymbol(data.constantSymbol)
+      if (existingUserByConstantSymbol) {
+        throw new Error("Constant symbol already exists")
+      }
+    }
+
     return super.create(data)
   }
 
@@ -35,6 +62,21 @@ export class UserCrud extends BaseCrud<User> {
 
   async getByEmail(email: string): Promise<User | null> {
     const users = await this.query([{ field: "email", operator: "==", value: email }])
+    return users[0] || null
+  }
+
+  async getBySpecificSymbol(specificSymbol: string): Promise<User | null> {
+    const users = await this.query([{ field: "specificSymbol", operator: "==", value: specificSymbol }])
+    return users[0] || null
+  }
+
+  async getByVariableSymbol(variableSymbol: string): Promise<User | null> {
+    const users = await this.query([{ field: "variableSymbol", operator: "==", value: variableSymbol }])
+    return users[0] || null
+  }
+
+  async getByConstantSymbol(constantSymbol: string): Promise<User | null> {
+    const users = await this.query([{ field: "constantSymbol", operator: "==", value: constantSymbol }])
     return users[0] || null
   }
 

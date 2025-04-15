@@ -21,7 +21,7 @@ import {
   generatePayments,
   generateCreditAwards,
   generatePledges,
-  generateHistoryActions
+  generateHistoryActions  
 } from './sample-data'
 import { User, Project, BankStatement, BankPayment, CreditAward, Pledge, HistoryAction } from '../src/types'
 
