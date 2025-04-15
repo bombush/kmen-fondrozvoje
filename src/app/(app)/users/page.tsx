@@ -33,7 +33,7 @@
 
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useRef, useEffect } from "react"
 import { useUsers, useUpdateUser, useDeleteUser } from "@/hooks/use-users"
 import { useAuth } from "@/contexts/auth-context"
 import { useUserBalance } from "@/hooks/use-user-balance"
@@ -41,7 +41,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Edit, MoreHorizontal, Search, User as UserIcon, ChevronDown, ChevronRight } from "lucide-react"
+import { Edit, MoreHorizontal, Search, User as UserIcon, ChevronDown, ChevronRight, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -103,6 +103,16 @@ function UsersPage() {
   const [editedUserData, setEditedUserData] = useState<UpdateUserInput>({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [emailValid, setEmailValid] = useState(false)
+  const [isCheckingSymbol, setIsCheckingSymbol] = useState(false)
+  const [symbolError, setSymbolError] = useState<string | null>(null)
+  const [symbolValid, setSymbolValid] = useState(false)
+  
+  // Debounce timer refs
+  const emailCheckTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const symbolCheckTimerRef = useRef<NodeJS.Timeout | null>(null)
   
   // Toggle row expansion
   const toggleExpand = (userId: string) => {
@@ -126,10 +136,28 @@ function UsersPage() {
       isActive: user.isActive !== false
     })
     setEditDialogOpen(true)
+    setEmailError(null)
+    setEmailValid(false)
+    setSymbolError(null)
+    setSymbolValid(false)
   }
   
   // Save edited user
   const saveUserChanges = async () => {
+    if (emailError) {
+      toast.error("Validation error", {
+        description: "Please fix the email issue before saving"
+      })
+      return
+    }
+    
+    if (symbolError) {
+      toast.error("Validation error", {
+        description: "Please fix the specific symbol issue before saving"
+      })
+      return
+    }
+    
     if (!userToEdit) return
     
     try {
@@ -174,6 +202,85 @@ function UsersPage() {
         return a.name.localeCompare(b.name)
       })
   }, [users, searchTerm])
+
+  // Add these validation functions
+  const checkEmailUniqueness = (email: string, userId: string) => {
+    if (!email) {
+      setEmailError(null)
+      setEmailValid(false)
+      return
+    }
+    
+    setIsCheckingEmail(true)
+    
+    // Clear previous timer if it exists
+    if (emailCheckTimerRef.current) {
+      clearTimeout(emailCheckTimerRef.current)
+    }
+    
+    // Set a new timer
+    emailCheckTimerRef.current = setTimeout(() => {
+      if (users) {
+        const isDuplicate = users.some(
+          user => user.email === email && user.id !== userId
+        )
+        
+        if (isDuplicate) {
+          setEmailError("This email is already in use")
+          setEmailValid(false)
+        } else {
+          setEmailError(null)
+          setEmailValid(true)
+        }
+      }
+      setIsCheckingEmail(false)
+    }, 500) // 500ms debounce
+  }
+
+  const checkSymbolUniqueness = (symbol: string, userId: string) => {
+    if (!symbol) {
+      setSymbolError(null)
+      setSymbolValid(false)
+      return
+    }
+    
+    setIsCheckingSymbol(true)
+    
+    // Clear previous timer if it exists
+    if (symbolCheckTimerRef.current) {
+      clearTimeout(symbolCheckTimerRef.current)
+    }
+    
+    // Set a new timer
+    symbolCheckTimerRef.current = setTimeout(() => {
+      if (users) {
+        const isDuplicate = users.some(
+          user => user.specificSymbol === symbol && user.id !== userId
+        )
+        
+        if (isDuplicate) {
+          setSymbolError("This specific symbol is already in use")
+          setSymbolValid(false)
+        } else {
+          setSymbolError(null)
+          setSymbolValid(true)
+        }
+      }
+      setIsCheckingSymbol(false)
+    }, 500) // 500ms debounce
+  }
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (emailCheckTimerRef.current) {
+        clearTimeout(emailCheckTimerRef.current)
+      }
+      if (symbolCheckTimerRef.current) {
+        clearTimeout(symbolCheckTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="container py-8 space-y-6">
@@ -362,12 +469,26 @@ function UsersPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center gap-1">
+                Email
+                {isCheckingEmail && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+                {emailValid && editedUserData.email && <CheckCircle className="h-4 w-4 text-green-500 ml-1" />}
+              </Label>
               <Input 
                 id="email" 
                 value={editedUserData.email || ''} 
-                onChange={(e) => setEditedUserData({...editedUserData, email: e.target.value})}
+                onChange={(e) => {
+                  setEditedUserData({...editedUserData, email: e.target.value})
+                  checkEmailUniqueness(e.target.value, userToEdit?.id || '')
+                }}
+                className={emailError ? "border-red-500" : ""}
               />
+              {emailError && (
+                <div className="text-red-500 text-xs flex items-center mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {emailError}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="accountNumber">Account Number</Label>
@@ -386,12 +507,26 @@ function UsersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="specificSymbol">Specific Symbol</Label>
+              <Label htmlFor="specificSymbol" className="flex items-center gap-1">
+                Specific Symbol
+                {isCheckingSymbol && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+                {symbolValid && editedUserData.specificSymbol && <CheckCircle className="h-4 w-4 text-green-500 ml-1" />}
+              </Label>
               <Input 
                 id="specificSymbol" 
                 value={editedUserData.specificSymbol || ''} 
-                onChange={(e) => setEditedUserData({...editedUserData, specificSymbol: e.target.value})}
+                onChange={(e) => {
+                  setEditedUserData({...editedUserData, specificSymbol: e.target.value})
+                  checkSymbolUniqueness(e.target.value, userToEdit?.id || '')
+                }}
+                className={symbolError ? "border-red-500" : ""}
               />
+              {symbolError && (
+                <div className="text-red-500 text-xs flex items-center mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {symbolError}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center space-x-2">
@@ -410,7 +545,16 @@ function UsersPage() {
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveUserChanges} disabled={updateUserMutation.isPending}>
+            <Button 
+              onClick={saveUserChanges} 
+              disabled={
+                updateUserMutation.isPending || 
+                isCheckingEmail || 
+                isCheckingSymbol || 
+                !!emailError || 
+                !!symbolError
+              }
+            >
               {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

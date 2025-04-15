@@ -43885,6 +43885,204 @@ Add unique specific symbol and email check when creating new user to tests
 
 _**Assistant**_
 
+<think>
+I need to add tests for checking unique specific symbol and email when creating a new user. The file where these tests should be added is likely in a test directory, possibly something like `src/lib/services/workflows/__tests__/user-workflow.test.ts` since we're testing the user workflow functionality.
+
+Let me think about what kind of tests we need:
+1. Test that an error is thrown when trying to create a user with an email that already exists
+2. Test that an error is thrown when trying to create a user with a specific symbol that already exists
+
+The tests should mock the UserCrud class and simulate the scenario where a duplicate email or specific symbol already exists in the database.
+</think>
+
+🤖 I'll add tests for checking unique specific symbol and email when creating new users. Let's create or update the tests for the UserWorkflow:
+
+````language=typescript:src/lib/services/workflows/__tests__/user-workflow.test.ts
+import { UserWorkflow } from '../user-workflow'
+import { UserCrud } from '../../crud/user-crud'
+import { User } from '@/types'
+
+// Mock the UserCrud class
+jest.mock('../../crud/user-crud')
+
+describe('UserWorkflow', () => {
+  let userWorkflow: UserWorkflow
+  let mockUserCrud: jest.Mocked<UserCrud>
+  
+  beforeEach(() => {
+    // Clear all mocks
+    jest.clearAllMocks()
+    
+    // Create mock instances
+    mockUserCrud = new UserCrud() as jest.Mocked<UserCrud>
+    
+    // Create workflow with mocked dependencies
+    userWorkflow = new UserWorkflow()
+    // @ts-ignore - access private properties for testing
+    userWorkflow.userCrud = mockUserCrud
+  })
+  
+  describe('createUser', () => {
+    it('should create a new user with unique email and specific symbol', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'unique@example.com',
+        role: 'user' as const,
+        specificSymbol: 'UNIQUE123'
+      }
+      
+      const createdUser = {
+        id: 'user1',
+        ...userData,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that no users with this email or specific symbol exist
+      mockUserCrud.getByEmail.mockResolvedValue(null)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(null)
+      mockUserCrud.create.mockResolvedValue(createdUser)
+      
+      // Act
+      const result = await userWorkflow.createUser(userData)
+      
+      // Assert
+      expect(mockUserCrud.getByEmail).toHaveBeenCalledWith(userData.email)
+      expect(mockUserCrud.getBySpecificSymbol).toHaveBeenCalledWith(userData.specificSymbol)
+      expect(mockUserCrud.create).toHaveBeenCalledWith({
+        ...userData,
+        isActive: true
+      })
+      expect(result).toEqual(createdUser)
+    })
+    
+    it('should throw an error when email already exists', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'existing@example.com',
+        role: 'user' as const,
+        specificSymbol: 'UNIQUE123'
+      }
+      
+      const existingUser = {
+        id: 'existing1',
+        name: 'Existing User',
+        email: 'existing@example.com',
+        role: 'user' as const,
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that a user with this email already exists
+      mockUserCrud.getByEmail.mockResolvedValue(existingUser as User)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(null)
+      
+      // Act & Assert
+      await expect(userWorkflow.createUser(userData)).rejects.toThrow(
+        'A user with this email already exists'
+      )
+      expect(mockUserCrud.create).not.toHaveBeenCalled()
+    })
+    
+    it('should throw an error when specific symbol already exists', async () => {
+      // Arrange
+      const userData = {
+        name: 'Test User',
+        email: 'unique@example.com',
+        role: 'user' as const,
+        specificSymbol: 'EXISTING123'
+      }
+      
+      const existingUser = {
+        id: 'existing1',
+        name: 'Existing User',
+        email: 'different@example.com',
+        role: 'user' as const,
+        specificSymbol: 'EXISTING123',
+        isActive: true,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2023-01-01T00:00:00Z'
+      }
+      
+      // Mock that a user with this specific symbol already exists
+      mockUserCrud.getByEmail.mockResolvedValue(null)
+      mockUserCrud.getBySpecificSymbol.mockResolvedValue(existingUser as User)
+      
+      // Act & Assert
+      await expect(userWorkflow.createUser(userData)).rejects.toThrow(
+        'A user with this specific symbol already exists'
+      )
+      expect(mockUserCrud.create).not.toHaveBeenCalled()
+    })
+  })
+  
+  // Keep other tests below...
+})
+````
+
+Now, I need to also update the UserCrud class to include the necessary methods for checking specific symbols:
+
+````language=typescript:src/lib/services/crud/user-crud.ts
+// Add this method if it doesn't exist
+async getBySpecificSymbol(specificSymbol: string): Promise<User | null> {
+  if (!specificSymbol) return null;
+  
+  const constraints = [
+    { field: 'specificSymbol', operator: '==', value: specificSymbol }
+  ];
+  
+  const users = await this.query(constraints);
+  return users.length > 0 ? users[0] : null;
+}
+````
+
+And update the UserWorkflow class to validate both email and specific symbol:
+
+````language=typescript:src/lib/services/workflows/user-workflow.ts
+// In the createUser method, add validation for specific symbol
+async createUser(userData: CreateUserInput): Promise<User> {
+  // Check if user with this email already exists
+  const existingUserByEmail = await this.userCrud.getByEmail(userData.email);
+  if (existingUserByEmail) {
+    throw new Error('A user with this email already exists');
+  }
+  
+  // Check if user with this specific symbol already exists (if provided)
+  if (userData.specificSymbol) {
+    const existingUserBySymbol = await this.userCrud.getBySpecificSymbol(userData.specificSymbol);
+    if (existingUserBySymbol) {
+      throw new Error('A user with this specific symbol already exists');
+    }
+  }
+  
+  // If all validations pass, create the user
+  return this.userCrud.create({
+    ...userData,
+    isActive: userData.isActive ?? true
+  });
+}
+````
+
+These changes implement:
+
+1. Tests for the duplicate email and specific symbol cases
+2. The getBySpecificSymbol method in the UserCrud class
+3. Validation in the UserWorkflow to check both email and specific symbol uniqueness
+
+---
+
+_**User**_
+
+Add unique email and specific symbol check to user editing form in a way similar to the user creation dialog @add-user-dialog.tsx @page.tsx 
+
+---
+
+_**Assistant**_
+
 
 
 ---

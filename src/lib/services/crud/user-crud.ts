@@ -57,6 +57,40 @@ export class UserCrud extends BaseCrud<User> {
     data: Partial<User>,
     transaction?: Transaction
   ): Promise<User> {
+    // check if user exists
+    const user = await this.getById(id)
+    if (!user) {
+      throw new Error(`User ${id} not found`)
+    }
+
+    if (data.email) {
+      const existingUser = await this.getByEmail(data.email)
+      if (existingUser && existingUser.id !== id) {
+        throw new Error("Email already exists")
+      }
+    }
+
+    if (data.specificSymbol) {
+      const existingUserBySpecificSymbol = await this.getBySpecificSymbol(data.specificSymbol)
+      if (existingUserBySpecificSymbol && existingUserBySpecificSymbol.id !== id) {
+        throw new Error("Specific symbol already exists")
+      }
+    } 
+
+    if (data.variableSymbol) {
+      const existingUserByVariableSymbol = await this.getByVariableSymbol(data.variableSymbol)
+      if (existingUserByVariableSymbol && existingUserByVariableSymbol.id !== id) {
+        throw new Error("Variable symbol already exists")
+      }
+    } 
+
+    if (data.constantSymbol) {
+      const existingUserByConstantSymbol = await this.getByConstantSymbol(data.constantSymbol)
+      if (existingUserByConstantSymbol && existingUserByConstantSymbol.id !== id) {
+        throw new Error("Constant symbol already exists")
+      }
+    }
+
     return super.update(id, data)
   }
 
