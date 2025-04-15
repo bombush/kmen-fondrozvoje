@@ -43444,6 +43444,232 @@ This fixes the error by using "unassigned" as a special value instead of an empt
 
 ---
 
+_**User**_
+
+Add filter by assigned to user
+
+---
+
+_**Assistant**_
+
+<think>
+I need to add a filter to allow filtering payments by the assigned user. Here's what I'll do:
+
+1. Add a user filter dropdown to the filters section of the page
+2. Update the filtering logic to filter by the selected user
+3. Apply this filter alongside the existing search and month filters
+
+The changes would include:
+- Add a state variable for the user filter
+- Add a dropdown component similar to the month filter
+- Update the filtering logic to take the user filter into account
+- Update the query to include the user filter
+</think>
+
+🤖 I'll add a filter by assigned user to the payments page:
+
+````language=language=typescript:src/app/(app)/payments/page.tsx
+// Add a user filter state variable alongside the other filter states
+const [userFilter, setUserFilter] = useState("all")
+
+// Then update the usePayments hook call to include the user filter
+const { data: allPayments = [], isLoading, refetch } = usePayments({
+  month: monthFilter !== "all" ? monthFilter : undefined,
+  userId: userFilter !== "all" ? userFilter : undefined,
+  sort: sortConfig
+})
+
+// Add the user filter dropdown to the filters section
+<div className="flex flex-col md:flex-row gap-4 mb-6">
+  <div className="flex-1 relative">
+    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <Input
+      placeholder="Search payments..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="pl-10"
+    />
+  </div>
+  
+  <Select
+    value={monthFilter}
+    onValueChange={setMonthFilter}
+  >
+    <SelectTrigger className="w-full md:w-[180px]">
+      <SelectValue placeholder="Filter by month" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">All Months</SelectItem>
+      {/* Month options */}
+    </SelectContent>
+  </Select>
+  
+  {/* Add user filter dropdown */}
+  <Select
+    value={userFilter}
+    onValueChange={setUserFilter}
+  >
+    <SelectTrigger className="w-full md:w-[180px]">
+      <SelectValue placeholder="Filter by user" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">All Users</SelectItem>
+      <SelectItem value="unassigned">Unassigned</SelectItem>
+      {users.map(user => (
+        <SelectItem key={user.id} value={user.id}>
+          {user.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+````
+
+Let me update the hook in `use-payments.ts` to handle the "unassigned" filter special case:
+
+````language=language=typescript:src/hooks/use-payments.ts
+// Update the usePayments function to handle the "unassigned" filter
+export function usePayments(config: PaymentsQueryConfig) {
+  const bankPaymentCrud = new BankPaymentCrud()
+  
+  // Handle special case for "unassigned" user filter
+  const constraints: QueryConstraint[] = [];
+  
+  if (config.month) {
+    constraints.push({ field: 'targetMonth', operator: '==', value: config.month });
+  }
+  
+  if (config.userId === 'unassigned') {
+    // For unassigned, we need to filter where userId is null or doesn't exist
+    constraints.push({ field: 'userId', operator: '==', value: null });
+  } else if (config.userId) {
+    // For assigned to specific user
+    constraints.push({ field: 'userId', operator: '==', value: config.userId });
+  }
+  
+  return useQuery({
+    queryKey: ['payments', config.month, config.userId, config.search, config.sort],
+    queryFn: () => bankPaymentCrud.getFiltered(constraints, false, config.sort)
+  })
+}
+````
+
+This implementation:
+
+1. Adds a user filter dropdown that allows filtering by all users, unassigned, or a specific user
+2. Updates the payments query to filter by the selected user
+3. Handles the special case of "unassigned" payments
+
+---
+
+_**User**_
+
+@add-user-dialog.tsx Please check for unique specific symbol on change of the specific symbol field. Don't forget to debounce, please.
+
+---
+
+_**Assistant**_
+
+<think>
+I need to update the `add-user-dialog.tsx` component to add validation for the unique specific symbol. This involves:
+
+1. Adding a debounced check for uniqueness when the specific symbol input changes
+2. Checking against existing users in the database to ensure the symbol is unique
+3. Showing appropriate feedback to the user
+
+I'll need to:
+- Add a state variable to track if the symbol is being checked/is valid 
+- Create a debounced function to check the uniqueness
+- Add validation feedback in the UI
+- Prevent form submission if the symbol is not unique
+
+Let's implement this:
+</think>
+
+🤖 I'll add validation for a unique specific symbol in the add-user-dialog component with debouncing:
+
+````language=language=typescript:src/components/users/add-user-dialog.tsx
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { PlusCircle, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
+import { UserWorkflow } from "@/lib/services/workflows/user-workflow"
+import { toast } from "sonner"
+
+export function AddUserDialog() {
+  const [open, setOpen] = useState(false)
+  const [userData, setUserData] = useState({
+    name: "",
+    email: "",
+    role: "user",
+    isActive: true,
+    specificSymbol: "",
+    accountNumber: "",
+    bankCode: ""
+  })
+  
+  // State for symbol validation
+  const [isCheckingSymbol, setIsCheckingSymbol] = useState(false)
+  const [symbolError, setSymbolError] = useState<string | null>(null)
+  const [symbolValid, setSymbolValid] = useState(false)
+  
+  // Debounce timer ref
+  const symbolCheckTimerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const queryClient = useQueryClient()
+  const userWorkflow = new UserWorkflow()
+  
+  // Query to get all users for symbol validation
+  const { data: allUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userWorkflow.getAllUsers(),
+  })
+  
+  // Check if specific symbol is unique
+  const checkSymbolUniqueness = (symbol: string) => {
+    if (!symbol) {
+      setSymbolError(null)
+      setSymbolValid(false)
+      return
+    }
+    
+    setIsCheckingSymbol(true)
+    
+    // Clear previous timer if it exists
+    if (symbolCheckTimerRef.current) {
+      clearTimeout(symbolCheckTimerRef.current)
+    }
+    
+    // Set a new timer
+    symbolCheckTimerRef.current = setTimeout(() => {
+      if (allUsers) {
+        const isDuplicate = allUsers.some(
+          user => user.specificSymbol === symbol
+        )
+        
+        if (isDuplicate) {
+          setSymbolError("This specific symbol is already in use")
+          setSymbolValid(false)
+        } else {
+          setSymbol
+
+---
+
 
 
 ---
