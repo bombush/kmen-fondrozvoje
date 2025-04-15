@@ -381,84 +381,142 @@ export default function PaymentsPage() {
 
                   {/* Expanded content row */}
                   {expandedPaymentId === payment.id && (
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={6} className="p-0">
-                        <div className="p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <h4 className="font-medium mb-2">Transaction Details</h4>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <h5 className="text-sm font-medium text-muted-foreground">Counterparty</h5>
-                                  <p>{payment.counterpartyName || 'Not provided'}</p>
-                                  <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
-                                </div>
-                                <div>
-                                  <h5 className="text-sm font-medium text-muted-foreground">Message</h5>
-                                  <p>{payment.message || 'No message'}</p>
-                                </div>
-                              </div>
+                    <TableRow className="bg-muted/50">
+                    <TableCell colSpan={7} className="p-0">
+                  <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="text-sm font-medium text-muted-foreground">Counterparty</h3>
+                            <p>{payment.counterpartyName || 'Not provided'}</p>
+                            <p className="text-xs text-muted-foreground">{payment.counterpartyAccountNumber || 'No account number'}</p>
+                          </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                        <p>{payment.message || 'No message'}</p>
+                      </div>
+                    </div>
+                        
+                        {/* Parent payment section - show when this is a child payment */}
+                        {payment.isSplitFromId && (
+                          <div className="mt-4 border-t pt-4">
+                            <h3 className="text-sm font-medium mb-3">Is child payment of</h3>
+                            {allPayments && (() => {
+                              const parentPayment = allPayments.find(p => p.id === payment.isSplitFromId);
+                              if (!parentPayment) return <p className="text-sm text-muted-foreground">Parent payment not found</p>;
                               
-                              {/* Parent payment section - show when this is a child payment */}
-                              {payment.isSplitFromId && (
-                                <div className="mt-4 border-t pt-4">
-                                  <h5 className="text-sm font-medium mb-3">Is child payment of</h5>
-                                  {allPayments && (() => {
-                                    const parentPayment = allPayments.find(p => p.id === payment.isSplitFromId);
-                                    if (!parentPayment) return <p className="text-sm text-muted-foreground">Parent payment not found</p>;
-                                    
-                                    return (
-                                      <div className="flex items-center gap-2 p-2 rounded-md bg-background border">
-                                        <CornerUpRight size={16} className="text-muted-foreground" />
-                                        <div className="font-semibold">{formatMoney(parentPayment.amount)}</div>
-                                        <div className="text-muted-foreground ml-4">
-                                          Received: <span className="font-medium">{formatDate(parentPayment.receivedAt)}</span>
-                                        </div>
-                                        <button 
-                                          className="ml-auto text-xs text-primary hover:underline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedPaymentId(parentPayment.id);
-                                          }}
-                                        >
-                                          View parent
-                                        </button>
-                                      </div>
-                                    );
-                                  })()}
+                              return (
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                  <CornerUpRight size={16} className="text-muted-foreground" />
+                                  <div className="font-semibold">{formatMoney(parentPayment.amount)}</div>
+                                  <div className="text-muted-foreground ml-4">
+                                    Received: <span className="font-medium">{formatDate(parentPayment.receivedAt)}</span>
+                                  </div>
+                                  <button 
+                                    className="ml-auto text-xs text-primary hover:underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedPaymentId(parentPayment.id);
+                                    }}
+                                  >
+                                    View parent
+                                  </button>
                                 </div>
-                              )}
-                            </div>
-                            
-                            <div>
-                              <h4 className="font-medium mb-2">User Assignment</h4>
-                              <div className="flex items-center gap-2">
-                                <UserCircle2 className="h-5 w-5 text-primary" />
-                                <Select
-                                  value={payment.userId || "unassigned"}
-                                  onValueChange={(value) => handleUserChange(payment.id, value)}
-                                  disabled={!isAdmin}
-                                >
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select user">
-                                      {payment.userId ? getUserNameById(payment.userId) : "Not assigned"}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="unassigned">Not assigned</SelectItem>
-                                    {users.map(user => (
-                                      <SelectItem key={user.id} value={user.id}>
-                                        {user.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Variable Symbol</h3>
+                        <p>{payment.variableSymbol || 'Not provided'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Specific Symbol</h3>
+                        <p>{payment.specificSymbol || 'Not provided'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Constant Symbol</h3>
+                        <p>{payment.constantSymbol || 'Not provided'}</p>
+                      </div>
+
+                
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
+                        <p>{payment.bankTransactionId}</p>
+                      </div>
+                      <div>
+                                <h3 className="text-sm font-medium text-muted-foreground">User Assignment</h3>
+                                <div className="flex items-center gap-2">
+                                  <UserCircle2 className="h-5 w-5 text-primary" />
+                                  <Select
+                                    value={payment.userId || "unassigned"}
+                                    onValueChange={(value) => handleUserChange(payment.id, value)}
+                                    disabled={!isAdmin}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select user">
+                                        {payment.userId ? getUserNameById(payment.userId) : "Not assigned"}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="unassigned">Not assigned</SelectItem>
+                                      {users.map(user => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                          {user.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                           </div>
                         </div>
-                      </TableCell>
-                    </TableRow>
+
+                    
+                    
+                        {/* Child payments section */}
+                        {hasSplits && (
+                          <div className="mt-4 border-t pt-4">
+                            <h3 className="text-sm font-medium mb-3">Split Payments</h3>
+                            <div className="space-y-2">
+                              {childPayments.map(child => (
+                                <div key={child.id} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                                  <CornerDownRight size={16} className="text-muted-foreground" />
+                                  <div className="font-semibold">{formatMoney(child.amount)}</div>
+                                  <div className="text-muted-foreground ml-4">
+                                    Month: <span className="font-medium">{child.targetMonth || 'Unassigned'}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!payment.isSplitFromId && (
+                    <div className="pt-3 flex justify-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSplitPayment(payment);
+                        }}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors",
+                              hasSplits 
+                                ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                            )}
+                          >
+                            {hasSplits ? <GitBranch size={16} /> : <Split size={16} />}
+                            {hasSplits ? "Edit Split" : "Split Payment"}
+                      </button>
+                    </div>
+                        )}
+                  </div>
+                </TableCell>
+              </TableRow>
                   )}
                 </React.Fragment>
                   );
