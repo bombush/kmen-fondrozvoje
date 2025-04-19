@@ -30,7 +30,7 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
   }
 
   async create(data: Omit<T, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<T> {
-    const now = new Date().toISOString()
+    const now = new Date().getTime()
 
     const safeData = { ...data } as any; // Use type assertion 
     delete safeData.id;
@@ -67,7 +67,7 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
     // Always update the updatedAt timestamp
     const updateData = {
       ...safeData,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().getTime()
     };
     
     if (transaction) {
@@ -75,7 +75,7 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
       // Get the document after update
       const docSnap = await getDoc(documentRef)
       return { id: docSnap.id, ...docSnap.data(), ...updateData } as T
-      
+
     } else {
       await updateDoc(documentRef, updateData);
       // Get the document after update

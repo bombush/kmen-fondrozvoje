@@ -10,8 +10,8 @@ export type User = {
   bankCode?: string
   accountNumber?: string
   isActive: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 //@TODO: what if specific symbol changes?
@@ -24,8 +24,8 @@ export type BankStatement = {
   rawData: string // JSON string of raw bank statement data
   adapter: string // Name of the adapter used to parse the statement
   timestampOfStatement: number // date on the statement (Might not match the createdAt date)
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
   deleted?: boolean
 }
 
@@ -49,8 +49,8 @@ export type BankPayment = {
   isSplitFromId?: string // References parent payment if this is a virtual split
   targetMonth?: string // Which month this payment (or split) contributes to
   deleted?: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type CreditAward = {
@@ -62,8 +62,8 @@ export type CreditAward = {
   sourceType?: string  // Could be "project", "payment", etc.
   notes?: string
   targetMonth?: string // For monthly allocations
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
   deleted?: boolean
 }
 
@@ -71,8 +71,8 @@ export type CreditAwardHistory = {
   id: string
   userId: string
   amount: number
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
   originatingUserId?: string // Id of user who awarded credits
   description: string
 }
@@ -98,7 +98,7 @@ export type HistoryAction = {
     before?: any
     after?: any
   }
-  createdAt: string
+  createdAt: number
 } 
 
 
@@ -116,8 +116,8 @@ export interface Project {
   addedToAssetList: boolean
   locked: boolean
   deleted?: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type Pledge = {
@@ -125,8 +125,8 @@ export type Pledge = {
   userId: string
   projectId: string
   amount: number
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
   locked: boolean
   deleted?: boolean
   originatingUserId?: string
@@ -140,4 +140,11 @@ export interface UpdateUserInput {
   variableSymbol?: string
   constantSymbol?: string
   isActive?: boolean
+}
+
+// Update the DatabaseEntity interface
+export interface DatabaseEntity {
+  id: string;
+  createdAt: number; // Timestamp instead of string
+  updatedAt: number; // Timestamp instead of string
 }

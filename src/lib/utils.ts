@@ -14,8 +14,16 @@ export const formatMoney = (amount: number): string =>
     currency: 'USD'
   }).format(amount)
 
-export const formatDate = (date: string): string => 
-  new Date(date).toLocaleDateString()
+export const formatDate = (date: string | number): string => {
+  if (typeof date === 'number') {
+    return new Date(date).toLocaleDateString();
+  }
+  return new Date(date).toLocaleDateString();
+}
 
-export const formatDateSql = (date: string): string => 
-  new Date(date).toISOString().split('T')[0]
+export const formatDateSql = (date: string | number): string => {
+  if (typeof date === 'number') {
+    return new Date(date).toISOString().split('T')[0];
+  }
+  return new Date(date).toISOString().split('T')[0];
+}

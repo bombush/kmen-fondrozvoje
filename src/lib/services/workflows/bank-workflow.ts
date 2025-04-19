@@ -80,7 +80,7 @@ export class BankWorkflow {
         timestampOfStatement: bankStatementData.timestampOfStatement,
         rawData: rawStatement,
         status: 'processed',
-        processedAt: new Date().toISOString(),
+        processedAt: new Date().getTime(),
         adapter: 'fio'
       }, transaction)
 
@@ -177,7 +177,7 @@ export class BankWorkflow {
         ...originalPayment,
         amount: remainingAmount,
         comment: `${originalPayment.comment || ''}\nSplit ${totalSplitAmount} into ${splits.length} payments`,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().getTime()
       }
       
       await this.bankPaymentCrud.update(originalPaymentId, updatedOriginalPayment, transaction)
@@ -187,7 +187,7 @@ export class BankWorkflow {
       
       for (const split of splits) {
 
-        const childPayment : CreateBankPaymentInput = {...originalPayment,
+        const childPayment: CreateBankPaymentInput = {...originalPayment,
           amount: split.amount,
           targetMonth: split.targetMonth,
           comment: `Split from payment ${originalPaymentId}`,
@@ -277,7 +277,7 @@ export class BankWorkflow {
         amount: originalAdjustment.amount,
         targetMonth: originalAdjustment.targetMonth,
         comment: originalPayment.comment || '',
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().getTime()
       }
 
       await this.bankPaymentCrud.update(originalPaymentId, updatedOriginalPayment, transaction)
@@ -296,13 +296,13 @@ export class BankWorkflow {
             ...existingChild,
             amount: split.amount,
             targetMonth: split.targetMonth,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().getTime()
           }
           await this.bankPaymentCrud.update(existingChild.id, updatedChild, transaction)
           childPayments.push(updatedChild)
         } else {
 
-          const childPayment : CreateBankPaymentInput = {...originalPayment,
+          const childPayment: CreateBankPaymentInput = {...originalPayment,
             amount: split.amount,
             targetMonth: split.targetMonth,
             comment: `Split from payment ${originalPaymentId}`,
@@ -321,7 +321,7 @@ export class BankWorkflow {
           // This child was removed, so mark it as deleted
           await this.bankPaymentCrud.update(existingChild.id, {
             deleted: true,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().getTime()
           }, transaction)
         }
       }
