@@ -11,7 +11,15 @@ export abstract class BaseCrud<T extends DatabaseEntity> {
   }
 
   async update(id: string, data: Partial<Omit<T, "id" | "createdAt" | "updatedAt">>, transaction?: Transaction): Promise<T> {
-    return this.db.update(id, data, transaction)
+    // Create a safe copy without reserved fields
+    const safeData = { ...data } as any; // Use type assertion 
+    
+    // Now we can safely delete these properties if they exist
+    if (safeData.id) delete safeData.id;
+    if (safeData.createdAt) delete safeData.createdAt;
+    if (safeData.updatedAt) delete safeData.updatedAt;
+    
+    return this.db.update(id, safeData, transaction);
   }
 
   async getById(id: string, transaction?: Transaction): Promise<T | null> {

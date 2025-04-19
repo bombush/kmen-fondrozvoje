@@ -31,8 +31,14 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
 
   async create(data: Omit<T, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<T> {
     const now = new Date().toISOString()
+
+    const safeData = { ...data } as any; // Use type assertion 
+    delete safeData.id;
+    delete safeData.createdAt;
+    delete safeData.updatedAt;
+
     const docData = {
-      ...data,
+      ...safeData,
       createdAt: now,
       updatedAt: now
     }
@@ -50,23 +56,30 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
   }
 
   async update(id: string, data: Partial<Omit<T, "id" | "createdAt" | "updatedAt">>, transaction?: Transaction): Promise<T> {
-    const docRef = doc(this.collectionRef, id)
+    const documentRef = doc(this.collectionRef, id);
+    
+    // Create a clean copy without reserved fields
+    const safeData = { ...data } as any; // Use type assertion 
+    delete safeData.id;
+    delete safeData.createdAt;
+    delete safeData.updatedAt;
+    
+    // Always update the updatedAt timestamp
     const updateData = {
-      ...data,
+      ...safeData,
       updatedAt: new Date().toISOString()
-    }
-
+    };
+    
     if (transaction) {
-      // If we have a transaction, use it
-      transaction.update(docRef, updateData)
-      // Get the current data to merge with updates
-      const docSnap = await getDoc(docRef)
-      return { id: docSnap.id, ...docSnap.data(), ...updateData } as T
+      await transaction.update(documentRef, updateData);
+      // Get the document after update
+      const snapshot = await transaction.get(documentRef);
+      return { id, ...snapshot.data() } as T;
     } else {
-      // Otherwise use normal updateDoc
-      await updateDoc(docRef, updateData)
-      const docSnap = await getDoc(docRef)
-      return { id: docSnap.id, ...docSnap.data() } as T
+      await updateDoc(documentRef, updateData);
+      // Get the document after update
+      const docSnap = await getDoc(documentRef);
+      return { id, ...docSnap.data() } as T;
     }
   }
 
