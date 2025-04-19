@@ -73,8 +73,9 @@ export class FirebaseAdapter<T extends DatabaseEntity> implements DatabaseAdapte
     if (transaction) {
       await transaction.update(documentRef, updateData);
       // Get the document after update
-      const snapshot = await transaction.get(documentRef);
-      return { id, ...snapshot.data() } as T;
+      const docSnap = await getDoc(documentRef)
+      return { id: docSnap.id, ...docSnap.data(), ...updateData } as T
+      
     } else {
       await updateDoc(documentRef, updateData);
       // Get the document after update
