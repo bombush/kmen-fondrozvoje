@@ -64,10 +64,10 @@ export async function downloadFioStatementFromDate(date: Date): Promise<BankConn
  * Connects to FIO Bank API and downloads latest statement
  * @TODO: remove this function and use downloadFioStatementFromDate instead
  */
-export async function downloadFioStatement(): Promise<BankConnectorResult> {
+export async function downloadFioStatement(apiToken: string): Promise<BankConnectorResult> {
   try {
     // Get the API token from environment
-    const API_TOKEN = APP_CONFIG.fio?.apiToken
+    const API_TOKEN = apiToken || APP_CONFIG.fio?.apiToken
     
     if (!API_TOKEN) {
       return {

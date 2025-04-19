@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { downloadFioStatement } from "@/lib/bank-parsers/bank-connector";
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow";
 import admin from 'firebase-admin';
-
+import { FIO_API_TOKEN } from "../secrets";
 
 /**
  * TODO> change whole process>
@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
     // }
 
     // Download bank statement using connector
-    const bankStatement = await downloadFioStatement();
+    const apiToken = FIO_API_TOKEN.value();
+    const bankStatement = await downloadFioStatement(apiToken);
     if (!bankStatement.success) {
       return NextResponse.json({ 
         error: `Error downloading bank statement: ${bankStatement.message}` 
