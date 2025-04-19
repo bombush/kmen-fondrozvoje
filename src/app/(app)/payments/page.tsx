@@ -51,6 +51,7 @@ import { useUsers } from "@/hooks/use-users"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UpdatePaymentsButton } from "@/components/payments/update-payments-button"
 import { useAuth } from "@/contexts/auth-context"
+import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
 
 export default function PaymentsPage() {
   const { isAdmin } = useAuth()
@@ -172,32 +173,24 @@ export default function PaymentsPage() {
   // Handle user assignment change
   const handleUserChange = async (paymentId: string, userId: string) => {
     try {
-      const paymentToUpdate = allPayments.find(p => p.id === paymentId)
-      if (!paymentToUpdate) return
+      // Use the workflow method for user assignment which includes validation
+      const bankWorkflow = new BankWorkflow();
+      const updatedUserId = userId === "unassigned" ? null : userId;
       
-      // If "unassigned" is selected, set userId to null
-      const updatedPayment = {
-        ...paymentToUpdate,
-        userId: userId === "unassigned" ? null : userId
-      }
-      
-      await updatePaymentMutation.mutateAsync({
-        id: paymentId,
-        data: updatedPayment
-      })
+      await bankWorkflow.updatePaymentUserAssignment(paymentId, updatedUserId);
       
       toast.success("User assignment updated", {
         description: userId === "unassigned" 
           ? "Payment is now unassigned"
           : `Payment assigned to ${getUserNameById(userId)}`
-      })
+      });
       
       // Refresh the data
-      refetch()
+      refetch();
     } catch (error) {
       toast.error("Failed to update user assignment", {
         description: error instanceof Error ? error.message : "Unknown error"
-      })
+      });
     }
   }
   
@@ -448,31 +441,33 @@ export default function PaymentsPage() {
                         <h3 className="text-sm font-medium text-muted-foreground">Bank Transaction ID</h3>
                         <p>{payment.bankTransactionId}</p>
                       </div>
-                      <div>
-                                <h3 className="text-sm font-medium text-muted-foreground">User Assignment</h3>
-                                <div className="flex items-center gap-2">
-                                  <UserCircle2 className="h-5 w-5 text-primary" />
-                                  <Select
-                                    value={payment.userId || "unassigned"}
-                                    onValueChange={(value) => handleUserChange(payment.id, value)}
-                                    disabled={!isAdmin}
-                                  >
-                                    <SelectTrigger className="w-full">
-                                      <SelectValue placeholder="Select user">
-                                        {payment.userId ? getUserNameById(payment.userId) : "Not assigned"}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="unassigned">Not assigned</SelectItem>
-                                      {users.map(user => (
-                                        <SelectItem key={user.id} value={user.id}>
-                                          {user.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
+                      {!payment.isSplitFromId && (
+                        <div>
+                            <h3 className="text-sm font-medium text-muted-foreground">User Assignment</h3>
+                            <div className="flex items-center gap-2">
+                              <UserCircle2 className="h-5 w-5 text-primary" />
+                              <Select
+                                value={payment.userId || "unassigned"}
+                                onValueChange={(value) => handleUserChange(payment.id, value)}
+                                disabled={!isAdmin}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select user">
+                                    {payment.userId ? getUserNameById(payment.userId) : "Not assigned"}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unassigned">Not assigned</SelectItem>
+                                  {users.map(user => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                      {user.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
+                        )}
                         </div>
 
                     

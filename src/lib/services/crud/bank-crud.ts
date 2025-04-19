@@ -228,6 +228,18 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
       { field: "deleted", operator: "==", value: false }
     ]);
   }
+
+  /**
+   * Retrieves all child payments for a given parent payment ID
+   */
+  async getChildPayments(parentId: string): Promise<BankPayment[]> {
+    const constraints = [
+      { field: "isSplitFromId", operator: "==", value: parentId },
+      { field: "deleted", operator: "==", value: false }
+    ] satisfies QueryConstraint[];
+    
+    return this.query(constraints);
+  }
 }
 // define a type PaymentQueryParams which is a subset of Bank Payment where the explicitly mentioned fields are omited and the rest of fields are optional
 export type BankPaymentsFilterParams = Partial<Omit<BankPayment, "id" | "createdAt" | "updatedAt" | "deleted">>;

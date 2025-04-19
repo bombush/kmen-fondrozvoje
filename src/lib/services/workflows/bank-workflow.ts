@@ -334,4 +334,32 @@ export class BankWorkflow {
       }
     })
   }
+
+  /**
+   * Updates a payment's user assignment, with validation
+   * Will throw error if payment has child payments or is a child payment
+   */
+  async updatePaymentUserAssignment(paymentId: string, userId: string | null): Promise<BankPayment> {
+    // Fetch the payment to update
+    const payment = await this.bankPaymentCrud.getById(paymentId);
+    if (!payment) {
+      throw new Error(`Payment ${paymentId} not found`);
+    }
+    
+    // Check if payment is a child payment
+    if (payment.isSplitFromId) {
+      throw new Error("Cannot reassign user for a child payment");
+    }
+    
+    // Check if payment has child payments
+    const childPayments = await this.bankPaymentCrud.getChildPayments(paymentId);
+    if (childPayments.length > 0) {
+      throw new Error("Cannot reassign user for a payment with child payments");
+    }
+    
+    // Proceed with update since validation passed
+    return this.bankPaymentCrud.update(paymentId, { userId });
+
+    //@TODO possible to be part of transaction?
+  }
 }
