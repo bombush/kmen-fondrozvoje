@@ -19,7 +19,7 @@ export type User = {
 // @TODO: add field for JSON of payments
 export type BankStatement = {
   id: string
-  processedAt: string
+  processedAt: number
   status: 'pending' | 'processed' | 'error'
   rawData: string // JSON string of raw bank statement data
   adapter: string // Name of the adapter used to parse the statement
