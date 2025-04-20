@@ -125,6 +125,8 @@ export default function PaymentsPage() {
         if (search) {
           const searchLower = search.toLowerCase();
           return (
+            payment.targetMonth?.toLowerCase().includes(searchLower) ||
+            payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
             payment.counterpartyName?.toLowerCase().includes(searchLower) ||
             payment.message?.toLowerCase().includes(searchLower) ||
             payment.comment?.toLowerCase().includes(searchLower) ||
@@ -300,7 +302,7 @@ export default function PaymentsPage() {
                     className="flex items-center hover:underline font-medium"
                     onClick={() => handleSort('targetMonth')}
                   >
-                    Month
+                    Assigned Month
                     <SortIndicator field="targetMonth" />
                   </button>
                 </TableHead>
@@ -359,9 +361,9 @@ export default function PaymentsPage() {
                             <div className="w-[18px] h-[18px]" />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className={payment.amount > 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
                           {formatMoney(payment.amount)}
-                    </TableCell>
+                        </TableCell>
                     <TableCell className="truncate">{payment.counterpartyName}</TableCell>
                     <TableCell className="text-muted-foreground">{payment.userId ? getUserNameById(payment.userId) : '-'}</TableCell>
                     <TableCell className="text-muted-foreground">{payment.counterpartyAccountNumber}</TableCell>
