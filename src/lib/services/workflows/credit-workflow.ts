@@ -93,6 +93,21 @@ export class CreditWorkflow {
   }
 
   async updateCreditAllocationBasedOnPayments(month: string) {
+    // do nothing if the month is the current or future month
+    // get first day of this month
+    const firstDayOfMonth = new Date(month)
+    firstDayOfMonth.setDate(1)
+    firstDayOfMonth.setHours(0, 0, 0, 0)
+    const currentMonth = new Date()
+    currentMonth.setDate(1)
+    currentMonth.setHours(0, 0, 0, 0)
+
+    // @TODO: test
+    if(firstDayOfMonth >= currentMonth) {
+      console.warn(`Skipping updateCreditAllocationBasedOnPayments for month ${month} because it is the current or future month`)
+      return
+    }
+
     // Get all payments for the month
     const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
 

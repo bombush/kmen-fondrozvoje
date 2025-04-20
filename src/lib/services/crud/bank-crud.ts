@@ -4,6 +4,8 @@ import { QueryConstraint } from "@/lib/services/database/database-adapter"
 import { BaseCrud } from "./base-crud"
 import { query, Transaction } from "firebase/firestore"
 import { PaymentsQueryConfig } from "@/hooks/use-payments"
+import { BankWorkflow } from "../workflows/bank-workflow"
+import { CreditWorkflow } from "../workflows/credit-workflow"
 
 export class BankStatementCrud extends BaseCrud<BankStatement> {
   constructor() {
@@ -57,6 +59,12 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
   }
 
   async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<BankPayment> {
+    if(data.targetMonth) {
+      const affectedMonth = data.targetMonth
+      const creditWorkflow = new CreditWorkflow()
+      await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
+    }
+
     return super.create({
       ...data,
       deleted: false
@@ -64,10 +72,21 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
   }
 
   async update(id: string, data: Partial<BankPayment>, transaction?: Transaction): Promise<BankPayment> {
+    if(data.targetMonth) {
+      const affectedMonth = data.targetMonth
+      const creditWorkflow = new CreditWorkflow()
+      await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
+    }
     return super.update(id, data, transaction)
   }
 
   async softDelete(id: string, transaction?: Transaction): Promise<BankPayment> {
+    // get the payment and update credit allocation if it has a target month
+    const payment = await this.getById(id)
+    if(payment?.targetMonth) {
+      const creditWorkflow = new CreditWorkflow()
+      await creditWorkflow.updateCreditAllocationBasedOnPayments(payment.targetMonth)
+    }
     return this.update(id, { deleted: true }, transaction)
   }
 
