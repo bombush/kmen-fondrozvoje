@@ -2,7 +2,14 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth'
-import { auth, signIn, signOut, signUp, resetPassword } from '@/lib/firebase/auth'
+import { 
+  auth, 
+  signIn, 
+  signOut, 
+  signUp, 
+  resetPassword, 
+  signInWithGoogle 
+} from '@/lib/firebase/auth'
 import { User } from '@/types'
 import { UserCrud } from '@/lib/services/crud/user-crud'
 import { usePathname, useRouter } from 'next/navigation'
@@ -16,6 +23,7 @@ interface AuthContextType {
   isAdmin: boolean
   loading: boolean
   login: (email: string, password: string) => Promise<FirebaseUser>
+  loginWithGoogle: () => Promise<FirebaseUser>
   logout: () => Promise<void>
   register: (email: string, password: string, name: string) => Promise<FirebaseUser>
   sendPasswordResetEmail: (email: string) => Promise<void>
@@ -42,6 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           // Fetch the user from our database
           const dbUser = await userCrud.getByEmail(user.email!)
+          
+          // If no user found with this email, sign out the user
+          if (!dbUser) {
+            console.warn(`User with email ${user.email} not found in database`)
+            await signOut()
+            router.push('/login?error=User+not+found')
+            setCurrentUser(null)
+            setAppUser(null)
+            setIsAdmin(false)
+            return
+          }
+          
           setAppUser(dbUser)
           
           // Set admin status
@@ -54,11 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setAppUser(null)
         setIsAdmin(false)
-        
-        // If not on a public path, redirect to login
-        //if (!PUBLIC_PATHS.includes(pathname) && !loading) {
-        //  router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
-        //}
       }
       
       setLoading(false)
@@ -74,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin,
     loading,
     login: signIn,
+    loginWithGoogle: signInWithGoogle,
     logout: signOut,
     register: signUp,
     sendPasswordResetEmail: resetPassword

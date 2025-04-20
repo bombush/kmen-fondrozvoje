@@ -7,7 +7,9 @@ import {
   User as FirebaseUser,
   sendPasswordResetEmail,
   updateProfile,
-  connectAuthEmulator
+  connectAuthEmulator,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth'
 import { connectFirestoreEmulator } from "firebase/firestore"
 import { app, db } from './config'
@@ -15,6 +17,9 @@ import { User } from '@/types'
 
 // Get Firebase Auth instance
 export const auth = getAuth(app)
+
+// Initialize Google Auth Provider
+const googleProvider = new GoogleAuthProvider()
 
 // Connect to emulators when in development
 if (process.env.NODE_ENV === 'development') {
@@ -37,6 +42,17 @@ export const signIn = async (email: string, password: string) => {
     return userCredential.user
   } catch (error: any) {
     console.error('Error signing in:', error)
+    throw new Error(mapAuthErrorToMessage(error.code))
+  }
+}
+
+// Sign in with Google
+export const signInWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider)
+    return result.user
+  } catch (error: any) {
+    console.error('Error signing in with Google:', error)
     throw new Error(mapAuthErrorToMessage(error.code))
   }
 }
