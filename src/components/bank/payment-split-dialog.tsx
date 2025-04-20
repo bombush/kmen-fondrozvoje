@@ -118,14 +118,13 @@ export function PaymentSplitDialog({
       
       // If there are existing child payments
       if (childPayments.length > 0) {
-        // Add the original payment (if it has non-zero amount)
-        if (payment.amount > 0) {
-          initialSplits.push({
-            id: payment.id,
-            amount: payment.amount,
-            targetMonth: payment.targetMonth || currentMonth
-          });
-        }
+
+        // add original payment
+        initialSplits.push({
+          id: payment.id,
+          amount: payment.amount,
+          targetMonth: payment.targetMonth || currentMonth
+        });
         
         // Add all child payments
         childPayments

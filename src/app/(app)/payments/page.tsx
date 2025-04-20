@@ -108,6 +108,12 @@ export default function PaymentsPage() {
     setSelectedPayment(payment);
     setSplitDialogOpen(true);
   };
+
+  // Get user name by ID
+  const getUserNameById = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    return user ? user.name : "Not assigned"
+  }
   
   // Filter payments based on search and child payment visibility
   const filteredPayments = useMemo(() => {
@@ -125,6 +131,7 @@ export default function PaymentsPage() {
         if (search) {
           const searchLower = search.toLowerCase();
           return (
+            payment.userId ? getUserNameById(payment.userId)?.toLowerCase().includes(searchLower) : false ||
             payment.targetMonth?.toLowerCase().includes(searchLower) ||
             payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
             payment.counterpartyName?.toLowerCase().includes(searchLower) ||
@@ -196,11 +203,7 @@ export default function PaymentsPage() {
     }
   }
   
-  // Get user name by ID
-  const getUserNameById = (userId: string) => {
-    const user = users.find(u => u.id === userId)
-    return user ? user.name : "Not assigned"
-  }
+  
 
   return (
     <div className="space-y-6">
