@@ -55,7 +55,13 @@ export async function GET(request: NextRequest) {
     // }
 
     // Download bank statement using connector
-    const apiToken = FIO_API_TOKEN.value();
+    let apiToken:string;
+    if(process.env.NODE_ENV === 'development') {
+      apiToken = process.env.FIO_API_TOKEN_DEV || '';
+    } else {
+      apiToken = FIO_API_TOKEN.value();
+    }
+    
     const bankStatement = await downloadFioStatement(apiToken);
     if (!bankStatement.success) {
       return NextResponse.json({ 
