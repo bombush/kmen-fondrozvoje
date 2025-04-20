@@ -24,7 +24,7 @@ import React from "react"
 
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
 import { useLastPayment } from "@/hooks/use-payments"
-
+import { RawBankPayment } from "@/lib/bank-parsers/types"
 const bankWorkflow = new BankWorkflow()
 
 function PrettyJSON({ data }: { data: any }) {
@@ -113,7 +113,7 @@ export function UpdatePaymentsButton() {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number } | null>(null)
+  const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number; payments?: RawBankPayment[] } | null>(null)
   const [isDataOpen, setIsDataOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const lastPayment = useLastPayment()
@@ -158,7 +158,8 @@ export function UpdatePaymentsButton() {
       setSuccess({
         message: data.message || "Successfully fetched bank statement",
         data: data.data,
-        paymentsProcessed: result.paymentsProcessed
+        paymentsProcessed: result.paymentsProcessed,
+        payments: result.payments
       })
     } catch (err) {
       console.error("Error updating payments:", err)
@@ -232,7 +233,7 @@ export function UpdatePaymentsButton() {
                 
                 {success.data && success.data.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium">Retrieved {success.data.length} new transactions</p>
+                    <p className="text-sm font-medium">Retrieved {success.paymentsProcessed} new transactions</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       These transactions will be processed in the background. You can check back later to see the updated payments.
                     </p>

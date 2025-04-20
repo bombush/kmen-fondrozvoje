@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase/config"
 import { runTransaction } from "firebase/firestore"
 import { HistoryCrud } from "../crud/history-crud"
 import { FioParser } from "@/lib//bank-parsers/fio-parser";
-import { ParserResult } from "@/lib/bank-parsers/types";
+import { ParserResult, RawBankPayment } from "@/lib/bank-parsers/types";
 import { CreditWorkflow } from "./credit-workflow"
 import { where } from "firebase/firestore"
 
@@ -57,7 +57,8 @@ export class BankWorkflow {
   }
   
   async loadPaymentsFromBankStatementAndUpdateCreditAllocation(rawStatement:string): Promise<{
-    paymentsProcessed: number
+    paymentsProcessed: number,
+    payments: RawBankPayment[]
   }> {
     // if empty raw statement, throw error
     if (!rawStatement) {
@@ -127,7 +128,8 @@ export class BankWorkflow {
     // @TODO: write log
 
     return {
-      paymentsProcessed: bankStatementData.payments.length
+      paymentsProcessed: bankStatementData.payments.length,
+      payments: bankStatementData.payments
     }
   }
 
