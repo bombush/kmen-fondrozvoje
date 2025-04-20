@@ -46323,6 +46323,56 @@ This resolves the conflict between the icon component (which doesn't accept a va
 
 ---
 
+_**User**_
+
+Now make the payments window vertical overflow scrollable
+
+---
+
+_**Assistant**_
+
+<think>
+I need to make the payments table scrollable vertically within the collapsible section in the update-payments-button.tsx component. Currently, it's already scrollable horizontally (with the `overflow-x-auto` class), but we need to add vertical scrolling as well.
+
+The best way to do this is to:
+
+1. Add a max height to the table container
+2. Add the `overflow-y-auto` class to enable vertical scrolling
+
+Let's modify the div that wraps the Table component inside CollapsibleContent.
+</think>
+
+🤖 Here's how to make the payments table vertically scrollable:
+
+````language=typescript:src/components/payments/update-payments-button.tsx
+<CollapsibleContent className="border-t">
+  <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Date</TableHead>
+          <TableHead>Amount</TableHead>
+          <TableHead>Party</TableHead>
+          <TableHead>Message</TableHead>
+          <TableHead>Symbols</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {/* Table content remains the same */}
+      </TableBody>
+    </Table>
+  </div>
+</CollapsibleContent>
+````
+
+I've added:
+1. `max-h-[400px]` - Sets a maximum height of 400px for the table container
+2. `overflow-y-auto` - Enables vertical scrolling with scrollbars when content exceeds the max height
+
+You can adjust the `400px` value to your preference based on your UI design.
+
+---
+
 
 
 ---

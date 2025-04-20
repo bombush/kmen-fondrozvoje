@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
   }
   
   // parse lastDate to Date
-  const lastDate = new Date(lastDateParam);
+  //@TODO: remove this once we have a real last date
+  //const lastDate = new Date(lastDateParam);
+  const lastDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   // check if lastDateDate is valid
   if (isNaN(lastDate.getTime())) {
     return NextResponse.json({ 

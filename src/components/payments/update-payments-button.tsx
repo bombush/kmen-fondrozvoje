@@ -295,7 +295,7 @@ export function UpdatePaymentsButton() {
                         )}
                       </CollapsibleTrigger>
                       <CollapsibleContent className="border-t">
-                        <div className="overflow-x-auto">
+                        <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -309,7 +309,7 @@ export function UpdatePaymentsButton() {
                             <TableBody>
                               {success.payments?.map((payment, index) => (
                                 <TableRow key={index}>
-                                  <TableCell>{payment.receivedAt}</TableCell>
+                                  <TableCell>{payment.receivedAt.substring(0, 10)}</TableCell>
                                   <TableCell className={payment.amount > 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
                                     {formatMoney(payment.amount)}
                                   </TableCell>
