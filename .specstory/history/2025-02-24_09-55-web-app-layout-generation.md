@@ -45745,7 +45745,581 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null)
+  const [appUser, setAppUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+  
+  const userCrud = new UserCrud()
+  
+  // Handle authentication and routing
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user)
+      
+      if (user) {
+        try {
+          // Fetch the user from our database
+          const dbUser = await userCrud.getByEmail(user.email!)
+          
+          // If no user found with this email, sign out the user
+          if (!dbUser) {
+            console.warn(`User with email ${user.email} not found in database`)
+            await signOut()
+            router.push('/login?error=User+not+found')
+            setCurrentUser(null)
+            setAppUser(null)
+            setIsAdmin(false)
+            return
+          }
+          
+          setAppUser(dbUser)
+          
+          // Set admin status
+          setIsAdmin(dbUser?.role === 'admin')
+        } catch (error) {
+          console.error('Error fetching user data:', error)
+          setAppUser(null)
+          setIsAdmin(false)
+        }
+      } else {
+        setAppUser(null)
+        setIsAdmin(false)
+      }
+      
+      setLoading(false)
+    })
+    
+    // Clean up subscription
+    return unsubscribe
+  }, [pathname])
+  
+  const value = {
+    currentUser,
+    appUser,
+    isAdmin,
+    loading,
+    login: signIn,
+    loginWithGoogle: signInWithGoogle,
+    logout: signOut,
+    register: signUp,
+    sendPasswordResetEmail: resetPassword
+  }
+  
+  return (
+    <AuthContext.Provider value={value}>
+      {loading ? (
+        // Show loading state
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+````
+
+Now let's also update the login page to display error messages from the URL query parameters:
+
+````language=typescript:src/app/(auth)/login/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import Link from 'next/link'
+import { Separator } from '@/components/ui/separator'
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const { login, loginWithGoogle, currentUser } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectPath = searchParams.get('redirect') || '/'
+  const errorParam = searchParams.get('error')
+  
+  // Set error from URL parameter if available
+  useEffect(() => {
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam))
+    }
+  }, [errorParam])
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      router.push(redirectPath)
+    }
+  }, [currentUser, redirectPath, router])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    
+    if (!email || !password) {
+      setError('Please enter both email and password')
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await login(email, password)
+      router.push(redirectPath)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to sign in')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError('')
+    try {
+      setGoogleLoading(true)
+      await loginWithGoogle()
+      // Router redirect is handled by the auth context if successful
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to sign in with Google')
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <Card className="w-[400px]">
+        <CardHeader>
+          <CardTitle>Sign In</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Button 
+            variant="outline" 
+            onClick={handleGoogleSignIn} 
+            disabled={googleLoading} 
+            className="w-full mb-4 flex items-center justify-center gap-2"
+          >
+            {googleLoading ? (
+              'Signing in...'
+            ) : (
+              <>
+                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.61z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                Sign in with Google
+              </>
+            )}
+          </Button>
+          
+          <div className="relative my-4">
+            <Separator />
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
+              OR
+            </span>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link 
+                  href="/forgot-password" 
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign In with Email'}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <div className="text-sm text-muted-foreground">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="text-primary hover:underline">
+              Create one
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  )
+}
+````
+
+I've made the following changes:
+
+1. Removed the automatic user creation logic from the auth context
+2. Added code to sign out and redirect to login if a user tries to sign in with Google but the email doesn't exist in your database
+3. Added an error message handler from URL parameters to display errors when redirected to the login page
+4. Added a user-friendly error message explaining that the user was not found when attempting Google login
+
+This ensures that only users who are already in your database can sign in, whether they use email/password or Google authentication.
+
+---
+
+_**User**_
+
+@update-payments-button.tsx Add a collapsible table of payments to the update payments dialog.
+The table will use success.payments as source
+
+---
+
+_**Assistant**_
+
+<think>
+I'm asked to add a collapsible table of payments to the update-payments-button.tsx component. The table should display the payments retrieved from the bank, which will be available in the `success.payments` property.
+
+Looking at the current file, I see that it already has the necessary imports and it's using the `Collapsible` component from `@/components/ui/collapsible` to show JSON data. I need to add another collapsible section to display the payments in a table format.
+
+Here's what I need to do:
+
+1. Add a new collapsible section for the payments table
+2. Create a table that displays the payment data in a more readable format
+3. Make sure the table is responsive and handles all types of payment data
+
+For the table, I'll show relevant information like:
+- Amount
+- Received date
+- Message/Description
+- Variable symbol (if available)
+- Counter-party information
+
+The table should be styled consistently with the rest of the UI, using the Shadcn UI components.
+</think>
+
+🤖 Let's add a collapsible table for payment details to the update-payments-button.tsx component:
+
+````language=typescript:src/components/payments/update-payments-button.tsx
+import { JSX } from "react"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, AlertCircle, CheckCircle2, Copy, ClipboardCheck, ChevronDown, ChevronUp, Eye } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { formatDate, formatMoney } from "@/lib/utils"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import React from "react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+
+import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
+import { useLastPayment } from "@/hooks/use-payments"
+import { RawBankPayment } from "@/lib/bank-parsers/types"
+
+const bankWorkflow = new BankWorkflow()
+
+// Existing PrettyJSON component...
+
+export function UpdatePaymentsButton() {
+  const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number; payments?: RawBankPayment[] } | null>(null)
+  const [isDataOpen, setIsDataOpen] = useState(false)
+  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
+  const { data: lastPayment } = useLastPayment()
+
+  // Rest of existing functions...
+
+  return (
+    <>
+      <Button 
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-2"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Update Payments
+      </Button>
+      
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Update Payments from Bank</DialogTitle>
+            <DialogDescription>
+              Fetch the latest bank statement and update payments in the system
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Existing code for last payment info */}
+            
+            {/* Existing code for error and success alerts */}
+            
+            {success && (
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription>
+                    {success.message}
+                  </AlertDescription>
+                </Alert>
+                
+                {success.payments && success.payments.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">Retrieved {success.paymentsProcessed} new transactions</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      These transactions will be processed in the background. You can check back later to see the updated payments.
+                    </p>
+                    
+                    {/* Collapsible Payments Table */}
+                    <Collapsible 
+                      open={isPaymentsOpen} 
+                      onOpenChange={setIsPaymentsOpen}
+                      className="mt-4 border rounded-md"
+                    >
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-sm font-medium text-left">
+                        <span>Payment Details</span>
+                        {isPaymentsOpen ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="border-t">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Amount</TableHead>
+                                <TableHead>Party</TableHead>
+                                <TableHead>Message</TableHead>
+                                <TableHead>Symbols</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {success.payments.map((payment, index) => (
+                                <TableRow key={index}>
+                                  <TableCell>{payment.receivedAt}</TableCell>
+                                  <TableCell className={payment.amount > 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                                    {formatMoney(payment.amount)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {payment.counterpartyName || '-'}
+                                    {payment.counterpartyAccountNumber && (
+                                      <div className="text-xs text-muted-foreground">
+                                        {payment.counterpartyAccountNumber}/{payment.counterpartyBankCode || ''}
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="max-w-[200px] truncate" title={payment.message}>
+                                      {payment.message || '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {payment.variableSymbol && (
+                                      <Badge variant="secondary" className="mr-1">
+                                        VS: {payment.variableSymbol}
+                                      </Badge>
+                                    )}
+                                    {payment.specificSymbol && (
+                                      <Badge variant="secondary" className="mr-1">
+                                        SS: {payment.specificSymbol}
+                                      </Badge>
+                                    )}
+                                    {payment.constantSymbol && (
+                                      <Badge variant="secondary">
+                                        CS: {payment.constantSymbol}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                    
+                    {/* Existing Collapsible JSON Response */}
+                    <Collapsible 
+                      open={isDataOpen} 
+                      onOpenChange={setIsDataOpen}
+                      className="mt-4 border rounded-md"
+                    >
+                      {/* Existing JSON display content */}
+                    </Collapsible>
+                  </div>
+                )}
+                
+                {success.data && success.data.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No new transactions were found.</p>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setOpen(false)} 
+              disabled={isLoading}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+````
+
+The key changes I made:
+
+1. Added imports for the Table components and additional icons
+2. Added `formatMoney` to imports from utils
+3. Added a new state variable `isPaymentsOpen` to control the payments table collapsible
+4. Created a new collapsible section that shows a table of payments with the following columns:
+   - Date received
+   - Amount (with positive amounts in green, negative in red)
+   - Counterparty information
+   - Message/description with truncation for long messages
+   - Payment symbols (VS, SS, CS) displayed as badges
+
+This gives users a much more readable view of the payments being processed without having to parse through the raw JSON data. The table is responsive with horizontal scrolling for smaller screens.
+
+---
+
+_**User**_
+
+For the code present, we get this error:
+```
+Type '{ children: string[]; variant: string; className: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+```
+How can I resolve this? If you propose a fix, please make it concise.
+
+---
+
+_**Assistant**_
+
+<think>
+The error is suggesting that there's a confusion between the `Badge` component imported from `lucide-react` (which is an icon) and the `Badge` component from your UI component library that accepts a `variant` prop.
+
+Looking at the imports:
+
+```typescript
+import { RefreshCw, AlertCircle, CheckCircle2, Copy, ClipboardCheck, Badge, Table } from "lucide-react"
+```
+
+Here you're importing `Badge` from `lucide-react`, which is an icon component. Then later in your code, you're using it like:
+
+```tsx
+<Badge variant="secondary" className="mr-1">
+  VS: {payment.variableSymbol}
+</Badge>
+```
+
+But the lucide-react `Badge` icon doesn't accept a `variant` prop - it's an SVG icon, not a UI component.
+
+To fix this, we need to properly import the `Badge` component from your UI library:
+
+```typescript
+import { Badge } from "@/components/ui/badge"
+```
+
+And remove the incorrect import from `lucide-react`.
+</think>
+
+🤖 The issue is that you're importing the `Badge` icon from `lucide-react` instead of the `Badge` component from your UI library.
+
+Fix the imports:
+
+````language=typescript:src/components/payments/update-payments-button.tsx
+import { RefreshCw, AlertCircle, CheckCircle2, Copy, ClipboardCheck } from "lucide-react"
+// Remove Badge and Table from lucide-react imports
+
+// Add this import 
+import { Badge } from "@/components/ui/badge"
+````
+
+This resolves the conflict between the icon component (which doesn't accept a variant prop) and your UI component (which does).
 
 ---
 

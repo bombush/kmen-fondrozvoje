@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatMoney } from "@/lib/utils"
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,6 +25,8 @@ import React from "react"
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
 import { useLastPayment } from "@/hooks/use-payments"
 import { RawBankPayment } from "@/lib/bank-parsers/types"
+import { Table, TableBody, TableRow, TableHeader, TableHead, TableCell } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 const bankWorkflow = new BankWorkflow()
 
 function PrettyJSON({ data }: { data: any }) {
@@ -115,6 +117,7 @@ export function UpdatePaymentsButton() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<{ message: string; data?: any; paymentsProcessed?: number; payments?: RawBankPayment[] } | null>(null)
   const [isDataOpen, setIsDataOpen] = useState(false)
+  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const lastPayment = useLastPayment()
   
@@ -201,7 +204,7 @@ export function UpdatePaymentsButton() {
             <DialogDescription>
               {isLoading 
                 ? 'Please wait while we fetch the latest transactions from your bank.'
-                : 'The bank statement processing will be handled separately.'}
+                : 'Bank statement fetched.'}
             </DialogDescription>
           </DialogHeader>
           
@@ -277,6 +280,77 @@ export function UpdatePaymentsButton() {
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
+
+                    <Collapsible 
+                      open={isPaymentsOpen} 
+                      onOpenChange={setIsPaymentsOpen}
+                      className="mt-4 border rounded-md"
+                    >
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-sm font-medium text-left">
+                        <span>Payment Details</span>
+                        {isPaymentsOpen ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="border-t">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Amount</TableHead>
+                                <TableHead>Party</TableHead>
+                                <TableHead>Message</TableHead>
+                                <TableHead>Symbols</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {success.payments?.map((payment, index) => (
+                                <TableRow key={index}>
+                                  <TableCell>{payment.receivedAt}</TableCell>
+                                  <TableCell className={payment.amount > 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                                    {formatMoney(payment.amount)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {payment.counterpartyName || '-'}
+                                    {payment.counterpartyAccountNumber && (
+                                      <div className="text-xs text-muted-foreground">
+                                        {payment.counterpartyAccountNumber}/{payment.counterpartyBankCode || ''}
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="max-w-[200px] truncate" title={payment.message}>
+                                      {payment.message || '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {payment.variableSymbol && (
+                                      <Badge variant="secondary" className="mr-1">
+                                        VS: {payment.variableSymbol}
+                                      </Badge>
+                                    )}
+                                    {payment.specificSymbol && (
+                                      <Badge variant="secondary" className="mr-1">
+                                        SS: {payment.specificSymbol}
+                                      </Badge>
+                                    )}
+                                    {payment.constantSymbol && (
+                                      <Badge variant="secondary">
+                                        CS: {payment.constantSymbol}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                              
                   </div>
                 )}
                 
