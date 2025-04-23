@@ -22,6 +22,8 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react"
 import React from "react"
 
+import { useQueryClient } from "@tanstack/react-query"
+
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
 import { useLastPayment } from "@/hooks/use-payments"
 import { RawBankPayment } from "@/lib/bank-parsers/types"
@@ -120,7 +122,7 @@ export function UpdatePaymentsButton() {
   const [isPaymentsOpen, setIsPaymentsOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const lastPayment = useLastPayment()
-  
+  const queryClient = useQueryClient()
   
   // The date of the last payment to fetch from
   // This would typically come from your database, but for now we'll use a static date
@@ -156,6 +158,8 @@ export function UpdatePaymentsButton() {
       }
       
       const result = await bankWorkflow.loadPaymentsFromBankStatementAndUpdateCreditAllocation(data.data)
+
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
       
       // Success! 
       setSuccess({
