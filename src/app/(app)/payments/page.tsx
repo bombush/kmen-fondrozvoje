@@ -52,6 +52,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UpdatePaymentsButton } from "@/components/payments/update-payments-button"
 import { useAuth } from "@/contexts/auth-context"
 import { BankWorkflow } from "@/lib/services/workflows/bank-workflow"
+import { useQueryClient } from "@tanstack/react-query"
+import { usePaymentUserAssignment } from "@/hooks/use-payment-user-assignment"
 
 export default function PaymentsPage() {
   const { isAdmin } = useAuth()
@@ -82,6 +84,7 @@ export default function PaymentsPage() {
   
   // Update payment mutation
   const updatePaymentMutation = useUpdatePayment()
+  const queryClient = useQueryClient()
   
   // Function to handle sorting
   const handleSort = (field: keyof BankPayment) => {
@@ -180,31 +183,8 @@ export default function PaymentsPage() {
   };
   
   // Handle user assignment change
-  const handleUserChange = async (paymentId: string, userId: string) => {
-    try {
-      // Use the workflow method for user assignment which includes validation
-      const bankWorkflow = new BankWorkflow();
-      const updatedUserId = userId === "unassigned" ? null : userId;
-      
-      await bankWorkflow.updatePaymentUserAssignment(paymentId, updatedUserId);
-      
-      toast.success("User assignment updated", {
-        description: userId === "unassigned" 
-          ? "Payment is now unassigned"
-          : `Payment assigned to ${getUserNameById(userId)}`
-      });
-      
-      // Refresh the data
-      refetch();
-    } catch (error) {
-      toast.error("Failed to update user assignment", {
-        description: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  }
+  const handleUserChange = usePaymentUserAssignment()
   
-  
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -453,7 +433,7 @@ export default function PaymentsPage() {
                               <UserCircle2 className="h-5 w-5 text-primary" />
                               <Select
                                 value={payment.userId || "unassigned"}
-                                onValueChange={(value) => handleUserChange(payment.id, value)}
+                                onValueChange={(value) => handleUserChange(payment.id, value, getUserNameById)}
                                 disabled={!isAdmin}
                               >
                                 <SelectTrigger className="w-full">
