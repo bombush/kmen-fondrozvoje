@@ -21,6 +21,7 @@ export function usePaymentUserAssignment() {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['userBalance'] })
+      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
       
     } catch (error) {
       toast.error("Failed to update user assignment", {

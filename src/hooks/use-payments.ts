@@ -19,6 +19,8 @@ export function useUpdatePayment() {
     mutationFn: ({id, data}: {id: string, data: BankPayment}) => bankPaymentCrud.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+      queryClient.invalidateQueries({ queryKey: ['userBalance'] })
     }
   })
 } 
