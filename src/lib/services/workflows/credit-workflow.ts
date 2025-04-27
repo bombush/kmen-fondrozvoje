@@ -110,28 +110,32 @@ export class CreditWorkflow {
 
      // @TODO: all of this must run in a transaction (reads as well as writes)
 
-    // Get all payments for the month
-    const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
-
-    // Get all existing automatic credit awards for the month
-    const automaticAwards = await this.creditAwardCrud.getAutomaticAwardsByMonth(month)
-
-    // create a map of total amount received for each user
-    const totalAmountReceivedByUser = payments.reduce((acc: Record<string, number>, payment: BankPayment) => {
-      acc[payment.userId] = acc[payment.userId] || 0
-      acc[payment.userId] += payment.amount
-      return acc
-    }, {})
-
-    // sum all payments for the month
-    const totalAmountReceived = payments.reduce((acc: number, payment: BankPayment) => acc + payment.amount, 0)
-
-    // create a list of users with non-zero amount received
-    const usersWithNonZeroAmountReceived = Object.keys(totalAmountReceivedByUser).filter((userId: string) => totalAmountReceivedByUser[userId] > 0)
-
-    const creditsPerUser = totalAmountReceived / usersWithNonZeroAmountReceived.length
 
     await runTransaction(db, async (transaction) => {
+
+        // @TODO: read transaction
+        // Get all payments for the month
+        const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
+        //transaction.get()
+        
+        // Get all existing automatic credit awards for the month
+        const automaticAwards = await this.creditAwardCrud.getAutomaticAwardsByMonth(month)
+
+        // create a map of total amount received for each user
+        const totalAmountReceivedByUser = payments.reduce((acc: Record<string, number>, payment: BankPayment) => {
+          acc[payment.userId] = acc[payment.userId] || 0
+          acc[payment.userId] += payment.amount
+          return acc
+        }, {})
+
+        // sum all payments for the month
+        const totalAmountReceived = payments.reduce((acc: number, payment: BankPayment) => acc + payment.amount, 0)
+
+        // create a list of users with non-zero amount received
+        const usersWithNonZeroAmountReceived = Object.keys(totalAmountReceivedByUser).filter((userId: string) => totalAmountReceivedByUser[userId] > 0)
+
+        const creditsPerUser = totalAmountReceived / usersWithNonZeroAmountReceived.length
+        
         // update or create new credit awards for the month
         const updatedAwards = automaticAwards.map(async (award) => {
           return await this.creditAwardCrud.update(
