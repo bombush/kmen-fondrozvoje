@@ -160,6 +160,8 @@ export function UpdatePaymentsButton() {
       const result = await bankWorkflow.loadPaymentsFromBankStatementAndUpdateCreditAllocation(data.data)
 
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+      queryClient.invalidateQueries({ queryKey: ['userBalance'] })
       
       // Success! 
       setSuccess({

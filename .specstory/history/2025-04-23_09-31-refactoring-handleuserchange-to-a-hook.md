@@ -398,7 +398,95 @@ The functionality remains exactly the same, but the code organization better ref
 
 ---
 
+_**User**_
 
+Please add ability to read in transaction to all of the crud classes
+
+---
+
+_**Assistant**_
+
+🤖 To add the ability to read "in transaction" to all of your CRUD classes, you should:
+
+1. Add an optional `trx?: Transaction` parameter to all relevant read/query methods in each CRUD class.
+2. Pass this transaction object to your database calls (e.g., Prisma, Knex, or whatever ORM/DB client you use).
+3. Default to the normal DB client if no transaction is provided.
+
+Below is an example for a typical CRUD class using Prisma. Adjust as needed for your ORM.
+
+---
+
+### Example: Update for CreditAwardCrud
+
+```typescript:src/lib/services/crud/credit-award-crud.ts
+// ... existing imports ...
+import { Prisma, PrismaClient } from "@prisma/client"
+// ... existing code ...
+
+export class CreditAwardCrud {
+  prisma: PrismaClient
+
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma ?? globalThis.prisma // or however you get your PrismaClient
+  }
+
+  // Example: get by id
+  async getById(id: string, trx?: Prisma.TransactionClient) {
+    const client = trx ?? this.prisma
+    return client.creditAward.findUnique({ where: { id } })
+  }
+
+  // Example: get all
+  async getAll(trx?: Prisma.TransactionClient) {
+    const client = trx ?? this.prisma
+    return client.creditAward.findMany()
+  }
+
+  // Example: getMonthRange
+  async getMonthRange(trx?: Prisma.TransactionClient) {
+    const client = trx ?? this.prisma
+    // ... your logic here ...
+    return client.creditAward.findMany({
+      select: { targetMonth: true },
+      distinct: ['targetMonth'],
+      orderBy: { targetMonth: 'desc' }
+    })
+  }
+
+  // ... repeat for other read/query methods ...
+}
+```
+
+---
+
+### General Pattern for All CRUD Classes
+
+For each CRUD class (e.g., `BankPaymentCrud`, `UserCrud`, etc):
+
+- Add `trx?: TransactionType` as an optional parameter to all read/query methods.
+- Use `const client = trx ?? this.prisma` (or your DB client).
+- Use `client` for all DB calls in that method.
+
+---
+
+### If Using Knex
+
+```typescript
+async getById(id: string, trx?: Knex.Transaction) {
+  const db = trx ?? this.knex
+  return db('credit_award').where({ id }).first()
+}
+```
+
+---
+
+### Summary
+
+- **Add** `trx?: TransactionType` to all read/query methods.
+- **Use** `trx ?? this.dbClient` for all DB calls.
+- **Repeat** for all CRUD classes.
+
+If you want a specific example for another CRUD class or ORM, let me know!
 
 ---
 
