@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { useCreditAwardDeletion } from "@/hooks/use-credit-award-deletion"
 
 const PAGE_SIZE = 2
 
@@ -66,7 +67,7 @@ export default function CreditsPage() {
   });
   
   const { 
-    data: filteredAwards = [],
+    data: filteredAwards = [] as CreditAward[],
     isLoading, 
     fetchNextPage, 
     hasNextPage, 
@@ -74,40 +75,25 @@ export default function CreditsPage() {
   } = usePaginatedCreditAwards(reasonFilter, userFilter, monthFilter, PAGE_SIZE)
   const observerTarget = useRef<HTMLDivElement>(null)
 
+  // Dialog state
   const [awardToDelete, setAwardToDelete] = useState<CreditAward | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const queryClient = useQueryClient()
-  const { toast } = useToast()
+  const { deleteAward, isDeleting } = useCreditAwardDeletion()
 
-  const { mutate: deleteAward, isPending: isDeleting } = useMutation({
-    mutationFn: async (awardId: string) => {
-      const creditAwardCrud = new CreditAwardCrud()
-      return creditAwardCrud.softDelete(awardId)
-    },
-    onSuccess: () => {
-      toast({
-        title: "Credit award deleted",
-        description: "The credit award has been successfully deleted.",
-      })
-      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
+  // Dialog handlers
+  const handleDeleteClick = (award: CreditAward) => {
+    setAwardToDelete(award)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (awardToDelete) {
+      deleteAward(awardToDelete.id)
       setDeleteDialogOpen(false)
       setAwardToDelete(null)
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting credit award",
-        description: error.message,
-        variant: "destructive",
-      })
     }
-  })
+  }
 
-  const getUserName = useCallback((userId: string | undefined) => {
-    if (!userId) return 'Unknown';
-    const user = users?.find(u => u.id === userId);
-    return user ? user.name : 'Unknown';
-  }, [users]);
-  
   // Setup intersection observer for infinite scrolling
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -156,16 +142,11 @@ export default function CreditsPage() {
     }
   }
 
-  const handleDeleteClick = (award: CreditAward) => {
-    setAwardToDelete(award)
-    setDeleteDialogOpen(true)
-  }
-
-  const confirmDelete = () => {
-    if (awardToDelete) {
-      deleteAward(awardToDelete.id)
-    }
-  }
+  const getUserName = useCallback((userId: string | undefined) => {
+    if (!userId) return 'Unknown';
+    const user = users?.find(u => u.id === userId);
+    return user ? user.name : 'Unknown';
+  }, [users]);
 
   return (
     <div className="container py-2 space-y-2">
@@ -311,8 +292,6 @@ export default function CreditsPage() {
         </>
       )}
       
-
-
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
