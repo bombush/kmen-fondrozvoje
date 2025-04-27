@@ -60,6 +60,7 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
 
   async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<BankPayment> {
     if(data.targetMonth) {
+      console.log(`Updating credit allocation for month ${data.targetMonth}`)
       const affectedMonth = data.targetMonth
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
@@ -73,6 +74,7 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
 
   async update(id: string, data: Partial<BankPayment>, transaction?: Transaction): Promise<BankPayment> {
     if(data.targetMonth) {
+      console.log(`Updating credit allocation for month ${data.targetMonth}`)
       const affectedMonth = data.targetMonth
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
@@ -84,6 +86,7 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     // get the payment and update credit allocation if it has a target month
     const payment = await this.getById(id)
     if(payment?.targetMonth) {
+      console.log(`Updating credit allocation for month ${payment.targetMonth}`)
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(payment.targetMonth)
     }
