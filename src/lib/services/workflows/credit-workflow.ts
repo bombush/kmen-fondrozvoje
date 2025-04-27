@@ -108,6 +108,8 @@ export class CreditWorkflow {
       return
     }
 
+     // @TODO: all of this must run in a transaction (reads as well as writes)
+
     // Get all payments for the month
     const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
 
