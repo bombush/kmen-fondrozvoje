@@ -81,6 +81,7 @@ export function RedistributeFundsDialog({
       queryClient.invalidateQueries({ queryKey: ['projectBalance'] })
       queryClient.invalidateQueries({ queryKey: ['projectPledges'] })
       queryClient.invalidateQueries({ queryKey: ['userPledge'] })
+      queryClient.invalidateQueries({ queryKey: ['userBalance'] })
     },
     onError: (error) => {
       toast.error("Error", {
