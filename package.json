@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"firebase emulators:start --project=demo-kmen-fondrozvoje\" \"./node_modules/.bin/tsx --tsconfig ./tsconfig.scripts.json ./scripts/populate-emulator.ts\" \"next dev --turbopack\"",
+    "dev": "concurrently \"firebase emulators:start --project=demo-kmen-fondrozvoje\" \"./node_modules/.bin/tsx --tsconfig ./tsconfig.scripts.json ./scripts/populate-emulator.ts\" \"NODE_OPTIONS='--inspect' next dev --turbopack\"",
     "dev:next": "next dev --turbopack",
     "dev:emulator": "firebase emulators:start --project=demo-kmen-fondrozvoje",
     "populate-emulator": "./node_modules/.bin/tsx --tsconfig ./tsconfig.scripts.json ./scripts/populate-emulator.ts",
