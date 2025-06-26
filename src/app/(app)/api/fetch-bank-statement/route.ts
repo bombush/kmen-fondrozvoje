@@ -26,7 +26,7 @@ async function authCheck(request: NextRequest): Promise<admin.auth.UserRecord | 
 // download bank statement from that date
 // return bank statement as JSON
 export async function GET(request: NextRequest) {
-  console.log("Processing update-credits request");
+  console.log("Processing fetch-bank-statement request");
   const lastDateParam = request.nextUrl.searchParams.get("lastDate");
   if (!lastDateParam) {
     return NextResponse.json({ 

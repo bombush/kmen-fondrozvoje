@@ -64,7 +64,7 @@ export function useLastPayment() {
     return null
   }
 
-  console.log("payments  data:", payments.data?.[0])
+  //console.log("payments  data:", payments.data?.[0])
   // sort by receivedAtTimestamp descending 
   payments.data?.sort((a, b) => b.receivedAtTimestamp - a.receivedAtTimestamp)
   return payments.data?.[0]

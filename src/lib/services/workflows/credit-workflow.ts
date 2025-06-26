@@ -116,17 +116,29 @@ export class CreditWorkflow {
         // @TODO: read transaction
         // Get all payments for the month
         const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
-        //transaction.get()
+
+        // validate that the payments are not negative
+        const negativePayments = payments.filter((payment: BankPayment) => payment.amount < 0)
+        if(negativePayments.length > 0) {
+          console.error(`Found negative payments for month ${month}: ${negativePayments.map((payment: BankPayment) => payment.id).join(', ')}`)
+          throw new Error(`Found negative payments for month ${month}: ${negativePayments.map((payment: BankPayment) => payment.id).join(', ')}`)
+        }
         
         // Get all existing automatic credit awards for the month
         const automaticAwards = await this.creditAwardCrud.getAutomaticAwardsByMonth(month)
 
-        // create a map of total amount received for each user
+        console.log("payments: ", payments)
+
+        // create a map of total amount received for 
+        // each user
         const totalAmountReceivedByUser = payments.reduce((acc: Record<string, number>, payment: BankPayment) => {
           acc[payment.userId] = acc[payment.userId] || 0
           acc[payment.userId] += payment.amount
           return acc
         }, {})
+
+        
+        //console.log("totalAmountReceivedByUser: ", totalAmountReceivedByUser)
 
         // sum all payments for the month
         const totalAmountReceived = payments.reduce((acc: number, payment: BankPayment) => acc + payment.amount, 0)
