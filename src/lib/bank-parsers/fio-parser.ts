@@ -117,7 +117,14 @@ export class FioParser implements BankStatementParser {
     }
     
     // Parse the JSON content
-    const data: FioResponse = JSON.parse(content)
+    let data: FioResponse
+    try {
+      data = JSON.parse(content)
+    } catch (error) {
+      console.error("Error parsing FIO statement:", content)
+      throw new Error("Invalid FIO bank statement format")
+    }
+    
     const transactions = data.accountStatement.transactionList.transaction
     
     // Get all users to match specific symbols
@@ -132,7 +139,7 @@ export class FioParser implements BankStatementParser {
       // Extract the specific symbol if present
       const specificSymbol = transaction.column6?.value || ""
 
-      console.log(transaction.column0?.value)
+      //console.log(transaction.column0?.value)
 
       // split date in the following YYYY-MM-DD+0100
       const dateParts = transaction.column0?.value.split('+')[0].split('-')
@@ -142,8 +149,8 @@ export class FioParser implements BankStatementParser {
 
       // parse date in this format YYYY-MM-DD+0100 to Date object
       const receivedDate = new Date(year, month - 1, day)
-      console.log(receivedDate,year,month,day)
-      console.log("Received date: ", receivedDate)
+      //console.log(receivedDate,year,month,day)
+      //console.log("Received date: ", receivedDate)
 
       const formattedDate = receivedDate.toISOString()
 
@@ -164,7 +171,7 @@ export class FioParser implements BankStatementParser {
         accountNumber: data.accountStatement.info.accountId,
         bankCode: data.accountStatement.info.bankId
       }
-      console.log("payment::: ", payment)
+      //console.log("payment::: ", payment)
 
       payments.push(payment)
     }
