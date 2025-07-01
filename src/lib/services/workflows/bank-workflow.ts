@@ -94,7 +94,7 @@ export class BankWorkflow {
         
         if (existingPayments.length === 0) {
           // Only create payment if it doesn't exist
-          this.bankPaymentCrud.create({
+          await this.bankPaymentCrud.create({
             statementId: bankStatement.id,
             userId: parsedPayment.userId,
             amount: parsedPayment.amount,
@@ -118,10 +118,17 @@ export class BankWorkflow {
       //@TODO: what if this crashes?
 
       // find months in the payments and update credit allocation for each month
+
+
+      // @TODO: Error here!
       const months = bankStatementData.payments.map(payment => payment.receivedAt)
+      // convert to months, reduce to unique months
+      const uniqueMonths = [...new Set(months.map(month => month.substring(0, 7)))]
+
+      console.log(`unique months: `, uniqueMonths)
 
       // @TODO: allocation history
-      await Promise.all(months.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
+      await Promise.all(uniqueMonths.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
 
     });
 

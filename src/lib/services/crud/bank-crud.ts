@@ -59,12 +59,12 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
   }
 
   async create(data: Omit<BankPayment, "id" | "createdAt" | "updatedAt">, transaction?: Transaction): Promise<BankPayment> {
-    if(data.targetMonth) {
+    /*if(data.targetMonth) {
       console.log(`Updating credit allocation for month ${data.targetMonth}`)
       const affectedMonth = data.targetMonth
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
-    }
+    }*/ // @TODO: uncomment this
 
     return super.create({
       ...data,
@@ -73,23 +73,23 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
   }
 
   async update(id: string, data: Partial<BankPayment>, transaction?: Transaction): Promise<BankPayment> {
-    if(data.targetMonth) {
+    /*if(data.targetMonth) {
       console.log(`Updating credit allocation for month ${data.targetMonth}`)
       const affectedMonth = data.targetMonth
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(affectedMonth)
-    }
+    }*/
     return super.update(id, data, transaction)
   }
 
   async softDelete(id: string, transaction?: Transaction): Promise<BankPayment> {
     // get the payment and update credit allocation if it has a target month
     const payment = await this.getById(id)
-    if(payment?.targetMonth) {
+    /*if(payment?.targetMonth) {
       console.log(`Updating credit allocation for month ${payment.targetMonth}`)
       const creditWorkflow = new CreditWorkflow()
       await creditWorkflow.updateCreditAllocationBasedOnPayments(payment.targetMonth)
-    }
+    }*/
     return this.update(id, { deleted: true }, transaction)
   }
 
@@ -248,6 +248,21 @@ export class BankPaymentCrud extends BaseCrud<BankPayment> {
     return this.query([
       { field: "targetMonth", operator: "==", value: month },
       { field: "deleted", operator: "==", value: false }
+    ]);
+  }
+
+  async getPaymentsAssignedToUsers(): Promise<BankPayment[]> {
+    return this.query([
+      { field: "deleted", operator: "==", value: false },
+      { field: "userId", operator: "!=", value: "" }
+    ]);
+  }
+
+  async getPaymentsAssignedToUsersByMonth(month: string): Promise<BankPayment[]> {
+    return this.query([
+      { field: "targetMonth", operator: "==", value: month },
+      { field: "deleted", operator: "==", value: false },
+      { field: "userId", operator: "!=", value: "" }
     ]);
   }
 

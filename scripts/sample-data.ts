@@ -31,6 +31,7 @@ export const generateUsers = () => {
       displayName: 'Admin User',
       emailVerified: true,
       disabled: false,
+      specificSymbol: '1337',
     },
     {
       uid: 'user-002',
@@ -72,7 +73,7 @@ export const generateUsers = () => {
     email: user.email,
     role: user.uid === 'user-001' ? 'admin' : 'user',
     isActive: !user.disabled,
-    specificSymbol: `${parseInt(user.uid.split('-')[1]) * 1000000000}`,
+    specificSymbol: user.specificSymbol || `${parseInt(user.uid.split('-')[1]) * 1000000000}`,
     variableSymbol: `${parseInt(user.uid.split('-')[1]) * 2000000000}`,
     constantSymbol: '0308',
     createdAt: getDateISOString(90),

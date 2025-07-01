@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { User, BankPayment } from "@/types"
 import { cn, formatMoney, formatDate } from "@/lib/utils"
 import { useUsers } from "@/hooks/use-users"
-import { usePayments } from "@/hooks/use-payments"
+import { usePaymentsAssignedToUsers } from "@/hooks/use-payments"
 import { 
   Popover,
   PopoverContent,
@@ -36,7 +36,7 @@ export default function PaymentMatrixPage() {
   const { data: users = [], isLoading: isLoadingUsers } = useUsers(true)
   
   // Fetch all payments (we'll filter by month in the component)
-  const { data: payments = [], isLoading: isLoadingPayments } = usePayments({})
+  const { data: payments = [], isLoading: isLoadingPayments } = usePaymentsAssignedToUsers()
   
   // Add state to track showing inactive users
   const [showInactiveUsers, setShowInactiveUsers] = useState(false);

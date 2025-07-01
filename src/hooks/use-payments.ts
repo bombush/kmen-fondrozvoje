@@ -50,6 +50,22 @@ export function usePayments(config: PaymentsQueryConfig) {
   })
 }
 
+export function usePaymentsAssignedToUsers() {
+  const bankPaymentCrud = new BankPaymentCrud()
+  return useQuery({
+    queryKey: ['payments'],
+    queryFn: () => bankPaymentCrud.getPaymentsAssignedToUsers()
+  })
+}
+
+export function usePaymentsAssignedToUsersByMonth(month: string) {
+  const bankPaymentCrud = new BankPaymentCrud()
+  return useQuery({
+    queryKey: ['payments'],
+    queryFn: () => bankPaymentCrud.getPaymentsAssignedToUsersByMonth(month)
+  })
+}
+
 export function useAllPayments() {
   const bankPaymentCrud = new BankPaymentCrud()
   return useQuery({
