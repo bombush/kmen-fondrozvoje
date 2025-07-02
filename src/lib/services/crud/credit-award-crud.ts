@@ -15,6 +15,11 @@ export class CreditAwardCrud extends BaseCrud<CreditAward> {
     data: Omit<CreditAward, "id" | "createdAt" | "updatedAt" | "deleted">,
     transaction?: Transaction
   ): Promise<CreditAward> {
+
+    if(!data.userId) {
+      throw new Error("target userId is required when creating a credit award")
+    }
+
     return super.create({
       ...data,
       deleted: false

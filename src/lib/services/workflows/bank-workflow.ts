@@ -125,11 +125,7 @@ export class BankWorkflow {
     }
 
     //@TODO: what if this crashes?
-
     // find months in the payments and update credit allocation for each month
-
-
-    // @TODO: Error here!
     const months = bankStatementData.payments.map(payment => payment.receivedAt)
     // convert to months, reduce to unique months
     const uniqueMonths = [...new Set(months.map(month => month.substring(0, 7)))]
@@ -137,7 +133,6 @@ export class BankWorkflow {
     console.log(`unique months: `, uniqueMonths)
 
     // @TODO: allocation history
-    // ERROR: this shouldnt be inside a transaction
     await Promise.all(uniqueMonths.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
     
       // @TODO: write log
