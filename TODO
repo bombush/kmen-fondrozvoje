@@ -1,5 +1,9 @@
-- what if I set goal smaller than current pledged?
-- transactions should be agnostic of database adapter
-- CRUD: create in batches
-- general method for calculating credit allocation based on payments
-    - to be used both in the UI and the workflow
+BUG: BankPaymentCrud calls recalculate on every insert 
+TODO: how to ensure credit consistency
+
+FEATURE: admin - set up new users with passwords
+
+FEATURE: migrate existing data from Fond Rozvoje
+
+TEST: Admin edit other user's pledge to a project
+TEST: admin remove other users pledge
