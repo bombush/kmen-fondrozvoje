@@ -76,6 +76,7 @@ export class BankWorkflow {
 
     // write BankStatement to db
 
+    try {
     await runTransaction(db, async (transaction) => {
       const bankStatement = await this.bankStatementCrud.create({
         timestampOfStatement: bankStatementData.timestampOfStatement,
@@ -111,28 +112,35 @@ export class BankWorkflow {
             comment: '',
             myAccountNumber: parsedPayment.accountNumber,
             myBankCode: parsedPayment.bankCode
-          }, transaction)
+          }, transaction).then((payment) => {
+            console.log(`Created payment ${payment.id}`)
+          })
         }
       }))
 
-      //@TODO: what if this crashes?
+      });
+    } catch (error) {
+      console.error(`Error in loadPaymentsFromBankStatementAndUpdateCreditAllocation: ${error}`)
+      throw error
+    }
 
-      // find months in the payments and update credit allocation for each month
+    //@TODO: what if this crashes?
+
+    // find months in the payments and update credit allocation for each month
 
 
-      // @TODO: Error here!
-      const months = bankStatementData.payments.map(payment => payment.receivedAt)
-      // convert to months, reduce to unique months
-      const uniqueMonths = [...new Set(months.map(month => month.substring(0, 7)))]
+    // @TODO: Error here!
+    const months = bankStatementData.payments.map(payment => payment.receivedAt)
+    // convert to months, reduce to unique months
+    const uniqueMonths = [...new Set(months.map(month => month.substring(0, 7)))]
 
-      console.log(`unique months: `, uniqueMonths)
+    console.log(`unique months: `, uniqueMonths)
 
-      // @TODO: allocation history
-      await Promise.all(uniqueMonths.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
-
-    });
-
-    // @TODO: write log
+    // @TODO: allocation history
+    // ERROR: this shouldnt be inside a transaction
+    await Promise.all(uniqueMonths.map(month => this.creditWorkflow.updateCreditAllocationBasedOnPayments(month)))
+    
+      // @TODO: write log
 
     return {
       paymentsProcessed: bankStatementData.payments.length,
@@ -367,7 +375,7 @@ export class BankWorkflow {
     }
     
     // Proceed with update since validation passed
-    return this.bankPaymentCrud.update(paymentId, { userId });
+    return this.bankPaymentCrud.update(paymentId, { userId: userId || undefined });
 
     //@TODO possible to be part of transaction?
   }

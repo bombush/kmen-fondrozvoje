@@ -92,6 +92,7 @@ export class CreditWorkflow {
     }
   }
 
+  //@TODO: pass in a Date object instead of a string
   async updateCreditAllocationBasedOnPayments(month: string) {
     // do nothing if the month is the current or future month
     // get first day of this month
@@ -114,8 +115,8 @@ export class CreditWorkflow {
     await runTransaction(db, async (transaction) => {
 
         // @TODO: read transaction
-        // Get all payments for the month
-        const payments = await this.bankPaymentCrud.getPaymentsByMonth(month)
+        // Get payments assigned to users for the month
+        const payments = await this.bankPaymentCrud.getPaymentsAssignedToUsersByMonth(month)
 
         // validate that the payments are not negative
         const negativePayments = payments.filter((payment: BankPayment) => payment.amount < 0)
@@ -127,7 +128,9 @@ export class CreditWorkflow {
         // Get all existing automatic credit awards for the month
         const automaticAwards = await this.creditAwardCrud.getAutomaticAwardsByMonth(month)
 
-        console.log("payments: ", payments)
+        console.log(`payments for month: ${month}`, payments)
+
+        console.log(`automatic awards existing:`, automaticAwards)
 
         // create a map of total amount received for 
         // each user
@@ -138,16 +141,22 @@ export class CreditWorkflow {
         }, {})
 
         
-        //console.log("totalAmountReceivedByUser: ", totalAmountReceivedByUser)
+        console.log("totalAmountReceivedByUser: ", totalAmountReceivedByUser)
 
         // sum all payments for the month
         const totalAmountReceived = payments.reduce((acc: number, payment: BankPayment) => acc + payment.amount, 0)
 
+        console.log(`total amount received: ${totalAmountReceived}`)
+
         // create a list of users with non-zero amount received
         const usersWithNonZeroAmountReceived = Object.keys(totalAmountReceivedByUser).filter((userId: string) => totalAmountReceivedByUser[userId] > 0)
 
+        console.log(`users with non-zero amount received:` , usersWithNonZeroAmountReceived)
+
         const creditsPerUser = totalAmountReceived / usersWithNonZeroAmountReceived.length
         
+        console.log(`credits per user: ${creditsPerUser}`)
+
         // update or create new credit awards for the month
         const updatedAwards = automaticAwards.map(async (award) => {
           return await this.creditAwardCrud.update(
