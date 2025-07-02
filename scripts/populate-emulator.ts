@@ -151,6 +151,37 @@ async function populateUsers() {
     }
   }
   
+  // Add Google login providers for each user
+  log('Adding Google login providers...')
+  for (const user of authUsers) {
+    try {
+      // Create a Google provider account linked to the existing user
+      const googleProviderData = {
+        uid: user.uid,
+        providerId: 'google.com',
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=random&size=128`,
+        federatedId: `${user.email}@google.com` // This is a mock federated ID
+      }
+      
+      // Link the Google provider to the user
+      await auth.updateUser(user.uid, {
+        providerToLink: {
+          providerId: 'google.com',
+          uid: googleProviderData.federatedId,
+          displayName: googleProviderData.displayName,
+          email: googleProviderData.email,
+          photoURL: googleProviderData.photoURL
+        }
+      })
+      
+      log(`✓ Added Google login for: ${user.email}`)
+    } catch (error) {
+      logError(`Error adding Google login for ${user.email}:`, error)
+    }
+  }
+  
   // Create firestore user documents
   const batch = db.batch()
   userDocs.forEach(user => {
