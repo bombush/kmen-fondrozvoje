@@ -122,7 +122,8 @@ export default function PaymentsPage() {
   const filteredPayments = useMemo(() => {
     if (!allPayments) return [];
     
-    return allPayments
+
+    const filtered = allPayments
       .filter(payment => {
         // Filter out deleted payments (though our API should already handle this)
         if (payment.deleted) return false;
@@ -134,7 +135,7 @@ export default function PaymentsPage() {
         if (search) {
           const searchLower = search.toLowerCase();
           return (
-            payment.userId ? getUserNameById(payment.userId)?.toLowerCase().includes(searchLower) : false ||
+            (payment.userId ? getUserNameById(payment.userId)?.toLowerCase().includes(searchLower) : false ) ||
             payment.targetMonth?.toLowerCase().includes(searchLower) ||
             payment.counterpartyAccountNumber?.toLowerCase().includes(searchLower) ||
             payment.counterpartyName?.toLowerCase().includes(searchLower) ||
@@ -149,6 +150,9 @@ export default function PaymentsPage() {
         
         return true;
       });
+
+      return filtered
+      
   }, [allPayments, search, showChildPayments]);
 
   // Sort indicator component
