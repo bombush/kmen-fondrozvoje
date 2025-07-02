@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useAwardCredits } from "@/hooks/use-credit-awards"
 import { 
   Dialog, 
   DialogContent, 
@@ -25,7 +25,6 @@ import { PlusCircle, Loader2 } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { User } from "@/types"
-import { CreditWorkflow } from "@/lib/services/workflows/credit-workflow"
 import { useAuth } from "@/contexts/auth-context"
 
 interface AwardCreditsDialogProps {
@@ -42,7 +41,6 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
   const [notes, setNotes] = useState('')
   
   const { toast } = useToast()
-  const queryClient = useQueryClient()
   
   const resetForm = () => {
     setUserId("")
@@ -76,38 +74,7 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
   const monthOptions = generateMonthOptions()
   
   // Mutation for awarding credits
-  const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      if (!userId || !amount) return
-      
-      const workflow = new CreditWorkflow()
-      await workflow.awardCredits({
-        userId,
-        amount: parseFloat(amount),
-        reason: reason as any,
-        targetMonth: targetMonth === "null" ? undefined : targetMonth,
-        notes,
-        sourceType: "admin",
-        sourceId: appUser?.id
-      })
-    },
-    onSuccess: () => {
-      toast({
-        title: "Credits awarded",
-        description: `Successfully awarded ${amount} credits to the user.`,
-      })
-      queryClient.invalidateQueries({ queryKey: ['creditAwards'] })
-      setOpen(false)
-      resetForm()
-    },
-    onError: (error) => {
-      toast({
-        title: "Error awarding credits",
-        description: error.message,
-        variant: "destructive"
-      })
-    }
-  })
+  const { mutate, isPending } = useAwardCredits()
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,7 +97,18 @@ export function AwardCreditsDialog({ users }: AwardCreditsDialogProps) {
       return
     }
     
-    mutate()
+    mutate({
+      userId,
+      amount: parseFloat(amount),
+      reason: reason as any,
+      targetMonth: targetMonth === "null" ? undefined : targetMonth,
+      notes,
+      sourceType: "admin",
+      sourceId: appUser?.id
+    })
+    
+    setOpen(false)
+    resetForm()
   }
   
   return (
