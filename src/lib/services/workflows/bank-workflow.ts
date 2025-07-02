@@ -370,7 +370,7 @@ export class BankWorkflow {
     }
     
     // Proceed with update since validation passed
-    return this.bankPaymentCrud.update(paymentId, { userId: userId || undefined });
+    return this.bankPaymentCrud.update(paymentId, { userId: userId || "" });
 
     //@TODO possible to be part of transaction?
   }
